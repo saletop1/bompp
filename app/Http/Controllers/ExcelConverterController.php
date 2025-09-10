@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SapUploadNotification;
 
 class ExcelConverterController extends Controller
 {
@@ -95,8 +97,25 @@ class ExcelConverterController extends Controller
 
         try {
             $collection = Excel::toCollection(null, $request->file('file'))->first();
+            if ($collection->isEmpty()) {
+                return back()->withErrors(['file' => 'File yang Anda upload kosong atau tidak bisa dibaca.']);
+            }
+
+            // Validasi Struktur Header
+            $uploadedHeader = array_map('trim', $collection->first()->toArray());
+            $requiredHeader = [
+                'Material Description', 'Base Unit of Measure', 'Dimension',
+                'MRP GROUP', 'MRP Controller', 'Material Group', 'Storage Location', 'Document'
+            ];
+            $missingHeaders = array_diff($requiredHeader, $uploadedHeader);
+
+            if (!empty($missingHeaders)) {
+                $errorMessage = 'Struktur file tidak sesuai. Kolom berikut tidak ditemukan : ' . implode(', ', $missingHeaders);
+                return back()->withErrors(['file' => $errorMessage]);
+            }
+
             if ($collection->count() <= 1) {
-                return back()->withErrors(['file' => 'File yang Anda upload tidak berisi data.']);
+                return back()->withErrors(['file' => 'File yang Anda upload tidak berisi data (hanya header).']);
             }
 
             $inventorHeader = $collection->first()->toArray();
@@ -215,9 +234,8 @@ class ExcelConverterController extends Controller
             if (!Storage::disk('local')->exists('temp')) { Storage::disk('local')->makeDirectory('temp'); }
             $writer->save(Storage::disk('local')->path($filePath));
 
-            // --- PERBAIKAN DI SINI: Menyimpan Plant ke session ---
             return redirect()->route('converter.index')
-                ->with('success', count($sapData) . ' baris data berhasil diproses!')
+                ->with('success', count($sapData) . ' baris data berhasil diproses')
                 ->with('download_filename', $fileName)
                 ->with('processed_plant', $request->input('plant'));
 
@@ -239,10 +257,8 @@ class ExcelConverterController extends Controller
 
     public function activateQm(Request $request)
     {
-        // --- PERBAIKAN DI SINI: Validasi disesuaikan dengan data dari JavaScript ---
         $request->validate([
             'materials' => 'required|array',
-            'materials.*' => 'array', // Memastikan setiap item adalah array/object
             'materials.*.matnr' => 'required|string',
             'materials.*.werks' => 'required|string',
             'username'  => 'required|string',
@@ -264,4 +280,23 @@ class ExcelConverterController extends Controller
             return response()->json(['status' => 'error', 'error' => 'Tidak bisa terhubung ke layanan SAP (Python).'], 503);
         }
     }
+
+    public function sendNotification(Request $request)
+{
+    $request->validate([
+        'recipient' => 'required|email',
+        'results' => 'required|array'
+    ]);
+
+    try {
+        Mail::to($request->input('recipient'))
+            ->send(new SapUploadNotification($request->input('results')));
+
+        return response()->json(['message' => 'Email sent successfully!']);
+
+    } catch (\Exception $e) {
+        Log::error('Email sending failed: ' . $e->getMessage());
+        return response()->json(['message' => 'Failed to send email. Please check server configuration.'], 500);
+    }
+}
 }

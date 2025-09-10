@@ -9,33 +9,64 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
     <style>
-        /* CSS Anda (tidak berubah) */
-        body { background-image: url("{{ asset('images/ainun.jpg') }}"); background-size: cover; background-position: center; background-attachment: fixed; min-height: 100vh; padding-top: 1rem; padding-bottom: 1rem; }
-        .card { background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1); }
+        /* CSS Utama untuk Layout */
+        body {
+            background-image: url("{{ asset('images/ainun.jpg') }}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .card {
+            background: rgba(75, 74, 74, 0.33);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+        }
         .converter-container { max-width: 800px; margin-top: 0; margin-bottom: 1rem; }
         #drop-zone { border: 2px dashed rgba(255, 255, 255, 0.6); border-radius: 0.5rem; color: #343a40; transition: all 0.3s ease-in-out; background-color: rgba(255, 255, 255, 0.2); }
-        #drop-zone.dragover { border-color: #0d6efd; background-color: rgba(13, 110, 253, 0.1); }
+        #drop-zone.dragover { border-color: #0d6efd; background-color: rgba(21, 62, 124, 0.21); }
         .form-label { font-weight: 600; color: #FFFFFF; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
         .form-control, .form-select { background-color: rgba(255, 255, 255, 0.5); border: 1px solid rgba(0, 0, 0, 0.1); }
         .form-control:focus, .form-select:focus { background-color: rgba(255, 255, 255, 0.8); border-color: #0d6efd; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
         .btn-primary { background-color: #0d6efd; border-color: #0d6efd; }
         .btn .spinner-border { width: 1rem; height: 1rem; }
-        .alert-custom-success { background-color: rgba(17, 233, 132, 0.59); color: #ffffff; border: 1px solid rgba(25, 135, 84, 0.7); text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); }
-        .download-area-title { color: #ffffff; font-weight: bold; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6); }
-        .download-area-text { color: #01fdf5ff; font-size: 1.1rem; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); }
         .page-title-container { text-align: center; }
-        .page-title-container .main-title { color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); margin-bottom: 0; }
-        .page-title-container .subtitle { color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-size: 0.9rem; }
+        .page-title-container .main-title { color: #ffffffff; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); margin-bottom: 0; }
+        .page-title-container .subtitle { color: #d7d7d7ff; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-size: 0.9rem; }
         .sap-logo-header { height: 100px; width: auto; margin-left: 20px; }
+
+        /* Style untuk Hasil Proses */
+        .download-area-header { display: flex; justify-content: center; align-items: center; text-align: left; }
+        .download-area-header dotlottie-player { flex-shrink: 0; }
+        .download-area-title { color: #d1d5db; font-weight: bold; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6); }
+        .download-area-text { color: #d1d5db; font-size: 1.1rem; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); }
+        .alert.alert-success-frosted { background: rgba(25, 135, 126, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .alert.alert-danger { background: rgba(220, 53, 69, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .upload-details { max-height: 200px; overflow-y: auto; text-align: left; font-size: 0.85rem; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; margin-top: 15px; }
-        .modal-content.frosted-glass { background: rgba(30, 30, 30, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border-radius: 0.75rem; color: #ffffff; }
+        .upload-details ul li { color: #e2e0e0ff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+
+        /* Style Navigasi */
+        .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.2); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; }
+        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff64; color: #08e6ffd8; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .nav-pills .nav-link:hover:not(.active) { background-color: rgba(255, 255, 255, 0.4); color: #ffffff; border-color: rgba(255,255,255,0.5); }
+
+        /* Style Modal */
+        .modal-content.frosted-glass { background: rgba(30, 30, 30, 0.4); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border-radius: 0.75rem; color: #ffffff; }
         .input-group-underline { position: relative; }
-        .input-underline { background-color: transparent !important; border: none !important; border-bottom: 2px solid rgba(255, 2, 2, 0.68) !important; border-radius: 0 !important; padding-left: 35px !important; color: #00ddffff !important; transition: border-color 0.3s ease; }
-        .input-underline::placeholder { color: rgba(225, 255, 0, 1); opacity: 1; }
-        .input-underline:focus { box-shadow: none !important; border-bottom-color: #ffffff30 !important; }
-        .input-group-underline .bi { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); color: rgba(5, 236, 74, 0.6); font-size: 1.1rem; }
+        .input-underline { background-color: transparent !important; border: none !important; border-bottom: 2px solid rgba(255, 255, 255, 0.4) !important; border-radius: 0 !important; padding-left: 35px !important; color: #ffffff !important; transition: border-color 0.3s ease; }
+        .input-underline::placeholder { color: rgba(7, 226, 255, 0.8); opacity: 1; }
+        .input-underline:focus { box-shadow: none !important; border-bottom-color: #05e6ffef !important; }
+        .input-group-underline .bi { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); color: rgba(255, 255, 255, 0.6); font-size: 1.1rem; }
         .frosted-glass .modal-header, .frosted-glass .modal-footer { border-bottom: none; border-top: none; }
         .frosted-glass .modal-title { font-weight: 300; }
+
+        /* Style Tombol Process Another */
+        #process-another-btn { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
+        #process-another-btn:hover { background-color: #157347 !important; border-color: #146c43 !important; }
     </style>
 </head>
 <body>
@@ -51,19 +82,33 @@
 
         <div class="card p-4 p-lg-5">
             <div class="card-body">
+                @if (!session('download_filename') && !session('processed_filename'))
+                    {{-- NAVIGASI UTAMA --}}
+                    <ul class="nav nav-pills nav-fill mb-4">
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('converter.index') ? 'active' : '' }}" href="{{ route('converter.index') }}">
+                                <i class="bi bi-box-seam me-2"></i>Material Converter
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}">
+                                <i class="bi bi-diagram-3 me-2"></i>BOM Uploader
+                            </a>
+                        </li>
+                    </ul>
+                    <hr style="border-color: rgba(255,255,255,0.3);">
+                @endif
+
                 @if ($errors->any())
                     <div class="alert alert-danger"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
                 @endif
 
-                @if (session('success') && !session('download_filename'))
-                    <div class="alert alert-custom-success">{{ session('success') }}</div>
-                @endif
-
                 @if (session('download_filename'))
                 {{-- TAMPILAN AREA HASIL --}}
-                <div id="download-area" class="text-center">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <div>
+                <div id="download-area">
+                    <div class="download-area-header">
+                        {{-- <dotlottie-player src="https://lottie.host/88a2a823-34e1-433b-8711-9a4f8eee42d5/C9kQj42a49.json" background="transparent" speed="1" style="width: 120px; height: 120px;" autoplay></dotlottie-player> --}}
+                        <div class="ms-3">
                             <h4 class="download-area-title mb-0">Processing Complete!</h4>
                             <p class="download-area-text mt-0">{{ session('success') }}</p>
                         </div>
@@ -71,6 +116,12 @@
 
                     <div id="upload-result" class="mt-3"></div>
                     <div id="qm-result" class="mt-3"></div>
+                    <div id="email-notification-area" class="mt-4 d-none">
+                    <div class="input-group mb-3 mx-auto" style="max-width: 400px;">
+                        <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
+                        <input type="email" id="email-recipient" class="form-control" placeholder="Masukkan email penerima...">
+                    </div>
+                    </div>
 
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
                         <button type="button" id="upload-sap-btn" class="btn btn-primary btn-lg px-4 gap-3" data-filename="{{ session('download_filename') }}">
@@ -81,6 +132,11 @@
                         <button type="button" id="activate-qm-btn" class="btn btn-warning btn-lg px-4 gap-3 d-none">
                             <span class="spinner-border spinner-border-sm d-none"></span>
                             <i class="bi bi-shield-check"></i> Activate QM
+                        </button>
+
+                        <button type="button" id="send-email-btn" class="btn btn-danger btn-lg px-4 gap-3 d-none">
+                            <span class="spinner-border spinner-border-sm d-none"></span>
+                            <i class="bi bi-envelope-at-fill"></i> Send Notification
                         </button>
 
                         <a href="{{ route('converter.download', ['filename' => session('download_filename')]) }}" id="download-only-btn" class="btn btn-outline-light btn-lg px-4">
@@ -311,6 +367,10 @@
             if (downloadArea) {
                 const uploadSapBtn = document.getElementById('upload-sap-btn');
                 const activateQmBtn = document.getElementById('activate-qm-btn');
+                const sendEmailBtn = document.getElementById('send-email-btn'); // <-- BARU
+                const emailNotificationArea = document.getElementById('email-notification-area'); // <-- BARU
+                const emailRecipientInput = document.getElementById('email-recipient'); // <-- BARU
+                const downloadOnlyBtn = document.getElementById('download-only-btn');
                 const sapLoginModal = new bootstrap.Modal(document.getElementById('sapLoginModal'));
                 const confirmBtn = document.getElementById('confirm-action-btn');
                 const modalTitle = document.getElementById('sapLoginModalLabel');
@@ -331,6 +391,15 @@
                     modalTitle.textContent = 'SAP Authentication for QM Activation';
                     confirmBtn.innerHTML = '<i class="bi bi-shield-check"></i> Confirm & Activate';
                     sapLoginModal.show();
+                });
+
+                // --- EVENT LISTENER BARU UNTUK TOMBOL EMAIL ---
+                sendEmailBtn.addEventListener('click', async () => {
+                    if (!emailRecipientInput.value) {
+                    alert('Please enter a recipient email address.');
+                    return;
+                    }
+                await handleSendEmail();
                 });
 
                 confirmBtn.addEventListener('click', async () => {
@@ -360,7 +429,10 @@
                             const successfulMaterials = result.results.filter(r => r.status === 'Success');
                             if (successfulMaterials.length > 0) {
                                 uploadSapBtn.classList.add('d-none');
+                                if(downloadOnlyBtn) downloadOnlyBtn.classList.add('d-none');
                                 activateQmBtn.classList.remove('d-none');
+                                sendEmailBtn.classList.remove('d-none');
+                                emailNotificationArea.classList.remove('d-none')
                             }
                         }
                     } catch (error) {
@@ -391,7 +463,8 @@
                             method: 'POST',
                             headers: getHeaders(),
                             body: getAuthBody({
-                                materials: successfulMaterials
+                                materials: successfulMaterials,
+                                plant: "{{ session('processed_plant') }}"
                             })
                         });
                         const result = await response.json();
@@ -400,8 +473,45 @@
                         showResult(qmResultDiv, false, 'Network Error during QM activation.');
                     } finally {
                         setLoadingState(activateQmBtn, false);
+                        activateQmBtn.classList.add('d-none');
+                        document.getElementById('send-email-btn').classList.add('d-none');
+                        document.getElementById('email-notification-area').classList.add('d-none'); // Sembunyikan juga area input email
                     }
                 }
+
+                // --- FUNGSI BARU UNTUK MENGIRIM EMAIL ---
+            async function handleSendEmail() {
+                setLoadingState(sendEmailBtn, true);
+
+                const successfulMaterials = Array.from(uploadResultDiv.querySelectorAll('li.is-success'))
+                    .map(li => ({
+                        material_code: li.dataset.materialCode,
+                        plant: li.dataset.plant,
+                        message: li.textContent.split(':').pop().trim() // Ambil pesan OK
+                    }));
+
+                try {
+                    const response = await fetch("{{ route('api.notification.send') }}", {
+                        method: 'POST',
+                        headers: getHeaders(),
+                        body: JSON.stringify({
+                            recipient: emailRecipientInput.value,
+                            results: successfulMaterials
+                        })
+                    });
+
+                    if(response.ok) {
+                        alert('Email notification sent successfully!');
+                    } else {
+                        const errorResult = await response.json();
+                        alert('Failed to send email: ' + (errorResult.message || 'Unknown error'));
+                    }
+                } catch (error) {
+                    alert('Network error while sending email.');
+                } finally {
+                    setLoadingState(sendEmailBtn, false);
+                }
+            }
 
                 const getHeaders = () => ({
                     'Content-Type': 'application/json',
@@ -422,7 +532,7 @@
                 }
 
                 function showResult(div, isSuccess, message, details = null, type = 'upload') {
-                    const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+                    const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
                     let html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
                     if (details && Array.isArray(details)) {
                         html += '<div class="upload-details"><ul>';

@@ -42,7 +42,7 @@ def get_next_material():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Endpoint untuk proses upload material ke SAP
+# Endpoint untuk proses upload material ke SAP (KEMBALI KE VERSI YANG BENAR)
 @app.route('/upload_material', methods=['POST'])
 def upload_material():
     data = request.get_json()
@@ -192,7 +192,7 @@ def upload_material():
                 print(f"  - Menutup koneksi untuk material: {material_code_for_log}.")
                 conn.close()
 
-    return jsonify({ "status": "success", "message": "Upload process finished.", "results": results })
+    return jsonify({ "status": "success", "message": "Upload to SAP completed successfully.", "results": results })
 
 
 @app.route('/activate_qm', methods=['POST'])
@@ -214,21 +214,20 @@ def activate_qm():
         matnr = item.get('matnr')
         werks = item.get('werks')
         try:
+            print(f"  - Menunggu 1 detik sebelum aktivasi QM untuk: {matnr}...")
+            time.sleep(1) # Memberi jeda 1 detik
+
             print(f"  - Membuka koneksi untuk aktivasi QM material: {matnr}...")
             conn = connect_sap_with_credentials(username, password)
             if not conn:
                 results.append({"material_code": matnr, "status": "Failed", "message": "Connection failed for this item."})
                 continue
 
-            # --- PERBAIKAN: Format material menjadi 18 digit dengan leading zero ---
-            # zfill(18) akan otomatis menambahkan nol di depan hingga total panjangnya 18 karakter
+            # Format material menjadi 18 digit dengan leading zero
             matnr_padded = str(matnr).zfill(18)
             print(f"    -> Mengirim kode: {matnr_padded}")
-            # ---------------------------------------------------------------------
 
-            # Panggil RFC dengan kode material yang sudah diformat
             result = conn.call('Z_RFC_ACTV_QM', IV_MATNR=matnr_padded, IV_WERKS=werks, IV_INSPTYPE='04')
-
             message = result.get('EX_RETURN_MSG', '').strip()
 
             expected_success_message = 'Inspection type successfully updated'
@@ -255,7 +254,74 @@ def activate_qm():
         "results": results
     })
 
+@app.route('/upload_bom', methods=['POST'])
+def upload_bom():
+    data = request.get_json()
+    if not all(k in data for k in ['username', 'password', 'boms']):
+        return jsonify({"error": "Request tidak valid. 'username', 'password', dan 'boms' dibutuhkan."}), 400
+
+    username = data['username']
+    password = data['password']
+    boms_data = data['boms']
+
+    print(f"Mencoba upload {len(boms_data)} BOM untuk user: {username}")
+
+    results = []
+    # Strategi: Buka-tutup koneksi untuk setiap Parent BOM
+    for bom in boms_data:
+        conn = None
+        parent_material = bom.get('parent')
+        try:
+            print(f"  - Membuka koneksi untuk BOM Parent: {parent_material}...")
+            conn = connect_sap_with_credentials(username, password)
+            if not conn:
+                results.append({"material_code": parent_material, "status": "Failed", "message": "Connection to SAP failed."})
+                continue
+
+            # Siapkan tabel komponen untuk dikirim ke RFC
+            it_components = []
+            for comp in bom.get('components', []):
+                it_components.append({
+                    'ITEM_CATEG': str(comp.get('Item Category', 'L')), # 'L' adalah default untuk stock item
+                    'COMPONENT': str(comp.get('Child', '')).zfill(18), # Format 18 digit
+                    'COMP_QTY': str(comp.get('Qty', '0')),
+                    'COMP_UNIT': str(comp.get('Unit', ''))
+                    # Field lain dari ZBOM_COMPONENTS bisa ditambahkan di sini jika perlu
+                })
+
+            # Panggil RFC dengan parameter yang sesuai dari ABAP
+            result = conn.call('Z_RFC_UPLOAD_BOM_CS01',
+                IV_MATNR=str(parent_material).zfill(18),
+                IV_WERKS=str(bom.get('plant', '')),
+                IV_STLAN=str(bom.get('bom_usage', '')),
+                IV_STLAL=str(bom.get('alternative', '1')), # Default '1' jika tidak diisi
+                IV_BMENG=str(bom.get('base_quantity', '1')), # Default '1' jika tidak diisi
+                IV_BMEIN=str(bom.get('base_unit', '')),
+                IV_STKTX=str(bom.get('bom_text', '')),
+                IT_COMPONENTS=it_components
+            )
+
+            # Ambil pesan balasan dari RFC
+            message = result.get('EX_RETURN_MSG', 'No message returned.')
+            status = "Success" if "berhasil" in message.lower() else "Failed"
+            results.append({"material_code": parent_material, "status": status, "message": message})
+
+        except ABAPApplicationError as e:
+            print(f"    -> SAP Error for BOM {parent_material}: {e.message}")
+            results.append({"material_code": parent_material, "status": "Failed", "message": e.message})
+        except Exception as e:
+            print(f"    -> Generic Error for BOM {parent_material}: {str(e)}")
+            results.append({"material_code": parent_material, "status": "Failed", "message": str(e)})
+        finally:
+            if conn:
+                print(f"  - Menutup koneksi untuk BOM Parent: {parent_material}.")
+                conn.close()
+
+    return jsonify({
+        "status": "success",
+        "message": "BOM upload process finished.",
+        "results": results
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001)
-

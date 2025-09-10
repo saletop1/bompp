@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ExcelConverterController;
+use App\Http\Controllers\BomController;
 
 // Rute untuk menampilkan halaman utama
 Route::get('/', [ExcelConverterController::class, 'index'])->name('converter.index');
@@ -20,3 +21,8 @@ Route::get('/api/generate-material-code', [ExcelConverterController::class, 'gen
 
 Route::post('/api/activate-qm', [ExcelConverterController::class, 'activateQm'])->name('api.qm.activate');
 
+Route::get('/bom', [BomController::class, 'index'])->name('bom.index');
+Route::post('/bom/upload', [BomController::class, 'upload'])->name('bom.upload');
+Route::post('/api/bom-upload-sap', [BomController::class, 'uploadToSap'])->name('api.bom.upload');
+
+Route::post('/api/send-notification', [ExcelConverterController::class, 'sendNotification'])->name('api.notification.send');
