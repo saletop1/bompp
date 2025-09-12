@@ -43,7 +43,7 @@
         #process-another-btn-bom { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
         #process-another-btn-bom:hover { background-color: #157347 !important; border-color: #146c43 !important; }
         .alert.alert-success-frosted { background: rgba(25, 135, 126, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-        .alert.alert-danger { background: rgba(206, 220, 53, 0.58); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .alert.alert-danger { background: rgba(220, 53, 69, 0.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -82,30 +82,32 @@
                 {{-- TAMPILAN AREA HASIL --}}
                 <div id="result-area" class="text-center">
                     <div class="download-area-header">
-                        {{-- <dotlottie-player src="https://lottie.host/88a2a823-34e1-433b-8711-9a4f8eee42d5/C9kQj42a49.json" background="transparent" speed="1" style="width: 120px; height: 120px;" autoplay></dotlottie-player> --}}
                         <div class="ms-3">
                             <h4 class="download-area-title mb-0">Processing Complete!</h4>
                             <p class="download-area-text mt-0">{{ session('success') }}</p>
                         </div>
-                        <div id="email-notification-area" class="mt-4 d-none">
-                        <div class="input-group mb-3 mx-auto" style="max-width: 400px;">
-                            <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
-                            <input type="email" id="email-recipient" class="form-control" placeholder="Masukkan email penerima...">
-                        </div>
                     </div>
-                    </div>
+
+                    {{-- DIV untuk menampilkan hasil generate --}}
+                    <div id="generation-result" class="mt-3"></div>
                     <div id="upload-result" class="mt-3"></div>
+
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
-                        <button type="button" id="upload-bom-btn" class="btn btn-primary btn-lg px-4" data-filename="{{ session('processed_filename') }}">
+
+                        {{-- Tombol untuk memicu pencarian kode material --}}
+                        <button type="button" id="generate-codes-btn" class="btn btn-warning btn-lg px-4" data-filename="{{ session('processed_filename') }}">
+                            <span class="spinner-border spinner-border-sm d-none me-2"></span>
+                            <i class="bi bi-stars"></i> Generate Missing Codes
+                        </button>
+
+                        {{-- Tombol-tombol ini disembunyikan awalnya --}}
+                        <button type="button" id="upload-bom-btn" class="btn btn-primary btn-lg px-4 d-none" data-filename="{{ session('processed_filename') }}">
                             <span class="spinner-border spinner-border-sm d-none me-2"></span>
                             <i class="bi bi-cloud-upload"></i> Upload BOM to SAP
                         </button>
-
-                        <button type="button" id="send-email-btn" class="btn btn-danger btn-lg px-4 gap-3 d-none">
-                            <span class="spinner-border spinner-border-sm d-none"></span>
-                            <i class="bi bi-envelope-at-fill"></i> Send Notification
-                        </button>
-                        
+                        <a href="{{ route('bom.download', ['filename' => session('processed_filename')]) }}" id="download-only-btn" class="btn btn-success btn-lg px-4 d-none">
+                            <i class="bi bi-download"></i> Download Only
+                        </a>
                         <a href="{{ route('bom.index') }}" id="process-another-btn-bom" class="btn btn-secondary btn-lg px-4"><i class="bi bi-arrow-repeat"></i> Process Another</a>
                     </div>
                 </div>
@@ -226,10 +228,39 @@
             // --- LOGIKA HALAMAN HASIL ---
             const resultArea = document.getElementById('result-area');
             if (resultArea) {
+                const generateBtn = document.getElementById('generate-codes-btn');
                 const uploadBomBtn = document.getElementById('upload-bom-btn');
+                const downloadBtn = document.getElementById('download-only-btn');
+                const generationResultDiv = document.getElementById('generation-result');
+                const uploadResultDiv = document.getElementById('upload-result');
                 const sapLoginModal = new bootstrap.Modal(document.getElementById('sapLoginModal'));
                 const confirmBtn = document.getElementById('confirm-action-btn');
-                const uploadResultDiv = document.getElementById('upload-result');
+
+                generateBtn.addEventListener('click', async () => {
+                    setLoadingState(generateBtn, true);
+                    generationResultDiv.innerHTML = '';
+
+                    try {
+                        const response = await fetch("{{ route('api.bom.generate_codes') }}", {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify({ filename: generateBtn.dataset.filename })
+                        });
+                        const result = await response.json();
+
+                        showResult(generationResultDiv, response.ok, result.message);
+
+                        if (response.ok && result.status === 'success') {
+                            generateBtn.classList.add('d-none');
+                            uploadBomBtn.classList.remove('d-none');
+                            downloadBtn.classList.remove('d-none');
+                        }
+                    } catch (error) {
+                        showResult(generationResultDiv, false, 'Network error during code generation.');
+                    } finally {
+                        setLoadingState(generateBtn, false);
+                    }
+                });
 
                 uploadBomBtn.addEventListener('click', () => {
                     sapLoginModal.show();
@@ -243,7 +274,6 @@
                 async function handleBomUpload() {
                     setLoadingState(uploadBomBtn, true);
                     uploadResultDiv.innerHTML = '';
-
                     try {
                         const response = await fetch("{{ route('api.bom.upload') }}", {
                             method: 'POST',
@@ -255,7 +285,7 @@
 
                         if (response.ok && result.status === 'success') {
                             const hasFailures = result.results.some(r => r.status === 'Failed');
-                            if (!hasFailures) { // Hanya sembunyikan jika semua berhasil
+                            if (!hasFailures) {
                                 uploadBomBtn.classList.add('d-none');
                             }
                         }
@@ -302,3 +332,4 @@
     </script>
 </body>
 </html>
+
