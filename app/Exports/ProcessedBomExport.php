@@ -11,19 +11,12 @@ class ProcessedBomExport implements FromCollection, WithHeadings
     protected $boms;
     protected $plant;
 
-    /**
-     * Constructor sekarang menerima array dari BOM dan juga plant.
-     */
     public function __construct(array $boms, string $plant)
     {
         $this->boms = $boms;
         $this->plant = $plant;
     }
 
-    /**
-     * Mengubah data multi-level BOM menjadi daftar datar untuk Excel.
-     * @return \Illuminate\Support\Collection
-     */
     public function collection(): Collection
     {
         if (empty($this->boms)) {
@@ -34,7 +27,7 @@ class ProcessedBomExport implements FromCollection, WithHeadings
         $isFirstBom = true;
 
         foreach ($this->boms as $bom) {
-            // Tambahkan baris kosong sebagai pemisah antar BOM di Excel
+            // Tambahkan baris kosong sebagai pemisah antar BOM
             if (!$isFirstBom) {
                 $excelRows[] = array_fill_keys($this->headings(), null);
             }
@@ -44,10 +37,16 @@ class ProcessedBomExport implements FromCollection, WithHeadings
             $components = $bom['components'];
             $itemNumber = 0;
 
+            // Terjemahkan penanda #NOT_FOUND# untuk parent
+            $parentCode = ($parent['code'] === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $parent['code'];
+
             foreach ($components as $comp) {
-                $itemNumber += 10; // Increment item (0010, 0020, etc.)
+                $itemNumber += 10;
+                // Terjemahkan penanda #NOT_FOUND# untuk komponen
+                $compCode = ($comp['code'] === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $comp['code'];
+
                 $excelRows[] = [
-                    'RC29N-MATNR'   => $parent['code'],
+                    'RC29N-MATNR'   => $parentCode,
                     'RC29K-OBKTX'   => $parent['description'],
                     'RC29N-WERKS'   => $this->plant,
                     'RC29N-STLAN'   => '1',
@@ -58,12 +57,12 @@ class ProcessedBomExport implements FromCollection, WithHeadings
                     'RC29K-BMEIN'   => $parent['uom'],
                     'RC29P-POSNR'   => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
                     'RC29P-POSTP'   => 'L',
-                    'RC29P-IDNRK'   => $comp['code'],
+                    'RC29P-IDNRK'   => $compCode,
                     'RC29P-KTEXT'   => $comp['description'],
                     'RC29P-MENGE'   => $comp['qty'],
                     'RC29P-MEINS'   => $comp['uom'],
                     'RC29P-AUSCH'   => '',
-                    'RC29P-LGORT'   => $comp['sloc'],
+                    'RC29P-LGORT'   => $comp['sloc'], 
                     'RC29P-POTX1'   => '',
                     'RC29P-POTX2'   => '',
                 ];
@@ -72,10 +71,6 @@ class ProcessedBomExport implements FromCollection, WithHeadings
         return collect($excelRows);
     }
 
-    /**
-     * Mendefinisikan baris header untuk file export.
-     * @return array
-     */
     public function headings(): array
     {
         return [
