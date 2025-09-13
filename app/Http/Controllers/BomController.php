@@ -29,20 +29,46 @@ class BomController extends Controller
     {
         $request->validate(['file' => 'required|mimes:xls,xlsx,csv', 'plant' => 'required|string']);
         try {
-            $inventorData = Excel::toCollection(new \stdClass(), $request->file('file'))[0];
-            $inventorData->shift();
-
-            if ($inventorData->isEmpty()) {
-                return back()->withErrors('The uploaded file has no data.');
+            $collection = Excel::toCollection(null, $request->file('file'))->first();
+             if ($collection->isEmpty() || $collection->count() <= 1) {
+                return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
             }
+
+            // Mengambil header dan mengubahnya menjadi huruf kecil untuk perbandingan case-insensitive
+            $header = array_map('strtolower', $collection->first()->toArray());
+            $inventorData = $collection->slice(1);
+
+            // Helper function to find a value from a row using multiple possible header names
+            $findValue = function(array $rowData, array $keys, $default = '') {
+                foreach ($keys as $key) {
+                    if (isset($rowData[$key]) && !is_null($rowData[$key])) {
+                        return trim((string) $rowData[$key]);
+                    }
+                }
+                return $default;
+            };
 
             $nodes = [];
             foreach ($inventorData as $row) {
+                // Skip empty rows
+                if (empty(array_filter($row->toArray()))) {
+                    continue;
+                }
+
+                $rowData = array_combine($header, $row->toArray());
+
+                // ## PERUBAHAN DI SINI (HANYA UNTUK BOM UPLOADER) ##
+                // Menyesuaikan header untuk parent ("Material Description", "UOM") dan
+                // komponen ("Description2", "uom1")
                 $node = [
-                    'item'        => trim($row[0] ?? ''), 'description' => trim($row[1] ?? ''),
-                    'qty'         => trim($row[2] ?? '0'), 'sloc'        => trim($row[4] ?? ''),
-                    'code'        => trim($row[5] ?? ''), 'uom'         => trim($row[7] ?? 'PC'),
+                    'item'        => $findValue($rowData, ['item', 'item number']),
+                    'description' => $findValue($rowData, ['material description', 'description2', 'description', 'part name']),
+                    'qty'         => $findValue($rowData, ['qty', 'quantity'], '0'),
+                    'sloc'        => $findValue($rowData, ['sloc', 'storage location']),
+                    'code'        => $findValue($rowData, ['part number', 'code', 'material']),
+                    'uom'         => $findValue($rowData, ['uom', 'uom1', 'unit'], 'PC'),
                 ];
+
                 $itemNumber = $node['item'];
                 if (empty($itemNumber)) continue;
                 $nodes[$itemNumber] = $node;
@@ -112,7 +138,9 @@ class BomController extends Controller
 
                 $updatedComponents = [];
                 foreach ($bom['components'] as $component) {
-                    $newComponentData = $component; // Salin semua data asli
+                    // Salin data asli ke array baru untuk memastikan tidak ada referensi silang
+                    $newComponentData = $component;
+
                     if (empty($newComponentData['code']) && !empty($newComponentData['description'])) {
                         $foundCode = $this->findMaterialCode($pythonApiUrl, $newComponentData['description']);
                         $newComponentData['code'] = $foundCode ?? '#NOT_FOUND#'; // Hanya ubah 'code'
@@ -160,8 +188,24 @@ class BomController extends Controller
             $bomsForUpload = [];
             foreach ($boms as $bom) {
                 if (empty($bom['parent']['code']) || $bom['parent']['code'] === '#NOT_FOUND#') continue;
-                $components = collect($bom['components'])->map(fn($comp) => ['Item Category' => 'L', 'Child' => ($comp['code'] === '#NOT_FOUND#') ? '' : $comp['code'], 'Qty' => $comp['qty'], 'Unit' => $comp['uom']])->toArray();
-                $bomsForUpload[] = ['parent' => $bom['parent']['code'], 'plant' => $plant, 'bom_usage' => '1', 'base_quantity' => $bom['parent']['qty'], 'base_unit' => $bom['parent']['uom'], 'bom_text' => '', 'components' => $components];
+
+                $components = collect($bom['components'])->map(fn($comp) => [
+                    'Item Category' => 'L',
+                    'Child' => ($comp['code'] === '#NOT_FOUND#') ? '' : $comp['code'],
+                    'Qty' => $comp['qty'],
+                    'Unit' => $comp['uom'],
+                    'sloc' => $comp['sloc'] ?? ''
+                ])->toArray();
+
+                $bomsForUpload[] = [
+                    'parent' => $bom['parent']['code'],
+                    'plant' => $plant,
+                    'bom_usage' => '1',
+                    'base_quantity' => $bom['parent']['qty'],
+                    'base_unit' => $bom['parent']['uom'],
+                    'bom_text' => '',
+                    'components' => $components
+                ];
             }
             if (empty($bomsForUpload)) {
                  Storage::disk('local')->delete($filename);
@@ -229,7 +273,7 @@ class BomController extends Controller
                 return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
             }
 
-            $inventorHeader = $collection->first()->toArray();
+            $inventorHeader = array_map('strtolower', $collection->first()->toArray());
             $inventorData = $collection->slice(1);
 
             $divisionMap = [
@@ -240,7 +284,15 @@ class BomController extends Controller
                 '09' => ['acct_group' => '09', 'val_class' => 'FG01', 'mat_group' => 'FFG001'], '10' => ['acct_group' => '10', 'val_class' => 'FG08', 'mat_group' => 'FFG007'],
                 '00' => ['acct_group' => '00', 'val_class' => 'SF01', 'mat_group' => ''],
             ];
-            $columnMapping = [ "Material Description" => "Material Description", "Base Unit of Measure" => "Base Unit of Measure", "Dimension" => "Dimension", "MRP GROUP" => "MRP GROUP", "MRP Controller" => "MRP Controller", "Material Group" => "Material Group", "Storage Location" => "Storage Location", "Production Storage Location" => "Storage Location", "Document" => "Document" ];
+
+            // ## DIKEMBALIKAN KE SEMULA (TIDAK ADA PERUBAHAN) ##
+            $columnMapping = [
+                "Material Description" => "Material Description", "Base Unit of Measure" => "Base Unit of Measure",
+                "Dimension" => "Dimension", "MRP GROUP" => "MRP GROUP", "MRP Controller" => "MRP Controller",
+                "Material Group" => "Material Group", "Storage Location" => "Storage Location",
+                "Production Storage Location" => "Storage Location", "Document" => "Document"
+            ];
+
             $sapHeader = [ 'Material', 'Industry Sector', 'Old material number', 'Material Type', 'Material Group', 'Base Unit of Measure', 'Material Description', 'Division', 'General item cat group', 'Prod./insp. Memo', 'Document', 'Ind. Std Desc', 'Dimension', 'Plant', 'Storage Location', 'Sales Organization', 'Distribution Channel', 'Delivery Plant', 'Sales Unit', 'Tax Country', 'Tax Class', 'Tax Cat', 'Item Category Group', 'Acct assignment grp', 'Mat Group 1', 'Mat Group 2', 'Mat Group 3', 'Mat Group 4', 'Mat Group 5', 'Trans Group', 'Loadin Group', 'Material Package', 'Mat pack type', 'Batch Management', 'Profit Center', 'Valuation Class', 'StandardPrc', 'MovingAvg', 'Price Unit', 'Price Control', 'Price Unit Hard Currency', 'Denominator', 'Alternative UoM', 'Numerator', 'Length', 'Width', 'Height', 'Unit of Dimension', 'Gross Weight', 'Weight Unit', 'Net Weight', 'Volume', 'Purchasing Group', 'Volume Unit', 'Proportion unit', 'Class', 'WARNA ', 'VOLUME PRODUCT', 'MRP Type', 'MRP GROUP', 'MRP Controller', 'Lot Size', 'Min Lot Size', 'Max Lot Size', 'Rounding Value', 'Procurement Type', 'Special Procurement Type', 'Backflush Indicator', 'Inhouse Production', 'Pl. Deliv. Time', 'GR Processing Time', 'Schedulled Margin Key', 'Safety Stock', 'Strategy Group', 'Consumption Mode', 'Forward Consumption Period', 'Backward Consumption Period', 'period indicator', 'fiscal year', 'Availability Check', 'Selection Method', 'Individual Collective', 'Unit Of Issue', 'Production Storage Location', 'Storage loc. for EP', 'Prod Schedule Profile', 'Under Delivery Tolerance', 'Over Delivery Tolerance', 'Unlt Deliv Tol', 'Material-related origin', 'Ind Qty Structure', 'Costing lot size', 'Do Not Cost', 'Plant-sp.matl status', 'Stock Determination Group', 'Unnamed: 95', 'Inspection Type', 'Inspection With Task List' ];
 
             $sapData = [];
@@ -253,9 +305,11 @@ class BomController extends Controller
                 $rowData = array_combine($inventorHeader, $inventorRow->toArray());
 
                 $tempSapRow = array_fill_keys($sapHeader, '');
+
                 foreach ($columnMapping as $sapCol => $inventorCol) {
-                    if (isset($rowData[$inventorCol])) {
-                        $tempSapRow[$sapCol] = strtoupper(trim((string)$rowData[$inventorCol]));
+                    $inventorColLower = strtolower($inventorCol);
+                    if (isset($rowData[$inventorColLower])) {
+                        $tempSapRow[$sapCol] = strtoupper(trim((string)$rowData[$inventorColLower]));
                     }
                 }
 
