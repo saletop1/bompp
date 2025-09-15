@@ -2,6 +2,14 @@
 
 namespace App\Http\Controllers;
 
+// Ditambahkan untuk custom import
+use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
+use Maatwebsite\Excel\DefaultValueBinder;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+
+// Use statement yang sudah ada
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
@@ -13,6 +21,29 @@ use App\Imports\HeadingRowImport;
 use App\Exports\MaterialMasterExport;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\SapUploadNotification;
+
+/**
+ * Custom import class untuk BOM Uploader.
+ * Class ini memastikan semua nilai sel dibaca sebagai string
+ * untuk menjaga angka nol di depan (leading zeros) pada kode material.
+ */
+class BomImport extends DefaultValueBinder implements ToCollection, WithCustomValueBinder
+{
+    public $data;
+
+    public function collection(\Illuminate\Support\Collection $rows)
+    {
+        $this->data = $rows;
+    }
+
+    public function bindValue(Cell $cell, $value)
+    {
+        // Memaksa setiap sel untuk diperlakukan sebagai string
+        $cell->setValueExplicit($value, DataType::TYPE_STRING);
+        return true;
+    }
+}
+
 
 class BomController extends Controller
 {
@@ -29,7 +60,12 @@ class BomController extends Controller
     {
         $request->validate(['file' => 'required|mimes:xls,xlsx,csv', 'plant' => 'required|string']);
         try {
-            $collection = Excel::toCollection(null, $request->file('file'))->first();
+            // Menggunakan custom import class (BomImport) untuk memastikan semua data
+            // dibaca sebagai string, sehingga angka nol di depan pada kode material tidak hilang.
+            $import = new BomImport();
+            Excel::import($import, $request->file('file'));
+            $collection = $import->data;
+
              if ($collection->isEmpty() || $collection->count() <= 1) {
                 return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
             }
@@ -41,7 +77,7 @@ class BomController extends Controller
             // Helper function to find a value from a row using multiple possible header names
             $findValue = function(array $rowData, array $keys, $default = '') {
                 foreach ($keys as $key) {
-                    if (isset($rowData[$key]) && !is_null($rowData[$key])) {
+                    if (isset($rowData[$key]) && !is_null($rowData[$key]) && $rowData[$key] !== '') {
                         return trim((string) $rowData[$key]);
                     }
                 }
@@ -57,16 +93,14 @@ class BomController extends Controller
 
                 $rowData = array_combine($header, $row->toArray());
 
-                // ## PERUBAHAN DI SINI (HANYA UNTUK BOM UPLOADER) ##
-                // Menyesuaikan header untuk parent ("Material Description", "UOM") dan
-                // komponen ("Description2", "uom1")
+                // Memprioritaskan header spesifik dari file download SAP.
                 $node = [
                     'item'        => $findValue($rowData, ['item', 'item number']),
-                    'description' => $findValue($rowData, ['material description', 'description2', 'description', 'part name']),
-                    'qty'         => $findValue($rowData, ['qty', 'quantity'], '0'),
+                    'description' => $findValue($rowData, ['rc29p-ktt', 'rc29n-cbktx', 'material description', 'description2', 'description', 'part name']),
+                    'qty'         => $findValue($rowData, ['menge', 'qty', 'quantity'], '0'),
                     'sloc'        => $findValue($rowData, ['sloc', 'storage location']),
-                    'code'        => $findValue($rowData, ['part number', 'code', 'material']),
-                    'uom'         => $findValue($rowData, ['uom', 'uom1', 'unit'], 'PC'),
+                    'code'        => $findValue($rowData, ['rc29p-idnrk', 'rc29n-matnr', 'part number', 'code', 'material']),
+                    'uom'         => $findValue($rowData, ['einheit', 'uom', 'uom1', 'unit'], 'PC'),
                 ];
 
                 $itemNumber = $node['item'];
@@ -131,9 +165,18 @@ class BomController extends Controller
                 $parentData = $bom['parent'];
                 if (empty($parentData['code']) && !empty($parentData['description'])) {
                     $foundCode = $this->findMaterialCode($pythonApiUrl, $parentData['description']);
-                    $parentData['code'] = $foundCode ?? '#NOT_FOUND#';
-                    if ($foundCode) $foundCount++;
-                    $detailedResults[] = ['description' => $parentData['description'], 'code' => $foundCode ?? 'tidak ditemukan'];
+
+                    // ## PERBAIKAN DI SINI ##
+                    // Jika kode ditemukan, hapus angka nol di depan (leading zeros).
+                    if ($foundCode) {
+                        $processedCode = ltrim($foundCode, '0');
+                        $parentData['code'] = $processedCode;
+                        $foundCount++;
+                        $detailedResults[] = ['description' => $parentData['description'], 'code' => $processedCode];
+                    } else {
+                        $parentData['code'] = '#NOT_FOUND#';
+                        $detailedResults[] = ['description' => $parentData['description'], 'code' => 'tidak ditemukan'];
+                    }
                 }
 
                 $updatedComponents = [];
@@ -143,9 +186,18 @@ class BomController extends Controller
 
                     if (empty($newComponentData['code']) && !empty($newComponentData['description'])) {
                         $foundCode = $this->findMaterialCode($pythonApiUrl, $newComponentData['description']);
-                        $newComponentData['code'] = $foundCode ?? '#NOT_FOUND#'; // Hanya ubah 'code'
-                        if ($foundCode) $foundCount++;
-                        $detailedResults[] = ['description' => $newComponentData['description'], 'code' => $foundCode ?? 'tidak ditemukan'];
+
+                        // ## PERBAIKAN DI SINI ##
+                        // Jika kode ditemukan, hapus angka nol di depan (leading zeros).
+                        if ($foundCode) {
+                            $processedCode = ltrim($foundCode, '0');
+                            $newComponentData['code'] = $processedCode;
+                            $foundCount++;
+                            $detailedResults[] = ['description' => $newComponentData['description'], 'code' => $processedCode];
+                        } else {
+                            $newComponentData['code'] = '#NOT_FOUND#';
+                            $detailedResults[] = ['description' => $newComponentData['description'], 'code' => 'tidak ditemukan'];
+                        }
                     }
                     $updatedComponents[] = $newComponentData;
                 }
@@ -187,24 +239,50 @@ class BomController extends Controller
             $boms = $fileContent['boms'];
             $bomsForUpload = [];
             foreach ($boms as $bom) {
-                if (empty($bom['parent']['code']) || $bom['parent']['code'] === '#NOT_FOUND#') continue;
+                // ## PERBAIKAN FINAL ##
+                // 1. Pengecekan lebih ketat untuk memastikan 'code' pada parent ada dan tidak kosong
+                $parentCode = $bom['parent']['code'] ?? null;
+                if (empty($parentCode) || $parentCode === '#NOT_FOUND#') {
+                    continue; // Lewati BOM jika parent code tidak valid
+                }
 
-                $components = collect($bom['components'])->map(fn($comp) => [
-                    'Item Category' => 'L',
-                    'Child' => ($comp['code'] === '#NOT_FOUND#') ? '' : $comp['code'],
-                    'Qty' => $comp['qty'],
-                    'Unit' => $comp['uom'],
-                    'sloc' => $comp['sloc'] ?? ''
-                ])->toArray();
+                // 2. Filter komponen untuk memastikan hanya yang valid (memiliki kode) yang diunggah
+                $validComponents = array_filter($bom['components'], function($comp) {
+                    $componentCode = $comp['code'] ?? null;
+                    return !empty($componentCode) && $componentCode !== '#NOT_FOUND#';
+                });
 
+                if (empty($validComponents)) {
+                    continue; // Lewati BOM jika tidak ada komponen yang valid sama sekali
+                }
+
+                // 3. Melengkapi struktur komponen dengan field yang hilang (SCRAP, ITEM_TEXT, dll.)
+                $components = collect($validComponents)->map(function($comp, $key) {
+                    $itemNumber = ($key + 1) * 10;
+                    return [
+                        'ITEM_CATEG'    => 'L',
+                        'POSNR'         => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
+                        'COMPONENT'     => $comp['code'],
+                        'COMP_QTY'      => (float)($comp['qty'] ?? 0),
+                        'COMP_UNIT'     => $comp['uom'] ?? 'PC',
+                        'PROD_STOR_LOC' => $comp['sloc'] ?? '',
+                        'SCRAP'         => '0.0', // Menambahkan field yang hilang dengan default value
+                        'ITEM_TEXT'     => '',    // Menambahkan field yang hilang dengan default value
+                        'ITEM_TEXT2'    => '',    // Menambahkan field yang hilang dengan default value
+                    ];
+                })->values()->toArray();
+
+                // 4. Memastikan semua data header lengkap sebelum dikirim
                 $bomsForUpload[] = [
-                    'parent' => $bom['parent']['code'],
-                    'plant' => $plant,
-                    'bom_usage' => '1',
-                    'base_quantity' => $bom['parent']['qty'],
-                    'base_unit' => $bom['parent']['uom'],
-                    'bom_text' => '',
-                    'components' => $components
+                    'IV_MATNR'      => $parentCode,
+                    'IV_WERKS'      => $plant,
+                    'IV_STLAN'      => '1',
+                    'IV_STLAL'      => '01',
+                    'IV_DATUV'      => date('Ymd'),
+                    'IV_BMENG'      => (float)($bom['parent']['qty'] ?? 1),
+                    'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC',
+                    'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload', // Menambahkan deskripsi BOM
+                    'IT_COMPONENTS' => $components
                 ];
             }
             if (empty($bomsForUpload)) {
@@ -235,14 +313,36 @@ class BomController extends Controller
     private function findMaterialCode(string $apiUrl, string $description): ?string
     {
         try {
-            $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $description]);
+            $originalDescription = trim($description);
+            if (empty($originalDescription)) {
+                return null; // Jangan mencari jika deskripsi kosong
+            }
+
+            // --- Langkah 1: Coba Pencarian Tepat (Exact Match) ---
+            $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $originalDescription]);
             if ($response->successful() && $response->json('status') === 'success') {
                 $foundCode = $response->json('material_code');
-                Log::info("Material '{$description}' ditemukan dengan kode: {$foundCode}");
+                Log::info("Material '{$originalDescription}' ditemukan dengan pencarian tepat: {$foundCode}");
                 return $foundCode;
             }
-            Log::warning("Material '{$description}' tidak ditemukan.");
+            Log::warning("Pencarian tepat untuk '{$originalDescription}' gagal, mencoba pencarian wildcard.");
+
+            // --- Langkah 2: Jika Gagal, Coba Pencarian Wildcard ---
+            // Membuat pencarian lebih fleksibel dengan mengubah deskripsi menjadi format wildcard.
+            // Contoh: "SUB ASSY MTL" menjadi "*SUB*ASSY*MTL*".
+            $wildcardDescription = '*' . str_replace(' ', '*', $originalDescription) . '*';
+            $wildcardDescription = preg_replace('/\*+/', '*', $wildcardDescription); // Ganti beberapa wildcard berurutan menjadi satu
+
+            $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $wildcardDescription]);
+            if ($response->successful() && $response->json('status') === 'success') {
+                $foundCode = $response->json('material_code');
+                Log::info("Material '{$originalDescription}' (searched as '{$wildcardDescription}') ditemukan dengan pencarian wildcard: {$foundCode}");
+                return $foundCode;
+            }
+
+            Log::warning("Material '{$originalDescription}' (searched as '{$wildcardDescription}') juga tidak ditemukan.");
             return null;
+
         } catch (\Exception $e) {
             Log::error("Koneksi ke Python API gagal saat mencari '{$description}': " . $e->getMessage());
             return null;
@@ -293,7 +393,7 @@ class BomController extends Controller
                 "Production Storage Location" => "Storage Location", "Document" => "Document"
             ];
 
-            $sapHeader = [ 'Material', 'Industry Sector', 'Old material number', 'Material Type', 'Material Group', 'Base Unit of Measure', 'Material Description', 'Division', 'General item cat group', 'Prod./insp. Memo', 'Document', 'Ind. Std Desc', 'Dimension', 'Plant', 'Storage Location', 'Sales Organization', 'Distribution Channel', 'Delivery Plant', 'Sales Unit', 'Tax Country', 'Tax Class', 'Tax Cat', 'Item Category Group', 'Acct assignment grp', 'Mat Group 1', 'Mat Group 2', 'Mat Group 3', 'Mat Group 4', 'Mat Group 5', 'Trans Group', 'Loadin Group', 'Material Package', 'Mat pack type', 'Batch Management', 'Profit Center', 'Valuation Class', 'StandardPrc', 'MovingAvg', 'Price Unit', 'Price Control', 'Price Unit Hard Currency', 'Denominator', 'Alternative UoM', 'Numerator', 'Length', 'Width', 'Height', 'Unit of Dimension', 'Gross Weight', 'Weight Unit', 'Net Weight', 'Volume', 'Purchasing Group', 'Volume Unit', 'Proportion unit', 'Class', 'WARNA ', 'VOLUME PRODUCT', 'MRP Type', 'MRP GROUP', 'MRP Controller', 'Lot Size', 'Min Lot Size', 'Max Lot Size', 'Rounding Value', 'Procurement Type', 'Special Procurement Type', 'Backflush Indicator', 'Inhouse Production', 'Pl. Deliv. Time', 'GR Processing Time', 'Schedulled Margin Key', 'Safety Stock', 'Strategy Group', 'Consumption Mode', 'Forward Consumption Period', 'Backward Consumption Period', 'period indicator', 'fiscal year', 'Availability Check', 'Selection Method', 'Individual Collective', 'Unit Of Issue', 'Production Storage Location', 'Storage loc. for EP', 'Prod Schedule Profile', 'Under Delivery Tolerance', 'Over Delivery Tolerance', 'Unlt Deliv Tol', 'Material-related origin', 'Ind Qty Structure', 'Costing lot size', 'Do Not Cost', 'Plant-sp.matl status', 'Stock Determination Group', 'Unnamed: 95', 'Inspection Type', 'Inspection With Task List' ];
+            $sapHeader = [ 'Material', 'Industry Sector', 'Old material number', 'Material Type', 'Material Group', 'Base Unit of Measure', 'Material Description', 'Division', 'General item cat group', 'Prod./insp. Memo', 'Document', 'Ind. Std Desc', 'Dimension', 'Plant', 'Storage Location', 'Sales Organization', 'Distribution Channel', 'Delivery Plant', 'Sales Unit', 'Tax Country', 'Tax Class', 'Tax Cat', 'Item Category Group', 'Acct assignment grp', 'Mat Group 1', 'Mat Group 2', 'Mat Group 3', 'Mat Group 4', 'Mat Group 5', 'Trans Group', 'Loadin Group', 'Material Package', 'Mat pack type', 'Batch Management', 'Profit Center', 'Valuation Class', 'StandardPrc', 'MovingAvg', 'Price Unit', 'Price Control', 'Price Unit Hard Currency', 'Denominator', 'Alternative UoM', 'Numerator', 'Length', 'Width', 'Height', 'Unit of Dimension', 'Gross Weight', 'Weight Unit', 'Net Weight', 'Volume', 'Purchasing Group', 'Volume Unit', 'Proportion unit', 'Class', 'WARNA ', 'VOLUME PRODUCT', 'MRP Type', 'MRP GROUP', 'MRP Controller', 'Lot Size', 'Min Lot Size', 'Max Lot Size', 'Rounding Value', 'Procurement Type', 'Special Procurement Type', 'Backflush Indicator', 'Inhouse Production', 'Pl. Deliv. Time', 'GR Processing Time', 'Schedulled Margin Key', 'Safety Stock', 'Strategy Group', 'Consumption Mode', 'Forward Consumption Period', 'Backward Consumption Period', 'period indicator', 'fiscal year', 'Availability Check', 'Selection Method', 'Individual Collective', 'Unit Of Issue', 'Production Storage Location', 'Storage loc. for EP', 'Prod Schedule Profile', 'Under Delivery Tolerance', 'Over Delivery Tolerance', 'Unlt Deliv Tol', 'Material-related origin', 'Ind Qty Structure', 'costing lot size', 'Do Not Cost', 'Plant-sp.matl status', 'Stock Determination Group', 'Unnamed: 95', 'Inspection Type', 'Inspection With Task List' ];
 
             $sapData = [];
             $currentMaterialCode = $request->input('start_material_code');
