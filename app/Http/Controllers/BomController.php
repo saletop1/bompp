@@ -60,8 +60,6 @@ class BomController extends Controller
     {
         $request->validate(['file' => 'required|mimes:xls,xlsx,csv', 'plant' => 'required|string']);
         try {
-            // Menggunakan custom import class (BomImport) untuk memastikan semua data
-            // dibaca sebagai string, sehingga angka nol di depan pada kode material tidak hilang.
             $import = new BomImport();
             Excel::import($import, $request->file('file'));
             $collection = $import->data;
@@ -70,11 +68,9 @@ class BomController extends Controller
                 return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
             }
 
-            // Mengambil header dan mengubahnya menjadi huruf kecil untuk perbandingan case-insensitive
             $header = array_map('strtolower', $collection->first()->toArray());
             $inventorData = $collection->slice(1);
 
-            // Helper function to find a value from a row using multiple possible header names
             $findValue = function(array $rowData, array $keys, $default = '') {
                 foreach ($keys as $key) {
                     if (isset($rowData[$key]) && !is_null($rowData[$key]) && $rowData[$key] !== '') {
@@ -86,38 +82,65 @@ class BomController extends Controller
 
             $nodes = [];
             foreach ($inventorData as $row) {
-                // Skip empty rows
                 if (empty(array_filter($row->toArray()))) {
                     continue;
                 }
 
                 $rowData = array_combine($header, $row->toArray());
-
-                // Memprioritaskan header spesifik dari file download SAP.
-                $node = [
-                    'item'        => $findValue($rowData, ['item', 'item number']),
-                    'description' => $findValue($rowData, ['rc29p-ktt', 'rc29n-cbktx', 'material description', 'description2', 'description', 'part name']),
-                    'qty'         => $findValue($rowData, ['menge', 'qty', 'quantity'], '0'),
-                    'sloc'        => $findValue($rowData, ['sloc', 'storage location']),
-                    'code'        => $findValue($rowData, ['rc29p-idnrk', 'rc29n-matnr', 'part number', 'code', 'material']),
-                    'uom'         => $findValue($rowData, ['einheit', 'uom', 'uom1', 'unit'], 'PC'),
-                ];
-
-                $itemNumber = $node['item'];
+                $itemNumber = $findValue($rowData, ['item']);
                 if (empty($itemNumber)) continue;
-                $nodes[$itemNumber] = $node;
+
+                // ## PERBAIKAN DI SINI ##
+                // 1. Buat node untuk 'part' itu sendiri (e.g., item 1.1.1)
+                // Kode materialnya sengaja dikosongkan untuk diisi nanti.
+                $partNode = [
+                    'item'        => $itemNumber,
+                    'description' => $findValue($rowData, ['material description']),
+                    'qty'         => str_replace(',', '.', $findValue($rowData, ['qty'], '1')),
+                    'sloc'        => $findValue($rowData, ['sloc']),
+                    'code'        => '', // Dikosongkan karena part ini akan dibuat, bukan diambil dari stok
+                    'uom'         => $findValue($rowData, ['uom'], 'PC'),
+                ];
+                $nodes[$itemNumber] = $partNode;
+
+                // 2. Cek apakah 'part' ini memiliki bahan baku (level cutting)
+                $rawMaterialCode = $findValue($rowData, ['kode material']);
+                if (!empty($rawMaterialCode)) {
+                    // Jika ada, buat node BARU untuk bahan baku tersebut
+                    // dengan nomor item buatan (e.g., 1.1.1.1)
+                    $materialNode = [
+                        'item'        => $itemNumber . '.1', // Item buatan untuk linking
+                        'description' => $findValue($rowData, ['description2']),
+                        'qty'         => str_replace(',', '.', $findValue($rowData, ['unit of issue'], '0')),
+                        'sloc'        => $findValue($rowData, ['sloc']),
+                        'code'        => $rawMaterialCode, // Ini adalah kode bahan baku
+                        'uom'         => $findValue($rowData, ['uom1'], 'PC'),
+                    ];
+                    $nodes[$itemNumber . '.1'] = $materialNode;
+                }
             }
 
             $bomsByParentItem = [];
             foreach ($nodes as $childItemNumber => $childNode) {
                 if ($childItemNumber === '0.0') continue;
+
                 $parts = explode('.', $childItemNumber);
                 $parentItemNumber = null;
-                if (count($parts) === 3) { $parentItemNumber = $parts[0] . '.' . $parts[1]; }
-                elseif (count($parts) === 2) {
-                    if ($parts[1] !== '0') { $parentItemNumber = $parts[0] . '.0'; }
-                    else { $parentItemNumber = '0.0'; }
+
+                // ## PERBAIKAN DI SINI ##
+                // Logika diperluas untuk menangani level cutting (4 tingkat kedalaman)
+                if (count($parts) === 4) { // e.g., 1.1.1.1
+                    $parentItemNumber = $parts[0] . '.' . $parts[1] . '.' . $parts[2]; // Parent-nya 1.1.1
+                } elseif (count($parts) === 3) { // e.g., 1.1.1
+                    $parentItemNumber = $parts[0] . '.' . $parts[1]; // Parent-nya 1.1
+                } elseif (count($parts) === 2) { // e.g., 1.1 or 1.0
+                    if ($parts[1] !== '0') {
+                        $parentItemNumber = $parts[0] . '.0'; // Parent 1.1 adalah 1.0
+                    } else {
+                        $parentItemNumber = '0.0'; // Parent 1.0 adalah 0.0
+                    }
                 }
+
                 if ($parentItemNumber !== null && isset($nodes[$parentItemNumber])) {
                     $parent = $nodes[$parentItemNumber];
                     if (!isset($bomsByParentItem[$parentItemNumber])) {
@@ -166,8 +189,6 @@ class BomController extends Controller
                 if (empty($parentData['code']) && !empty($parentData['description'])) {
                     $foundCode = $this->findMaterialCode($pythonApiUrl, $parentData['description']);
 
-                    // ## PERBAIKAN DI SINI ##
-                    // Jika kode ditemukan, hapus angka nol di depan (leading zeros).
                     if ($foundCode) {
                         $processedCode = ltrim($foundCode, '0');
                         $parentData['code'] = $processedCode;
@@ -181,14 +202,11 @@ class BomController extends Controller
 
                 $updatedComponents = [];
                 foreach ($bom['components'] as $component) {
-                    // Salin data asli ke array baru untuk memastikan tidak ada referensi silang
                     $newComponentData = $component;
 
                     if (empty($newComponentData['code']) && !empty($newComponentData['description'])) {
                         $foundCode = $this->findMaterialCode($pythonApiUrl, $newComponentData['description']);
 
-                        // ## PERBAIKAN DI SINI ##
-                        // Jika kode ditemukan, hapus angka nol di depan (leading zeros).
                         if ($foundCode) {
                             $processedCode = ltrim($foundCode, '0');
                             $newComponentData['code'] = $processedCode;
@@ -239,57 +257,67 @@ class BomController extends Controller
             $boms = $fileContent['boms'];
             $bomsForUpload = [];
             foreach ($boms as $bom) {
-                // ## PERBAIKAN FINAL ##
-                // 1. Pengecekan lebih ketat untuk memastikan 'code' pada parent ada dan tidak kosong
                 $parentCode = $bom['parent']['code'] ?? null;
                 if (empty($parentCode) || $parentCode === '#NOT_FOUND#') {
-                    continue; // Lewati BOM jika parent code tidak valid
+                    continue;
                 }
 
-                // 2. Filter komponen untuk memastikan hanya yang valid (memiliki kode) yang diunggah
                 $validComponents = array_filter($bom['components'], function($comp) {
                     $componentCode = $comp['code'] ?? null;
                     return !empty($componentCode) && $componentCode !== '#NOT_FOUND#';
                 });
 
                 if (empty($validComponents)) {
-                    continue; // Lewati BOM jika tidak ada komponen yang valid sama sekali
+                    continue;
                 }
 
-                // 3. Melengkapi struktur komponen dengan field yang hilang (SCRAP, ITEM_TEXT, dll.)
                 $components = collect($validComponents)->map(function($comp, $key) {
                     $itemNumber = ($key + 1) * 10;
+                    $quantity = (float)str_replace(',', '.', $comp['qty'] ?? '0');
+
                     return [
                         'ITEM_CATEG'    => 'L',
                         'POSNR'         => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
                         'COMPONENT'     => $comp['code'],
-                        'COMP_QTY'      => (float)($comp['qty'] ?? 0),
+                        'COMP_QTY'      => $quantity,
                         'COMP_UNIT'     => $comp['uom'] ?? 'PC',
                         'PROD_STOR_LOC' => $comp['sloc'] ?? '',
-                        'SCRAP'         => '0.0', // Menambahkan field yang hilang dengan default value
-                        'ITEM_TEXT'     => '',    // Menambahkan field yang hilang dengan default value
-                        'ITEM_TEXT2'    => '',    // Menambahkan field yang hilang dengan default value
+                        'SCRAP'         => '0.0',
+                        'ITEM_TEXT'     => '',
+                        'ITEM_TEXT2'    => '',
                     ];
                 })->values()->toArray();
 
-                // 4. Memastikan semua data header lengkap sebelum dikirim
+                $baseQuantity = (float)str_replace(',', '.', $bom['parent']['qty'] ?? '1');
+
                 $bomsForUpload[] = [
                     'IV_MATNR'      => $parentCode,
                     'IV_WERKS'      => $plant,
                     'IV_STLAN'      => '1',
                     'IV_STLAL'      => '01',
                     'IV_DATUV'      => date('Ymd'),
-                    'IV_BMENG'      => (float)($bom['parent']['qty'] ?? 1),
+                    'IV_BMENG'      => $baseQuantity,
                     'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC',
-                    'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload', // Menambahkan deskripsi BOM
+                    'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload',
                     'IT_COMPONENTS' => $components
                 ];
             }
-            if (empty($bomsForUpload)) {
+
+            $validatedBoms = array_filter($bomsForUpload, function($bom) {
+                return isset($bom['IV_MATNR']) && !empty($bom['IV_MATNR']);
+            });
+
+            if (empty($validatedBoms)) {
                  Storage::disk('local')->delete($filename);
-                 return response()->json(['status' => 'success', 'message' => 'BOM upload process finished. No valid BOMs with parent material codes were found to upload.', 'results' => []]);
+                 return response()->json(['status' => 'success', 'message' => 'BOM upload process finished. No valid BOMs remained after final validation.', 'results' => []]);
             }
-            $response = Http::timeout(600)->post($pythonApiUrl . '/upload_bom', ['username' => $request->input('username'), 'password' => $request->input('password'), 'boms' => $bomsForUpload]);
+
+            $response = Http::timeout(600)->post($pythonApiUrl . '/upload_bom', [
+                'username' => $request->input('username'),
+                'password' => $request->input('password'),
+                'boms' => array_values($validatedBoms)
+            ]);
+
             Storage::disk('local')->delete($filename);
             return $response->json();
         } catch (\Exception $e) {
@@ -315,10 +343,9 @@ class BomController extends Controller
         try {
             $originalDescription = trim($description);
             if (empty($originalDescription)) {
-                return null; // Jangan mencari jika deskripsi kosong
+                return null;
             }
 
-            // --- Langkah 1: Coba Pencarian Tepat (Exact Match) ---
             $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $originalDescription]);
             if ($response->successful() && $response->json('status') === 'success') {
                 $foundCode = $response->json('material_code');
@@ -327,11 +354,8 @@ class BomController extends Controller
             }
             Log::warning("Pencarian tepat untuk '{$originalDescription}' gagal, mencoba pencarian wildcard.");
 
-            // --- Langkah 2: Jika Gagal, Coba Pencarian Wildcard ---
-            // Membuat pencarian lebih fleksibel dengan mengubah deskripsi menjadi format wildcard.
-            // Contoh: "SUB ASSY MTL" menjadi "*SUB*ASSY*MTL*".
             $wildcardDescription = '*' . str_replace(' ', '*', $originalDescription) . '*';
-            $wildcardDescription = preg_replace('/\*+/', '*', $wildcardDescription); // Ganti beberapa wildcard berurutan menjadi satu
+            $wildcardDescription = preg_replace('/\*+/', '*', $wildcardDescription);
 
             $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $wildcardDescription]);
             if ($response->successful() && $response->json('status') === 'success') {
@@ -385,7 +409,6 @@ class BomController extends Controller
                 '00' => ['acct_group' => '00', 'val_class' => 'SF01', 'mat_group' => ''],
             ];
 
-            // ## DIKEMBALIKAN KE SEMULA (TIDAK ADA PERUBAHAN) ##
             $columnMapping = [
                 "Material Description" => "Material Description", "Base Unit of Measure" => "Base Unit of Measure",
                 "Dimension" => "Dimension", "MRP GROUP" => "MRP GROUP", "MRP Controller" => "MRP Controller",
@@ -473,7 +496,7 @@ class BomController extends Controller
             }
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
             $materials = json_decode(Storage::disk('local')->get($filename), true);
-            $response = Http::timeout(6000)->post($pythonApiUrl . '/upload_material', ['username' => $request->input('username'),'password' => $request->input('password'),'materials' => $materials]);
+            $response = Http::timeout(600)->post($pythonApiUrl . '/upload_material', ['username' => $request->input('username'),'password' => $request->input('password'),'materials' => $materials]);
             Storage::disk('local')->delete($filename);
             return $response->json();
         } catch (\Exception $e) {
@@ -501,9 +524,7 @@ class BomController extends Controller
         $request->validate(['username' => 'required', 'password' => 'required', 'materials' => 'required|array']);
         try {
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
-            // ## PERBAIKAN DI SINI ##
-            // Menambahkan timeout ke 600 detik (10 menit) untuk mencegah error cURL 28
-            $response = Http::timeout(6000)->post($pythonApiUrl . '/activate_qm', $request->all());
+            $response = Http::timeout(600)->post($pythonApiUrl . '/activate_qm', $request->all());
             return $response->json();
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
