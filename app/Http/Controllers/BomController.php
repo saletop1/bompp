@@ -90,9 +90,7 @@ class BomController extends Controller
                 $itemNumber = $findValue($rowData, ['item']);
                 if (empty($itemNumber)) continue;
 
-                // ## PERBAIKAN DI SINI ##
                 // 1. Buat node untuk 'part' itu sendiri (e.g., item 1.1.1)
-                // Kode materialnya sengaja dikosongkan untuk diisi nanti.
                 $partNode = [
                     'item'        => $itemNumber,
                     'description' => $findValue($rowData, ['material description']),
@@ -107,7 +105,6 @@ class BomController extends Controller
                 $rawMaterialCode = $findValue($rowData, ['kode material']);
                 if (!empty($rawMaterialCode)) {
                     // Jika ada, buat node BARU untuk bahan baku tersebut
-                    // dengan nomor item buatan (e.g., 1.1.1.1)
                     $materialNode = [
                         'item'        => $itemNumber . '.1', // Item buatan untuk linking
                         'description' => $findValue($rowData, ['description2']),
@@ -127,7 +124,6 @@ class BomController extends Controller
                 $parts = explode('.', $childItemNumber);
                 $parentItemNumber = null;
 
-                // ## PERBAIKAN DI SINI ##
                 // Logika diperluas untuk menangani level cutting (4 tingkat kedalaman)
                 if (count($parts) === 4) { // e.g., 1.1.1.1
                     $parentItemNumber = $parts[0] . '.' . $parts[1] . '.' . $parts[2]; // Parent-nya 1.1.1
@@ -190,10 +186,9 @@ class BomController extends Controller
                     $foundCode = $this->findMaterialCode($pythonApiUrl, $parentData['description']);
 
                     if ($foundCode) {
-                        $processedCode = ltrim($foundCode, '0');
-                        $parentData['code'] = $processedCode;
+                        $parentData['code'] = $foundCode;
                         $foundCount++;
-                        $detailedResults[] = ['description' => $parentData['description'], 'code' => $processedCode];
+                        $detailedResults[] = ['description' => $parentData['description'], 'code' => $foundCode];
                     } else {
                         $parentData['code'] = '#NOT_FOUND#';
                         $detailedResults[] = ['description' => $parentData['description'], 'code' => 'tidak ditemukan'];
@@ -208,10 +203,9 @@ class BomController extends Controller
                         $foundCode = $this->findMaterialCode($pythonApiUrl, $newComponentData['description']);
 
                         if ($foundCode) {
-                            $processedCode = ltrim($foundCode, '0');
-                            $newComponentData['code'] = $processedCode;
+                            $newComponentData['code'] = $foundCode;
                             $foundCount++;
-                            $detailedResults[] = ['description' => $newComponentData['description'], 'code' => $processedCode];
+                            $detailedResults[] = ['description' => $newComponentData['description'], 'code' => $foundCode];
                         } else {
                             $newComponentData['code'] = '#NOT_FOUND#';
                             $detailedResults[] = ['description' => $newComponentData['description'], 'code' => 'tidak ditemukan'];
@@ -255,67 +249,76 @@ class BomController extends Controller
             $fileContent = json_decode(Storage::disk('local')->get($filename), true);
             $plant = $fileContent['plant'];
             $boms = $fileContent['boms'];
+
             $bomsForUpload = [];
             foreach ($boms as $bom) {
-                $parentCode = $bom['parent']['code'] ?? null;
-                if (empty($parentCode) || $parentCode === '#NOT_FOUND#') {
+                if (!is_array($bom) || !isset($bom['parent']['code']) || !isset($bom['components']) || !is_array($bom['components'])) {
+                    continue;
+                }
+                $parentCode = $bom['parent']['code'];
+                if ($parentCode === null || $parentCode === '' || $parentCode === '#NOT_FOUND#') {
                     continue;
                 }
 
-                $validComponents = array_filter($bom['components'], function($comp) {
+                $validComponents = [];
+                foreach ($bom['components'] as $comp) {
                     $componentCode = $comp['code'] ?? null;
-                    return !empty($componentCode) && $componentCode !== '#NOT_FOUND#';
-                });
+                    if ($componentCode !== null && $componentCode !== '' && $componentCode !== '#NOT_FOUND#') {
+                        $validComponents[] = $comp;
+                    }
+                }
 
-                if (empty($validComponents)) {
+                if (count($validComponents) === 0) {
                     continue;
                 }
 
-                $components = collect($validComponents)->map(function($comp, $key) {
+                $componentsPayload = [];
+                foreach ($validComponents as $key => $comp) {
                     $itemNumber = ($key + 1) * 10;
                     $quantity = (float)str_replace(',', '.', $comp['qty'] ?? '0');
-
-                    return [
+                    $componentsPayload[] = [
                         'ITEM_CATEG'    => 'L',
                         'POSNR'         => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
-                        'COMPONENT'     => $comp['code'],
+                        'COMPONENT'     => str_pad($comp['code'], 18, '0', STR_PAD_LEFT),
                         'COMP_QTY'      => $quantity,
                         'COMP_UNIT'     => $comp['uom'] ?? 'PC',
                         'PROD_STOR_LOC' => $comp['sloc'] ?? '',
-                        'SCRAP'         => '0.0',
+                        'SCRAP'         => '0',
                         'ITEM_TEXT'     => '',
                         'ITEM_TEXT2'    => '',
                     ];
-                })->values()->toArray();
+                }
 
                 $baseQuantity = (float)str_replace(',', '.', $bom['parent']['qty'] ?? '1');
+                if ($baseQuantity == floor($baseQuantity)) {
+                    $baseQuantity = (int)$baseQuantity;
+                }
 
                 $bomsForUpload[] = [
-                    'IV_MATNR'      => $parentCode,
+                    'IV_MATNR'      => str_pad($parentCode, 18, '0', STR_PAD_LEFT),
                     'IV_WERKS'      => $plant,
                     'IV_STLAN'      => '1',
                     'IV_STLAL'      => '01',
-                    'IV_DATUV'      => date('Ymd'),
+                    // ## PERBAIKAN DI SINI ##
+                    'IV_DATUV'      => date('dmY'), // Mengubah format tanggal ke ddmmyyyy
                     'IV_BMENG'      => $baseQuantity,
                     'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC',
                     'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload',
-                    'IT_COMPONENTS' => $components
+                    'IT_COMPONENTS' => $componentsPayload,
                 ];
             }
 
-            $validatedBoms = array_filter($bomsForUpload, function($bom) {
-                return isset($bom['IV_MATNR']) && !empty($bom['IV_MATNR']);
-            });
-
-            if (empty($validatedBoms)) {
+            if (empty($bomsForUpload)) {
                  Storage::disk('local')->delete($filename);
                  return response()->json(['status' => 'success', 'message' => 'BOM upload process finished. No valid BOMs remained after final validation.', 'results' => []]);
             }
 
+            Log::info('Final BOM payload being sent to Python API:', ['count' => count($bomsForUpload), 'data' => $bomsForUpload]);
+
             $response = Http::timeout(600)->post($pythonApiUrl . '/upload_bom', [
                 'username' => $request->input('username'),
                 'password' => $request->input('password'),
-                'boms' => array_values($validatedBoms)
+                'boms' => $bomsForUpload
             ]);
 
             Storage::disk('local')->delete($filename);
@@ -325,13 +328,36 @@ class BomController extends Controller
         }
     }
 
-    public function downloadProcessedFile($filename)
+    public function downloadProcessedFile(Request $request, $filename)
     {
         try {
-            if (!Storage::disk('local')->exists($filename) || !Str::startsWith($filename, 'bom_processed_')) abort(404, 'File not found or invalid.');
+            if (!Storage::disk('local')->exists($filename) || !Str::startsWith($filename, 'bom_processed_')) {
+                abort(404, 'File not found or invalid.');
+            }
+
             $fileContent = json_decode(Storage::disk('local')->get($filename), true);
+            $boms = $fileContent['boms'] ?? [];
+            $plant = $fileContent['plant'] ?? '';
+
+            $bomsForExport = collect($boms)->map(function ($bom) {
+                if (isset($bom['parent']['code'])) {
+                    $bom['parent']['code'] = ltrim($bom['parent']['code'], '0');
+                }
+
+                if (isset($bom['components']) && is_array($bom['components'])) {
+                    $bom['components'] = array_map(function ($component) {
+                        if (isset($component['code'])) {
+                            $component['code'] = ltrim($component['code'], '0');
+                        }
+                        return $component;
+                    }, $bom['components']);
+                }
+                return $bom;
+            })->all();
+
             $downloadFilename = 'SAP_MULTILEVEL_BOM_TEMPLATE_' . date('Y-m-d_H-i') . '.xlsx';
-            return Excel::download(new ProcessedBomExport($fileContent['boms'] ?? [], $fileContent['plant'] ?? ''), $downloadFilename);
+            return Excel::download(new ProcessedBomExport($bomsForExport, $plant), $downloadFilename);
+
         } catch (\Exception $e) {
             Log::error("Error downloading processed BOM file: " . $e->getMessage());
             return redirect()->route('bom.index')->withErrors('Could not download file.');
