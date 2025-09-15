@@ -473,7 +473,7 @@ class BomController extends Controller
             }
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
             $materials = json_decode(Storage::disk('local')->get($filename), true);
-            $response = Http::timeout(600)->post($pythonApiUrl . '/upload_material', ['username' => $request->input('username'),'password' => $request->input('password'),'materials' => $materials]);
+            $response = Http::timeout(6000)->post($pythonApiUrl . '/upload_material', ['username' => $request->input('username'),'password' => $request->input('password'),'materials' => $materials]);
             Storage::disk('local')->delete($filename);
             return $response->json();
         } catch (\Exception $e) {
@@ -501,7 +501,9 @@ class BomController extends Controller
         $request->validate(['username' => 'required', 'password' => 'required', 'materials' => 'required|array']);
         try {
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
-            $response = Http::post($pythonApiUrl . '/activate_qm', $request->all());
+            // ## PERBAIKAN DI SINI ##
+            // Menambahkan timeout ke 600 detik (10 menit) untuk mencegah error cURL 28
+            $response = Http::timeout(6000)->post($pythonApiUrl . '/activate_qm', $request->all());
             return $response->json();
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
