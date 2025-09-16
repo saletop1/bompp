@@ -72,13 +72,11 @@ class BomController extends Controller
 
             $header = array_map('strtolower', $collection->first()->toArray());
 
-            // Menambahkan validasi untuk memastikan header file sesuai dengan format yang diharapkan.
-            $requiredHeaders = ['item', 'material description', 'qty', 'uom']; // Kolom minimal yang wajib ada
+            $requiredHeaders = ['item', 'material description', 'qty', 'uom'];
             $missingHeaders = array_diff($requiredHeaders, $header);
 
             if (!empty($missingHeaders)) {
-                // Jika ada header wajib yang hilang, tolak file dan berikan pesan error.
-                $errorMessage = 'File rejected. The following required columns are missing: ' . implode(', ', $missingHeaders);
+                $errorMessage = 'File rejected. The file header is invalid. The following required columns are missing: ' . implode(', ', $missingHeaders);
                 return back()->withErrors(['file' => $errorMessage]);
             }
 
@@ -93,6 +91,9 @@ class BomController extends Controller
                 return $default;
             };
 
+            // ## PERBAIKAN TOTAL DI SINI ##
+            // Logika dirombak untuk menangani struktur di mana "part" dan "raw material"
+            // berada di baris yang sama (dual-node creation).
             $nodes = [];
             foreach ($inventorData as $row) {
                 if (empty(array_filter($row->toArray()))) {
@@ -103,7 +104,7 @@ class BomController extends Controller
                 $itemNumber = $findValue($rowData, ['item']);
                 if (empty($itemNumber)) continue;
 
-                // 1. Buat node untuk 'part' itu sendiri (e.g., item 1.1.1)
+                // 1. Selalu buat node untuk 'Part' atau 'Assembly' itu sendiri
                 $partNode = [
                     'item'        => $itemNumber,
                     'description' => $findValue($rowData, ['material description']),
@@ -117,7 +118,7 @@ class BomController extends Controller
                 // 2. Cek apakah 'part' ini memiliki bahan baku (level cutting)
                 $rawMaterialCode = $findValue($rowData, ['kode material']);
                 if (!empty($rawMaterialCode)) {
-                    // Jika ada, buat node BARU untuk bahan baku tersebut
+                    // Jika ada, buat node BARU untuk bahan baku tersebut sebagai anak dari part
                     $materialNode = [
                         'item'        => $itemNumber . '.1', // Item buatan untuk linking
                         'description' => $findValue($rowData, ['description2']),
@@ -132,22 +133,25 @@ class BomController extends Controller
 
             $bomsByParentItem = [];
             foreach ($nodes as $childItemNumber => $childNode) {
-                if ($childItemNumber === '0.0') continue;
+                if ($childItemNumber === '0.0') {
+                    continue; // Root item has no parent.
+                }
 
                 $parts = explode('.', $childItemNumber);
                 $parentItemNumber = null;
 
-                // Logika diperluas untuk menangani level cutting (4 tingkat kedalaman)
-                if (count($parts) === 4) { // e.g., 1.1.1.1
-                    $parentItemNumber = $parts[0] . '.' . $parts[1] . '.' . $parts[2]; // Parent-nya 1.1.1
-                } elseif (count($parts) === 3) { // e.g., 1.1.1
-                    $parentItemNumber = $parts[0] . '.' . $parts[1]; // Parent-nya 1.1
-                } elseif (count($parts) === 2) { // e.g., 1.1 or 1.0
+                // Logika hierarki yang mampu menangani kedalaman tak terbatas
+                $level = count($parts);
+
+                if ($level === 2) {
                     if ($parts[1] !== '0') {
-                        $parentItemNumber = $parts[0] . '.0'; // Parent 1.1 adalah 1.0
+                        $parentItemNumber = $parts[0] . '.0';
                     } else {
-                        $parentItemNumber = '0.0'; // Parent 1.0 adalah 0.0
+                        $parentItemNumber = '0.0';
                     }
+                } elseif ($level > 2) {
+                    array_pop($parts);
+                    $parentItemNumber = implode('.', $parts);
                 }
 
                 if ($parentItemNumber !== null && isset($nodes[$parentItemNumber])) {
@@ -381,16 +385,43 @@ class BomController extends Controller
                 return null;
             }
 
+            // Langkah 1: Coba pencarian tepat dengan data asli (raw)
             $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $originalDescription]);
             if ($response->successful() && $response->json('status') === 'success') {
                 $foundCode = $response->json('material_code');
-                Log::info("Material '{$originalDescription}' ditemukan dengan pencarian tepat: {$foundCode}");
+                Log::info("Material '{$originalDescription}' ditemukan dengan pencarian tepat (raw): {$foundCode}");
                 return $foundCode;
             }
-            Log::warning("Pencarian tepat untuk '{$originalDescription}' gagal, mencoba pencarian wildcard.");
 
-            $wildcardDescription = '*' . str_replace(' ', '*', $originalDescription) . '*';
-            $wildcardDescription = preg_replace('/\*+/', '*', $wildcardDescription);
+            // Langkah 2: Jika gagal, bersihkan deskripsi dari spasi ganda dan coba lagi
+            $cleanedDescription = preg_replace('/\s+/', ' ', $originalDescription);
+            if ($cleanedDescription !== $originalDescription) {
+                $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $cleanedDescription]);
+                if ($response->successful() && $response->json('status') === 'success') {
+                    $foundCode = $response->json('material_code');
+                    Log::info("Material '{$originalDescription}' (searched as '{$cleanedDescription}') ditemukan dengan pencarian tepat (cleaned): {$foundCode}");
+                    return $foundCode;
+                }
+            }
+
+            // Langkah 3: Jika deskripsi lebih dari 40 karakter, coba pencarian terpotong
+            if (strlen($cleanedDescription) > 40) {
+                $truncatedDescription = substr($cleanedDescription, 0, 39) . '*';
+                Log::info("Deskripsi terlalu panjang, mencoba pencarian terpotong: '{$truncatedDescription}'");
+
+                $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $truncatedDescription]);
+                if ($response->successful() && $response->json('status') === 'success') {
+                    $foundCode = $response->json('material_code');
+                    Log::info("Material '{$originalDescription}' (searched as '{$truncatedDescription}') ditemukan: {$foundCode}");
+                    return $foundCode;
+                }
+            }
+
+            // Langkah 4: Jika masih gagal, gunakan pencarian wildcard penuh
+            Log::warning("Pencarian tepat untuk '{$cleanedDescription}' gagal, mencoba pencarian wildcard penuh.");
+
+            $tempSearch = str_replace([' ', '-'], '*', $cleanedDescription);
+            $wildcardDescription = '*' . preg_replace('/\*+/', '*', $tempSearch) . '*';
 
             $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $wildcardDescription]);
             if ($response->successful() && $response->json('status') === 'success') {
@@ -399,7 +430,7 @@ class BomController extends Controller
                 return $foundCode;
             }
 
-            Log::warning("Material '{$originalDescription}' (searched as '{$wildcardDescription}') juga tidak ditemukan.");
+            Log::warning("Semua metode pencarian untuk '{$originalDescription}' gagal.");
             return null;
 
         } catch (\Exception $e) {
@@ -434,13 +465,10 @@ class BomController extends Controller
 
             $inventorHeader = array_map('strtolower', $collection->first()->toArray());
 
-            // ## PERBAIKAN DI SINI ##
-            // Menambahkan validasi header untuk Material Converter
-            $requiredHeaders = ['material description', 'base unit of measure']; // Anda bisa menambahkan header wajib lainnya
+            $requiredHeaders = ['material description', 'base unit of measure'];
             $missingHeaders = array_diff($requiredHeaders, $inventorHeader);
 
             if (!empty($missingHeaders)) {
-                // Jika header wajib hilang, tolak file
                 $errorMessage = 'File rejected. The file header is invalid. The following required columns are missing: ' . implode(', ', $missingHeaders);
                 return back()->withErrors(['file' => $errorMessage]);
             }
@@ -598,9 +626,13 @@ class BomController extends Controller
             'results' => 'required|array'
         ]);
         try {
-            // ## PERBAIKAN DI SINI ##
-            // Menghapus logika yang menambahkan 'plant'
-            Mail::to($request->input('recipient'))->send(new SapUploadNotification($request->input('results')));
+            $plant = $request->session()->get('processed_plant', 'N/A');
+            $resultsWithPlant = array_map(function($result) use ($plant) {
+                $result['plant'] = $plant;
+                return $result;
+            }, $request->input('results'));
+
+            Mail::to($request->input('recipient'))->send(new SapUploadNotification($resultsWithPlant));
             return response()->json(['message' => 'Email notification sent successfully!']);
         } catch (\Exception $e) {
             Log::error('Email sending failed: ' . $e->getMessage());
