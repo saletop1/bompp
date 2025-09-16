@@ -37,16 +37,12 @@ def increment_material_code(code):
     padding = len(number_str)
     return f"{prefix}{str(number + 1).zfill(padding)}"
 
-# ## FUNGSI DIPERBARUI ##
 def format_material_code_for_sap(code):
     """Memformat kode material untuk SAP: kode numerik di-padding, kode alfanumerik di-strip."""
     code_str = str(code)
-    # Cek jika string HANYA berisi angka
     if code_str.isdigit():
-        # Tambahkan angka nol di depan hingga 18 digit
         return code_str.zfill(18)
     else:
-        # Jika mengandung huruf, HAPUS semua angka nol di depan
         return code_str.lstrip('0')
 
 # === ENDPOINT UPLOAD BOM ===
@@ -78,21 +74,24 @@ def upload_bom():
                 results.append({"material_code": parent_material, "status": "Failed", "message": "Connection to SAP failed."})
                 continue
 
+            # ## PERBAIKAN DI SINI ##
+            # Memastikan semua nilai desimal diformat dengan 3 digit di belakang koma.
             def format_quantity_for_sap(qty_val):
                 """Mengonversi dan membulatkan angka ke format string yang diminta SAP."""
                 try:
-                    numeric_val = float(qty_val)
+                    # Pastikan kita bekerja dengan float, ganti koma jika ada
+                    numeric_val = float(str(qty_val).replace(',', '.'))
                 except (ValueError, TypeError):
                     numeric_val = 0.0
 
-                rounded_val = round(numeric_val, 3)
-
-                if rounded_val == int(rounded_val):
-                    qty_to_format = int(rounded_val)
+                # Cek jika hasilnya adalah bilangan bulat
+                if numeric_val == int(numeric_val):
+                    # Jika ya, format sebagai integer (tanpa desimal)
+                    return str(int(numeric_val))
                 else:
-                    qty_to_format = rounded_val
-
-                return str(qty_to_format)
+                    # Jika tidak, bulatkan dan format dengan tepat 3 digit di belakang koma
+                    rounded_val = round(numeric_val, 3)
+                    return f"{rounded_val:.3f}".replace('.', ',')
 
             base_quantity_str = format_quantity_for_sap(bom.get('IV_BMENG', 1))
 
@@ -246,7 +245,7 @@ def upload_material():
                 'EXTMATLGRP': get_string('Unnamed: 95'), 'INSPTYPE': get_string('Inspection Type'),
                 'STD_PRICE': get_numeric('StandardPrc'), 'MOVING_PR': get_numeric('MovingAvg'), 'PRICE_UNIT': get_numeric('Price Unit', default='1'), 'PEINH_2': get_numeric('Price Unit Hard Currency', default='1'),
                 'DENOMINATR': get_numeric('Denominator', default='1'), 'NUMERATOR': get_numeric('Numerator', default='1'), 'LENGTH': get_numeric('Length'), 'WIDTH': get_numeric('Width'), 'HEIGHT': get_numeric('Height'),
-                'GROSS_WT': get_numeric('Gross Weight'), 'NET_WEIGHT': get_numeric('Net Weight'), 'VOLUME': get_numeric('Volume'), 'MINLOTSIZE': get_numeric('Min Lot Size'), 'MAXLOTSIZE': get_string('Max Lot Size'),
+                'GROSS_WT': get_numeric('Gross Weight'), 'NET_WEIGHT': get_string('Net Weight'), 'VOLUME': get_numeric('Volume'), 'MINLOTSIZE': get_numeric('Min Lot Size'), 'MAXLOTSIZE': get_string('Max Lot Size'),
                 'ROUND_VAL': get_numeric('Rounding Value'), 'PLND_DELRY': get_numeric('Pl. Deliv. Time'), 'GR_PR_TIME': get_numeric('GR Processing Time'), 'SAFETY_STK': get_numeric('Safety Stock'),
                 'FWD_CONS': get_numeric('Forward Consumption Period'), 'BWD_CONS': get_numeric('Backward Consumption Period'), 'UNDER_TOL': get_numeric('Under Delivery Tolerance'), 'OVER_TOL': get_numeric('Over Delivery Tolerance'),
                 'LOT_SIZE': get_numeric('Costing lot size'),
