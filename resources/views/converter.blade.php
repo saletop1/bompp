@@ -69,20 +69,8 @@
         #process-another-btn { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
         #process-another-btn:hover { background-color: #157347 !important; border-color: #146c43 !important; }
 
-        /* Style Progress Bar */
-        .progress-container { padding: 0 2rem; }
-        .progress { height: 1.25rem; background-color: rgba(0, 0, 0, 0.2); border-radius: 0.5rem; overflow: hidden; }
-        .progress-bar {
-            background: linear-gradient(45deg, rgba(13,202,240,1) 25%, rgba(13,110,253,1) 50%, rgba(13,202,240,1) 75%);
-            background-size: 200% 200%;
-            animation: progressAnimation 2s linear infinite;
-        }
-        @keyframes progressAnimation {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; }
+        /* Style Progress Bar (DIPERBARUI) */
+        #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: -20px; }
     </style>
 </head>
 <body>
@@ -129,16 +117,14 @@
                         </div>
                     </div>
 
-                    <!-- Progress Bar -->
-                    <div id="progress-container" class="progress-container mt-4 d-none">
-                        <div class="progress">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <p id="progress-text" class="text-center mt-2 text-white">Processing...</p>
+                    <!-- Progress Bar Animation (DIPERBARUI) -->
+                    <div id="progress-container" class="text-center mt-4 d-none">
+                        <dotlottie-player src="{{ asset('animations/buble.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay></dotlottie-player>
+                        <p id="progress-text" class="text-center">Processing...</p>
                     </div>
 
                     <div id="upload-result" class="mt-3"></div>
-                    <div id="email-result" class="mt-3"></div> <!-- Area untuk status email -->
+                    <div id="email-result" class="mt-3"></div>
 
                     <!-- Area Notifikasi Email -->
                     <div id="email-notification-area" class="mt-4 d-none">
@@ -514,7 +500,6 @@
                     }
                 }
 
-                // ## FUNGSI DIPERBARUI ##
                 async function handleSendEmail() {
                     const recipient = emailRecipientInput.value;
                     if (!recipient) {
@@ -546,7 +531,6 @@
                             if(emailNotificationArea) emailNotificationArea.classList.add('d-none');
                             if(sendEmailBtn) sendEmailBtn.classList.add('d-none');
                         } else {
-                            // Menampilkan pesan error yang lebih informatif
                             let errorMessage = `Failed to send email: ${result.message || 'Unknown server error'}. <br><small>Please check the mail configuration in your application's <code>.env</code> file.</small>`;
                             showResult(emailResultDiv, false, errorMessage);
                         }

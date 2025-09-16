@@ -16,16 +16,16 @@
         <thead>
             <tr>
                 <th>Material Code</th>
-                <th>Plant</th>
                 <th>Status</th>
+                {{-- <th>Plant</th> --}}
             </tr>
         </thead>
         <tbody>
             @foreach($results as $item)
                 <tr>
                     <td>{{ $item['material_code'] }}</td>
-                    <td>{{ $item['plant'] }}</td>
                     <td>{{ $item['message'] }}</td>
+                    {{-- <td>{{ $item['plant'] }}</td> --}}
                 </tr>
             @endforeach
         </tbody>

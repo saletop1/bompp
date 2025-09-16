@@ -44,7 +44,9 @@ class BomImport extends DefaultValueBinder implements ToCollection, WithCustomVa
     }
 }
 
-
+/**
+ * @mixin \Maatwebsite\Excel\Excel
+ */
 class BomController extends Controller
 {
     // ===================================================================
@@ -69,6 +71,17 @@ class BomController extends Controller
             }
 
             $header = array_map('strtolower', $collection->first()->toArray());
+
+            // Menambahkan validasi untuk memastikan header file sesuai dengan format yang diharapkan.
+            $requiredHeaders = ['item', 'material description', 'qty', 'uom']; // Kolom minimal yang wajib ada
+            $missingHeaders = array_diff($requiredHeaders, $header);
+
+            if (!empty($missingHeaders)) {
+                // Jika ada header wajib yang hilang, tolak file dan berikan pesan error.
+                $errorMessage = 'File rejected. The following required columns are missing: ' . implode(', ', $missingHeaders);
+                return back()->withErrors(['file' => $errorMessage]);
+            }
+
             $inventorData = $collection->slice(1);
 
             $findValue = function(array $rowData, array $keys, $default = '') {
@@ -160,9 +173,6 @@ class BomController extends Controller
         }
     }
 
-    /**
-     * [DIPERBAIKI] Fungsi API untuk mencari kode material dengan logika yang lebih aman.
-     */
     public function generateBomMaterialCodes(Request $request)
     {
         $request->validate(['filename' => 'required|string']);
@@ -178,7 +188,7 @@ class BomController extends Controller
 
             $detailedResults = [];
             $foundCount = 0;
-            $updatedBoms = []; // Array baru yang bersih untuk menyimpan hasil
+            $updatedBoms = [];
 
             foreach ($boms as $bom) {
                 $parentData = $bom['parent'];
@@ -220,7 +230,7 @@ class BomController extends Controller
                 ];
             }
 
-            $fileContent['boms'] = $updatedBoms; // Ganti data lama dengan data baru yang bersih
+            $fileContent['boms'] = $updatedBoms;
             Storage::disk('local')->put($filename, json_encode($fileContent));
 
             $notFoundCount = count($detailedResults) - $foundCount;
@@ -299,8 +309,7 @@ class BomController extends Controller
                     'IV_WERKS'      => $plant,
                     'IV_STLAN'      => '1',
                     'IV_STLAL'      => '01',
-                    // ## PERBAIKAN DI SINI ##
-                    'IV_DATUV'      => date('dmY'), // Mengubah format tanggal ke ddmmyyyy
+                    'IV_DATUV'      => date('dmY'),
                     'IV_BMENG'      => $baseQuantity,
                     'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC',
                     'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload',
@@ -424,6 +433,18 @@ class BomController extends Controller
             }
 
             $inventorHeader = array_map('strtolower', $collection->first()->toArray());
+
+            // ## PERBAIKAN DI SINI ##
+            // Menambahkan validasi header untuk Material Converter
+            $requiredHeaders = ['material description', 'base unit of measure']; // Anda bisa menambahkan header wajib lainnya
+            $missingHeaders = array_diff($requiredHeaders, $inventorHeader);
+
+            if (!empty($missingHeaders)) {
+                // Jika header wajib hilang, tolak file
+                $errorMessage = 'File rejected. The file header is invalid. The following required columns are missing: ' . implode(', ', $missingHeaders);
+                return back()->withErrors(['file' => $errorMessage]);
+            }
+
             $inventorData = $collection->slice(1);
 
             $divisionMap = [
@@ -572,13 +593,18 @@ class BomController extends Controller
 
     public function sendNotification(Request $request)
     {
-        $request->validate(['recipient' => 'required|email', 'results' => 'required|array']);
+        $request->validate([
+            'recipient' => 'required|email',
+            'results' => 'required|array'
+        ]);
         try {
+            // ## PERBAIKAN DI SINI ##
+            // Menghapus logika yang menambahkan 'plant'
             Mail::to($request->input('recipient'))->send(new SapUploadNotification($request->input('results')));
-            return response()->json(['message' => 'Email sent successfully!']);
+            return response()->json(['message' => 'Email notification sent successfully!']);
         } catch (\Exception $e) {
             Log::error('Email sending failed: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to send email.'], 500);
+            return response()->json(['message' => 'Failed to send email. Server error: ' . $e->getMessage()], 500);
         }
     }
 
