@@ -63,10 +63,26 @@
         .input-group-underline .bi { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); color: rgba(255, 255, 255, 0.6); font-size: 1.1rem; }
         .frosted-glass .modal-header, .frosted-glass .modal-footer { border-bottom: none; border-top: none; }
         .frosted-glass .modal-title { font-weight: 300; }
+        #confirmationModal .modal-body { max-height: 40vh; overflow-y: auto; }
 
         /* Style Tombol Process Another */
         #process-another-btn { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
         #process-another-btn:hover { background-color: #157347 !important; border-color: #146c43 !important; }
+
+        /* Style Progress Bar */
+        .progress-container { padding: 0 2rem; }
+        .progress { height: 1.25rem; background-color: rgba(0, 0, 0, 0.2); border-radius: 0.5rem; overflow: hidden; }
+        .progress-bar {
+            background: linear-gradient(45deg, rgba(13,202,240,1) 25%, rgba(13,110,253,1) 50%, rgba(13,202,240,1) 75%);
+            background-size: 200% 200%;
+            animation: progressAnimation 2s linear infinite;
+        }
+        @keyframes progressAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; }
     </style>
 </head>
 <body>
@@ -107,20 +123,29 @@
                 {{-- TAMPILAN AREA HASIL --}}
                 <div id="download-area">
                     <div class="download-area-header">
-                        {{-- <dotlottie-player src="https://lottie.host/88a2a823-34e1-433b-8711-9a4f8eee42d5/C9kQj42a49.json" background="transparent" speed="1" style="width: 120px; height: 120px;" autoplay></dotlottie-player> --}}
                         <div class="ms-3">
                             <h4 class="download-area-title mb-0">Processing Complete!</h4>
                             <p class="download-area-text mt-0">{{ session('success') }}</p>
                         </div>
                     </div>
 
-                    <div id="upload-result" class="mt-3"></div>
-                    <div id="qm-result" class="mt-3"></div>
-                    <div id="email-notification-area" class="mt-4 d-none">
-                    <div class="input-group mb-3 mx-auto" style="max-width: 400px;">
-                        <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
-                        <input type="email" id="email-recipient" class="form-control" placeholder="Masukkan email penerima...">
+                    <!-- Progress Bar -->
+                    <div id="progress-container" class="progress-container mt-4 d-none">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <p id="progress-text" class="text-center mt-2 text-white">Processing...</p>
                     </div>
+
+                    <div id="upload-result" class="mt-3"></div>
+                    <div id="email-result" class="mt-3"></div> <!-- Area untuk status email -->
+
+                    <!-- Area Notifikasi Email -->
+                    <div id="email-notification-area" class="mt-4 d-none">
+                        <div class="input-group mb-3 mx-auto" style="max-width: 450px;">
+                            <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
+                            <input type="email" id="email-recipient" class="form-control" placeholder="Enter recipient email for notification...">
+                        </div>
                     </div>
 
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
@@ -129,11 +154,7 @@
                             <i class="bi bi-cloud-upload"></i> Upload to SAP
                         </button>
 
-                        <button type="button" id="activate-qm-btn" class="btn btn-warning btn-lg px-4 gap-3 d-none">
-                            <span class="spinner-border spinner-border-sm d-none"></span>
-                            <i class="bi bi-shield-check"></i> Activate QM
-                        </button>
-
+                        <!-- Tombol Notifikasi Email -->
                         <button type="button" id="send-email-btn" class="btn btn-danger btn-lg px-4 gap-3 d-none">
                             <span class="spinner-border spinner-border-sm d-none"></span>
                             <i class="bi bi-envelope-at-fill"></i> Send Notification
@@ -233,6 +254,7 @@
         </footer>
     </div>
 
+    <!-- Modal Login SAP -->
     <div class="modal fade" id="sapLoginModal" tabindex="-1" aria-labelledby="sapLoginModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content frosted-glass">
@@ -253,8 +275,28 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="confirm-action-btn">
-                        {{-- Teks dan ikon akan diubah oleh JavaScript --}}
+                    <button type="button" class="btn btn-primary" id="confirm-action-btn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Upload & Aktivasi QM -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content frosted-glass">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmationModalLabel">Confirm Upload & Activate QM</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmation-modal-body">
+                    <!-- Konten akan diisi oleh JavaScript -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" id="confirm-activate-btn">
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                        <i class="bi bi-shield-check"></i> Confirm & Activate
                     </button>
                 </div>
             </div>
@@ -264,6 +306,12 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // --- VARIABEL GLOBAL ---
+            let stagedMaterials = [];
+            let finalUploadResults = [];
+            let sapUsername = '';
+            let sapPassword = '';
+
             // --- LOGIKA FORM AWAL ---
             const form = document.getElementById('upload-form');
             if (form) {
@@ -281,9 +329,6 @@
                 materialTypeSelect.addEventListener('change', function () {
                     const isFert = this.value === 'FERT';
                     fertOptionsContainer.classList.toggle('d-none', !isFert);
-                    fertOptionsContainer.classList.toggle('row', isFert);
-                    fertOptionsContainer.classList.toggle('g-3', isFert);
-                    fertOptionsContainer.classList.toggle('mb-3', isFert);
                     divisionSelect.required = isFert;
                     channelSelect.required = isFert;
                 });
@@ -297,17 +342,12 @@
                 ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false));
 
                 dropZone.addEventListener('drop', (event) => {
-                    if (event.dataTransfer.files.length > 0) {
-                        handleFile(event.dataTransfer.files[0]);
-                    }
+                    if (event.dataTransfer.files.length > 0) handleFile(event.dataTransfer.files[0]);
                 }, false);
 
                 dropZone.addEventListener('click', () => fileInput.click());
-
                 fileInput.addEventListener('change', () => {
-                    if (fileInput.files.length > 0) {
-                        handleFile(fileInput.files[0]);
-                    }
+                    if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
                 });
 
                 function handleFile(file) {
@@ -366,152 +406,171 @@
             const downloadArea = document.getElementById('download-area');
             if (downloadArea) {
                 const uploadSapBtn = document.getElementById('upload-sap-btn');
-                const activateQmBtn = document.getElementById('activate-qm-btn');
-                const sendEmailBtn = document.getElementById('send-email-btn'); // <-- BARU
-                const emailNotificationArea = document.getElementById('email-notification-area'); // <-- BARU
-                const emailRecipientInput = document.getElementById('email-recipient'); // <-- BARU
                 const downloadOnlyBtn = document.getElementById('download-only-btn');
-                const sapLoginModal = new bootstrap.Modal(document.getElementById('sapLoginModal'));
-                const confirmBtn = document.getElementById('confirm-action-btn');
-                const modalTitle = document.getElementById('sapLoginModalLabel');
+                const sapLoginModalEl = document.getElementById('sapLoginModal');
+                const sapLoginModal = new bootstrap.Modal(sapLoginModalEl);
+                const confirmationModalEl = document.getElementById('confirmationModal');
+                const confirmationModal = new bootstrap.Modal(confirmationModalEl);
+                const confirmLoginBtn = document.getElementById('confirm-action-btn');
+                const confirmActivateBtn = document.getElementById('confirm-activate-btn');
                 const uploadResultDiv = document.getElementById('upload-result');
-                const qmResultDiv = document.getElementById('qm-result');
+                const progressContainer = document.getElementById('progress-container');
+                const progressText = document.getElementById('progress-text');
+                const sendEmailBtn = document.getElementById('send-email-btn');
+                const emailNotificationArea = document.getElementById('email-notification-area');
+                const emailRecipientInput = document.getElementById('email-recipient');
+                const emailResultDiv = document.getElementById('email-result');
 
-                let currentAction = '';
+                if(uploadSapBtn) uploadSapBtn.addEventListener('click', () => sapLoginModal.show());
+                if(confirmLoginBtn) confirmLoginBtn.addEventListener('click', handleStaging);
+                if(confirmActivateBtn) confirmActivateBtn.addEventListener('click', handleFinalActivation);
+                if(sendEmailBtn) sendEmailBtn.addEventListener('click', handleSendEmail);
 
-                uploadSapBtn.addEventListener('click', () => {
-                    currentAction = 'upload';
-                    modalTitle.textContent = 'SAP Authentication for Upload';
-                    confirmBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Confirm & Upload';
-                    sapLoginModal.show();
-                });
-
-                activateQmBtn.addEventListener('click', () => {
-                    currentAction = 'qm';
-                    modalTitle.textContent = 'SAP Authentication for QM Activation';
-                    confirmBtn.innerHTML = '<i class="bi bi-shield-check"></i> Confirm & Activate';
-                    sapLoginModal.show();
-                });
-
-                // --- EVENT LISTENER BARU UNTUK TOMBOL EMAIL ---
-                sendEmailBtn.addEventListener('click', async () => {
-                    if (!emailRecipientInput.value) {
-                    alert('Please enter a recipient email address.');
-                    return;
+                async function handleStaging() {
+                    sapUsername = document.getElementById('sap-username').value;
+                    sapPassword = document.getElementById('sap-password').value;
+                    if (!sapUsername || !sapPassword) {
+                        alert('Username and Password are required.');
+                        return;
                     }
-                await handleSendEmail();
-                });
-
-                confirmBtn.addEventListener('click', async () => {
                     sapLoginModal.hide();
-                    if (currentAction === 'upload') {
-                        await handleUpload();
-                    } else if (currentAction === 'qm') {
-                        await handleQmActivation();
-                    }
-                });
-
-                async function handleUpload() {
                     setLoadingState(uploadSapBtn, true);
-                    uploadResultDiv.innerHTML = '';
-                    qmResultDiv.innerHTML = '';
+                    showProgressBar('Preparing data for SAP...');
 
                     try {
                         const response = await fetch("{{ route('api.sap.upload') }}", {
                             method: 'POST',
                             headers: getHeaders(),
-                            body: getAuthBody({ filename: uploadSapBtn.dataset.filename })
+                            body: JSON.stringify({
+                                username: sapUsername,
+                                password: sapPassword,
+                                filename: uploadSapBtn.dataset.filename
+                            })
                         });
                         const result = await response.json();
-                        showResult(uploadResultDiv, response.ok && result.status === 'success', result.message, result.results, 'upload');
 
-                        if (response.ok && result.status === 'success') {
-                            const successfulMaterials = result.results.filter(r => r.status === 'Success');
-                            if (successfulMaterials.length > 0) {
-                                uploadSapBtn.classList.add('d-none');
-                                if(downloadOnlyBtn) downloadOnlyBtn.classList.add('d-none');
-                                activateQmBtn.classList.remove('d-none');
-                                sendEmailBtn.classList.remove('d-none');
-                                emailNotificationArea.classList.remove('d-none')
-                            }
+                        if (response.ok && result.status === 'staged') {
+                            stagedMaterials = result.results;
+                            showConfirmationModal(stagedMaterials);
+                        } else {
+                            showResult(uploadResultDiv, false, result.message || 'Staging process failed.');
                         }
+
                     } catch (error) {
-                        showResult(uploadResultDiv, false, 'Network Error during upload.');
+                        showResult(uploadResultDiv, false, 'Network Error during staging process.');
                     } finally {
                         setLoadingState(uploadSapBtn, false);
+                        hideProgressBar();
                     }
                 }
 
-                async function handleQmActivation() {
-                    setLoadingState(activateQmBtn, true);
-                    qmResultDiv.innerHTML = '';
+                function showConfirmationModal(materials) {
+                    const modalBody = document.getElementById('confirmation-modal-body');
+                    let materialListHtml = `<p>The following ${materials.length} material(s) will be uploaded and activated:</p><ul class="list-group">`;
+                    materials.forEach(mat => {
+                        materialListHtml += `<li class="list-group-item bg-transparent text-white border-secondary">${mat.Material}: ${mat['Material Description']}</li>`;
+                    });
+                    materialListHtml += '</ul>';
+                    modalBody.innerHTML = materialListHtml;
+                    confirmationModal.show();
+                }
 
-                    const successfulMaterials = Array.from(uploadResultDiv.querySelectorAll('li.is-success'))
-                        .map(li => ({
-                            matnr: li.dataset.materialCode,
-                            werks: li.dataset.plant
-                        }));
-
-                    if (successfulMaterials.length === 0) {
-                        showResult(qmResultDiv, false, 'No successful materials to activate.');
-                        setLoadingState(activateQmBtn, false);
-                        return;
-                    }
+                async function handleFinalActivation() {
+                    confirmationModal.hide();
+                    setLoadingState(confirmActivateBtn, true);
+                    uploadResultDiv.innerHTML = '';
+                    showProgressBar('Uploading materials and activating QM...');
 
                     try {
                         const response = await fetch("{{ route('api.qm.activate') }}", {
                             method: 'POST',
                             headers: getHeaders(),
-                            body: getAuthBody({
-                                materials: successfulMaterials,
-                                plant: "{{ session('processed_plant') }}"
+                            body: JSON.stringify({
+                                username: sapUsername,
+                                password: sapPassword,
+                                materials: stagedMaterials
                             })
                         });
                         const result = await response.json();
-                        showResult(qmResultDiv, response.ok && result.status === 'success', result.message, result.results, 'qm');
+                        showResult(uploadResultDiv, response.ok && result.status === 'success', result.message, result.results);
+
+                        if (response.ok && result.status === 'success') {
+                            finalUploadResults = result.results;
+                            const successfulMaterials = finalUploadResults.filter(r => r.status === 'Success');
+
+                            if (successfulMaterials.length > 0) {
+                                if(uploadSapBtn) uploadSapBtn.classList.add('d-none');
+                                if(downloadOnlyBtn) downloadOnlyBtn.classList.add('d-none');
+                                if(emailNotificationArea) emailNotificationArea.classList.remove('d-none');
+                                if(sendEmailBtn) sendEmailBtn.classList.remove('d-none');
+                            }
+                        }
+
                     } catch (error) {
-                        showResult(qmResultDiv, false, 'Network Error during QM activation.');
+                        showResult(uploadResultDiv, false, 'Network Error during final activation.');
                     } finally {
-                        setLoadingState(activateQmBtn, false);
-                        activateQmBtn.classList.add('d-none');
-                        document.getElementById('send-email-btn').classList.add('d-none');
-                        document.getElementById('email-notification-area').classList.add('d-none'); // Sembunyikan juga area input email
+                        setLoadingState(confirmActivateBtn, false);
+                        hideProgressBar();
                     }
                 }
 
-                // --- FUNGSI BARU UNTUK MENGIRIM EMAIL ---
-            async function handleSendEmail() {
-                setLoadingState(sendEmailBtn, true);
-
-                const successfulMaterials = Array.from(uploadResultDiv.querySelectorAll('li.is-success'))
-                    .map(li => ({
-                        material_code: li.dataset.materialCode,
-                        plant: li.dataset.plant,
-                        message: li.textContent.split(':').pop().trim() // Ambil pesan OK
-                    }));
-
-                try {
-                    const response = await fetch("{{ route('api.notification.send') }}", {
-                        method: 'POST',
-                        headers: getHeaders(),
-                        body: JSON.stringify({
-                            recipient: emailRecipientInput.value,
-                            results: successfulMaterials
-                        })
-                    });
-
-                    if(response.ok) {
-                        alert('Email notification sent successfully!');
-                    } else {
-                        const errorResult = await response.json();
-                        alert('Failed to send email: ' + (errorResult.message || 'Unknown error'));
+                // ## FUNGSI DIPERBARUI ##
+                async function handleSendEmail() {
+                    const recipient = emailRecipientInput.value;
+                    if (!recipient) {
+                        alert('Please enter a recipient email address.');
+                        return;
                     }
-                } catch (error) {
-                    alert('Network error while sending email.');
-                } finally {
-                    setLoadingState(sendEmailBtn, false);
+                    if (!finalUploadResults || finalUploadResults.length === 0) {
+                        alert('There are no results to send.');
+                        return;
+                    }
+
+                    setLoadingState(sendEmailBtn, true);
+                    if(emailResultDiv) emailResultDiv.innerHTML = '';
+                    showProgressBar('Sending email notification...');
+
+                    try {
+                        const response = await fetch("{{ route('api.notification.send') }}", {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify({
+                                recipient: recipient,
+                                results: finalUploadResults
+                            })
+                        });
+
+                        const result = await response.json();
+                        if(response.ok) {
+                            showResult(emailResultDiv, true, result.message || 'Email notification sent successfully!');
+                            if(emailNotificationArea) emailNotificationArea.classList.add('d-none');
+                            if(sendEmailBtn) sendEmailBtn.classList.add('d-none');
+                        } else {
+                            // Menampilkan pesan error yang lebih informatif
+                            let errorMessage = `Failed to send email: ${result.message || 'Unknown server error'}. <br><small>Please check the mail configuration in your application's <code>.env</code> file.</small>`;
+                            showResult(emailResultDiv, false, errorMessage);
+                        }
+                    } catch (error) {
+                        let networkErrorMessage = 'Network error while sending email. Please ensure the application server is running and check the browser console for more details.';
+                        showResult(emailResultDiv, false, networkErrorMessage);
+                    } finally {
+                        setLoadingState(sendEmailBtn, false);
+                        hideProgressBar();
+                    }
                 }
-            }
+
+                function showProgressBar(text) {
+                    if (progressContainer && progressText) {
+                        progressText.textContent = text;
+                        progressContainer.classList.remove('d-none');
+                    }
+                }
+
+                function hideProgressBar() {
+                    if (progressContainer) {
+                        progressContainer.classList.add('d-none');
+                    }
+                }
 
                 const getHeaders = () => ({
                     'Content-Type': 'application/json',
@@ -519,29 +578,23 @@
                     'Accept': 'application/json'
                 });
 
-                const getAuthBody = (additionalData) => JSON.stringify({
-                    username: document.getElementById('sap-username').value,
-                    password: document.getElementById('sap-password').value,
-                    ...additionalData
-                });
-
                 function setLoadingState(button, isLoading) {
+                    if(!button) return;
                     const spinner = button.querySelector('.spinner-border');
                     button.disabled = isLoading;
-                    isLoading ? spinner.classList.remove('d-none') : spinner.classList.add('d-none');
+                    if(spinner) isLoading ? spinner.classList.remove('d-none') : spinner.classList.add('d-none');
                 }
 
-                function showResult(div, isSuccess, message, details = null, type = 'upload') {
+                function showResult(div, isSuccess, message, details = null) {
+                    if(!div) return;
                     const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
                     let html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
                     if (details && Array.isArray(details)) {
                         html += '<div class="upload-details"><ul>';
                         details.forEach(item => {
                             const icon = item.status === 'Success' ? '✅' : '❌';
-                            const successClass = item.status === 'Success' ? 'is-success' : '';
-                            const dataAttrs = (type === 'upload' && item.plant) ? `data-material-code="${item.material_code}" data-plant="${item.plant}"` : `data-material-code="${item.material_code}"`;
                             const plantInfo = item.plant ? `(Plant: ${item.plant})` : '';
-                            html += `<li class="${successClass}" ${dataAttrs}>${icon} <strong>${item.material_code}</strong> ${plantInfo}: ${item.message}</li>`;
+                            html += `<li>${icon} <strong>${item.material_code}</strong> ${plantInfo}: ${item.message}</li>`;
                         });
                         html += '</ul></div>';
                     }
@@ -552,3 +605,4 @@
     </script>
 </body>
 </html>
+
