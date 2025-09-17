@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Exports\ProcessedBomExport;
-use App\Imports\HeadingRowImport;
 use App\Exports\MaterialMasterExport;
+use App\Exports\SapUploadReportExport;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\SapUploadNotification;
 
@@ -50,7 +50,7 @@ class BomImport extends DefaultValueBinder implements ToCollection, WithCustomVa
 class BomController extends Controller
 {
     // ===================================================================
-    // == FUNGSI UNTUK BOM UPLOADER (TIDAK BERUBAH)==
+    // == FUNGSI UNTUK BOM UPLOADER ==
     // ===================================================================
 
     public function index()
@@ -66,7 +66,7 @@ class BomController extends Controller
             Excel::import($import, $request->file('file'));
             $collection = $import->data;
 
-             if ($collection->isEmpty() || $collection->count() <= 1) {
+            if ($collection->isEmpty() || $collection->count() <= 1) {
                 return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
             }
 
@@ -85,7 +85,7 @@ class BomController extends Controller
             $findValue = function(array $rowData, array $keys, $default = '') {
                 foreach ($keys as $key) {
                     if (isset($rowData[$key]) && !is_null($rowData[$key]) && $rowData[$key] !== '') {
-                        return trim((string) $rowData[$key]);
+                        return preg_replace('/\s+/', ' ', trim((string) $rowData[$key]));
                     }
                 }
                 return $default;
@@ -163,7 +163,8 @@ class BomController extends Controller
 
             return redirect()->route('bom.index')
                 ->with('processed_filename', $tempFilename)
-                ->with('success', 'File structure has been processed. Ready to generate material codes.');
+                ->with('success', 'File structure has been processed. Ready to generate material codes.')
+                ->with('processed_plant', $request->input('plant'));
         } catch (\Exception $e) {
             Log::error('BOM Processing Error: ' . $e->getMessage());
             return back()->withErrors('Error during file processing: ' . $e->getMessage());
@@ -315,7 +316,6 @@ class BomController extends Controller
             }
 
             if (empty($bomsForUpload)) {
-                //  Storage::disk('local')->delete($filename);
                  return response()->json(['status' => 'success', 'message' => 'BOM upload process finished. No valid BOMs remained after final validation.', 'results' => []]);
             }
 
@@ -327,7 +327,6 @@ class BomController extends Controller
                 'boms' => $bomsForUpload
             ]);
 
-            // Storage::disk('local')->delete($filename);
             return $response->json();
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => 'A fatal error occurred: ' . $e->getMessage()], 500);
@@ -433,7 +432,7 @@ class BomController extends Controller
     }
 
     // ===================================================================
-    // == FUNGSI UNTUK MATERIAL CONVERTER (DARI ExcelConverterController) ==
+    // == FUNGSI UNTUK MATERIAL CONVERTER ==
     // ===================================================================
 
     public function showMaterialConverter()
@@ -500,7 +499,8 @@ class BomController extends Controller
                 foreach ($columnMapping as $sapCol => $inventorCol) {
                     $inventorColLower = strtolower($inventorCol);
                     if (isset($rowData[$inventorColLower])) {
-                        $tempSapRow[$sapCol] = strtoupper(trim((string)$rowData[$inventorColLower]));
+                        $cleanedValue = preg_replace('/\s+/', ' ', trim((string)$rowData[$inventorColLower]));
+                        $tempSapRow[$sapCol] = strtoupper($cleanedValue);
                     }
                 }
 
@@ -554,7 +554,6 @@ class BomController extends Controller
         }
     }
 
-    // --- PERUBAHAN 1: GANTI NAMA DAN FUNGSI METHOD INI ---
     public function stageMaterials(Request $request)
     {
         $request->validate(['filename' => 'required']);
@@ -573,8 +572,13 @@ class BomController extends Controller
                 'materials' => $materials
             ]);
 
-            // Hapus file sementara setelah diproses
-            Storage::disk('local')->delete($filename);
+            // Simpan hasil untuk didownload nanti
+            $reportFilename = 'report_' . Str::after($filename, 'material_processed_');
+            $responseData = $response->json();
+            if($response->successful() && isset($responseData['results'])) {
+                Storage::disk('local')->put($reportFilename, json_encode($responseData['results']));
+                $request->session()->put('report_filename', $reportFilename);
+            }
 
             // Kembalikan respons dari Python langsung ke frontend
             return $response->json();
@@ -605,7 +609,6 @@ class BomController extends Controller
         }
     }
 
-    // --- PERUBAHAN 2: GANTI NAMA DAN FUNGSI METHOD INI ---
     public function activateAndUpload(Request $request)
     {
         $request->validate(['username' => 'required', 'password' => 'required', 'materials' => 'required|array']);
@@ -623,6 +626,35 @@ class BomController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    public function downloadUploadReport(Request $request)
+    {
+        try {
+            // Ambil dari request POST jika ada, jika tidak, coba dari session
+            if ($request->has('results')) {
+                $results = $request->input('results');
+            } elseif ($request->session()->has('report_filename')) {
+                $reportFilename = $request->session()->get('report_filename');
+                if (Storage::disk('local')->exists($reportFilename)) {
+                    $results = json_decode(Storage::disk('local')->get($reportFilename), true);
+                    Storage::disk('local')->delete($reportFilename); // Hapus setelah diambil
+                } else {
+                    return response()->json(['message' => 'Report file not found in session.'], 404);
+                }
+            } else {
+                 return response()->json(['message' => 'No result data provided for the report.'], 400);
+            }
+
+            $plant = $request->input('plant', session('processed_plant', 'N_A'));
+            $downloadFilename = 'SAP_UPLOAD_REPORT_' . $plant . '_' . date('Y-m-d') . '.xlsx';
+
+            return Excel::download(new SapUploadReportExport($results), $downloadFilename);
+        } catch (\Exception $e) {
+            Log::error("Error generating upload report: " . $e->getMessage());
+            return response()->json(['message' => 'Could not generate the report due to a server error.'], 500);
+        }
+    }
+
 
     public function generateNextMaterialCode(Request $request)
     {
@@ -670,3 +702,4 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
+
