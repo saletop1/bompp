@@ -24,7 +24,7 @@
         .page-title-container .subtitle { color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-size: 0.9rem; }
         .sap-logo-header { height: 80px; width: auto; margin-left: 20px; }
         .upload-details { max-height: 200px; overflow-y: auto; text-align: left; font-size: 0.85rem; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; margin-top: 15px; }
-        .upload-details ul li { color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .upload-details ul { color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); list-style-type: none; padding-left: 0; }
         .modal-content.frosted-glass { background: rgba(30, 30, 30, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border-radius: 0.75rem; color: #ffffff; }
         .input-group-underline { position: relative; }
         .input-underline { background-color: transparent !important; border: none !important; border-bottom: 2px solid rgba(255, 255, 255, 0.4) !important; border-radius: 0 !important; padding-left: 35px !important; color: #ffffff !important; transition: border-color 0.3s ease; }
@@ -44,6 +44,7 @@
         #process-another-btn-bom:hover { background-color: #157347 !important; border-color: #146c43 !important; }
         .alert.alert-success-frosted { background: rgba(25, 135, 126, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .alert.alert-danger { background: rgba(220, 53, 69, 0.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: -20px; }
     </style>
 </head>
 <body>
@@ -67,7 +68,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}">
-                                <i class="bi bi-diagram-3 me-2"></i>BOM Uploader
+                                <i class="bi bi-diagram-3 me-2"></i>BOM Converter
                             </a>
                         </li>
                     </ul>
@@ -88,8 +89,23 @@
                         </div>
                     </div>
 
+                    <!-- Progress Bar Animation -->
+                    <div id="progress-container" class="text-center mt-4 d-none">
+                        <dotlottie-player src="{{ asset('animations/dot_shoot.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay></dotlottie-player>
+                        <p id="progress-text">Uploading...</p>
+                    </div>
+
                     {{-- DIV untuk menampilkan hasil --}}
                     <div id="result-display" class="mt-3"></div>
+                    <div id="email-result" class="mt-3"></div>
+
+                    {{-- Area Notifikasi Email (Awalnya tersembunyi) --}}
+                    <div id="email-notification-area" class="mt-4 d-none">
+                        <div class="input-group mb-3 mx-auto" style="max-width: 450px;">
+                            <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
+                            <input type="email" id="email-recipient-bom" class="form-control" placeholder="Enter recipient email for notification...">
+                        </div>
+                    </div>
 
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
 
@@ -107,6 +123,11 @@
                         <a href="{{ route('bom.download', ['filename' => session('processed_filename')]) }}" id="download-processed-btn" class="btn btn-success btn-lg px-4 d-none">
                             <i class="bi bi-download"></i> Download Processed File
                         </a>
+                         {{-- Tombol Notifikasi Email (Awalnya tersembunyi) --}}
+                        <button type="button" id="send-email-btn-bom" class="btn btn-danger btn-lg px-4 d-none">
+                            <span class="spinner-border spinner-border-sm d-none"></span>
+                            <i class="bi bi-envelope-at-fill"></i> Send Notification
+                        </button>
                         <a href="{{ route('bom.index') }}" id="process-another-btn-bom" class="btn btn-secondary btn-lg px-4"><i class="bi bi-arrow-repeat"></i> Process Another</a>
                     </div>
                 </div>
@@ -176,6 +197,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // --- Variabel Global ---
+            let finalBomUploadResults = [];
+
             // --- Helper Functions ---
             const getHeaders = () => ({
                 'Content-Type': 'application/json',
@@ -203,16 +227,14 @@
                 if (details && Array.isArray(details)) {
                     html += '<div class="upload-details"><ul>';
                     details.forEach(item => {
-                        // --- PERBAIKAN DI SINI ---
-                        // Cek apakah item.status ada (untuk hasil upload) atau tidak (untuk hasil generate)
                         if (item.status !== undefined) {
-                            // Ini untuk hasil UPLOAD
                             const icon = item.status === 'Success' ? '✅' : '❌';
-                            html += `<li>${icon} <strong>${item.material_code}:</strong> ${item.message}</li>`;
+                            const cleanMessage = item.message.replace(/^✅\s*|^\s*/, '').replace(/0*(\d+)/g, "$1");
+                            html += `<li>${icon} ${cleanMessage}</li>`;
                         } else {
-                            // Ini untuk hasil GENERATE
                             const icon = item.code !== 'tidak ditemukan' ? '✅' : '❌';
-                            html += `<li>${icon} <strong>${item.description}:</strong> ${item.code}</li>`;
+                            const cleanCode = item.code.match(/^[a-zA-Z]/) ? item.code : parseInt(item.code, 10);
+                            html += `<li>${icon} <strong>${item.description}:</strong> ${cleanCode}</li>`;
                         }
                     });
                     html += '</ul></div>';
@@ -220,6 +242,21 @@
                 div.innerHTML = html;
             }
 
+            function showProgressBar(text) {
+                const progressContainer = document.getElementById('progress-container');
+                const progressText = document.getElementById('progress-text');
+                if (progressContainer && progressText) {
+                    progressText.textContent = text;
+                    progressContainer.classList.remove('d-none');
+                }
+            }
+
+            function hideProgressBar() {
+                const progressContainer = document.getElementById('progress-container');
+                if (progressContainer) {
+                    progressContainer.classList.add('d-none');
+                }
+            }
 
             // --- Form Upload Logic ---
             const form = document.getElementById('upload-form');
@@ -275,11 +312,16 @@
                 const sapLoginModal = new bootstrap.Modal(document.getElementById('sapLoginModal'));
                 const confirmBtn = document.getElementById('confirm-action-btn');
 
+                // Email Notification elements
+                const emailNotificationArea = document.getElementById('email-notification-area');
+                const sendEmailBtn = document.getElementById('send-email-btn-bom');
+                const emailResultDiv = document.getElementById('email-result');
+
                 // Step 1: Generate Codes
                 generateBtn.addEventListener('click', async () => {
                     setLoadingState(generateBtn, true);
                     resultDiv.innerHTML = '';
-
+                    showProgressBar('Generating material codes...');
                     try {
                         const response = await fetch("{{ route('api.bom.generate_codes') }}", {
                             method: 'POST',
@@ -287,10 +329,7 @@
                             body: JSON.stringify({ filename: generateBtn.dataset.filename })
                         });
                         const result = await response.json();
-
-                        // Menggunakan 'result.results' yang berisi 'description' dan 'code'
                         showResult(resultDiv, response.ok, result.message, result.results);
-
                         if (response.ok && result.status === 'success') {
                             generateBtn.classList.add('d-none');
                             uploadBomBtn.classList.remove('d-none');
@@ -300,6 +339,7 @@
                         showResult(resultDiv, false, 'Network error during code generation.');
                     } finally {
                         setLoadingState(generateBtn, false);
+                        hideProgressBar();
                     }
                 });
 
@@ -309,14 +349,18 @@
                 });
 
                 // Step 3: Handle the actual upload after login confirmation
-                confirmBtn.addEventListener('click', async () => {
+                confirmBtn.addEventListener('click', () => {
                     sapLoginModal.hide();
-                    await handleBomUpload();
+                    handleBomUpload();
                 });
+
+                // Step 4 (New): Handle sending email
+                sendEmailBtn.addEventListener('click', handleSendBomEmail);
 
                 async function handleBomUpload() {
                     setLoadingState(uploadBomBtn, true);
                     resultDiv.innerHTML = '';
+                    showProgressBar('Uploading BOM to SAP...');
                     try {
                         const response = await fetch("{{ route('api.bom.upload') }}", {
                             method: 'POST',
@@ -324,14 +368,19 @@
                             body: getAuthBody({ filename: uploadBomBtn.dataset.filename })
                         });
                         const result = await response.json();
-
-                        // Menggunakan 'result.results' yang berisi 'material_code' dan 'message'
                         showResult(resultDiv, response.ok && result.status === 'success', result.message, result.results);
 
                         if (response.ok && result.status === 'success') {
-                            const hasFailures = result.results.some(r => r.status === 'Failed');
+                            finalBomUploadResults = result.results; // Simpan hasil untuk dikirim via email
+                            const successfulUploads = finalBomUploadResults.filter(r => r.status === 'Success');
+
+                            if (successfulUploads.length > 0) {
+                                emailNotificationArea.classList.remove('d-none');
+                                sendEmailBtn.classList.remove('d-none');
+                            }
+
+                            const hasFailures = finalBomUploadResults.some(r => r.status === 'Failed');
                             if (!hasFailures) {
-                                // If everything succeeded, hide the upload button
                                 uploadBomBtn.classList.add('d-none');
                             }
                         }
@@ -339,6 +388,43 @@
                         showResult(resultDiv, false, 'Network Error during BOM upload.');
                     } finally {
                         setLoadingState(uploadBomBtn, false);
+                        hideProgressBar();
+                    }
+                }
+
+                async function handleSendBomEmail() {
+                    const recipientInput = document.getElementById('email-recipient-bom');
+                    const recipient = recipientInput.value;
+                    if (!recipient) {
+                        alert('Please enter a recipient email address.');
+                        return;
+                    }
+                    if (!finalBomUploadResults || finalBomUploadResults.length === 0) {
+                        alert('There are no results to send.');
+                        return;
+                    }
+
+                    setLoadingState(sendEmailBtn, true);
+                    emailResultDiv.innerHTML = '';
+                    showProgressBar('Sending email notification...');
+
+                    try {
+                        const response = await fetch("{{ route('api.notification.send') }}", {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify({ recipient: recipient, results: finalBomUploadResults })
+                        });
+                        const result = await response.json();
+                        showResult(emailResultDiv, response.ok, result.message);
+                        if (response.ok) {
+                            emailNotificationArea.classList.add('d-none');
+                            sendEmailBtn.classList.add('d-none');
+                        }
+                    } catch (error) {
+                        showResult(emailResultDiv, false, 'Network error while sending email.');
+                    } finally {
+                        setLoadingState(sendEmailBtn, false);
+                        hideProgressBar();
                     }
                 }
             }

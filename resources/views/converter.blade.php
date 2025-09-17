@@ -86,7 +86,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}">
-                                <i class="bi bi-diagram-3 me-2"></i>BOM Uploader
+                                <i class="bi bi-diagram-3 me-2"></i>BOM Converter
                             </a>
                         </li>
                     </ul>
