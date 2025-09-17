@@ -83,14 +83,13 @@
                 <div id="result-area" class="text-center">
                     <div class="download-area-header">
                         <div class="ms-3">
-                            <h4 class="download-area-title mb-0">Processing Complete!</h4>
+                            <h4 class="download-area-title mb-0">File Processed!</h4>
                             <p class="download-area-text mt-0">{{ session('success') }}</p>
                         </div>
                     </div>
 
-                    {{-- DIV untuk menampilkan hasil generate --}}
-                    <div id="generation-result" class="mt-3"></div>
-                    <div id="upload-result" class="mt-3"></div>
+                    {{-- DIV untuk menampilkan hasil --}}
+                    <div id="result-display" class="mt-3"></div>
 
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
 
@@ -105,8 +104,8 @@
                             <span class="spinner-border spinner-border-sm d-none me-2"></span>
                             <i class="bi bi-cloud-upload"></i> Upload BOM to SAP
                         </button>
-                        <a href="{{ route('bom.download', ['filename' => session('processed_filename')]) }}" id="download-only-btn" class="btn btn-success btn-lg px-4 d-none">
-                            <i class="bi bi-download"></i> Download Only
+                        <a href="{{ route('bom.download', ['filename' => session('processed_filename')]) }}" id="download-processed-btn" class="btn btn-success btn-lg px-4 d-none">
+                            <i class="bi bi-download"></i> Download Processed File
                         </a>
                         <a href="{{ route('bom.index') }}" id="process-another-btn-bom" class="btn btn-secondary btn-lg px-4"><i class="bi bi-arrow-repeat"></i> Process Another</a>
                     </div>
@@ -121,7 +120,7 @@
                             <input type="text" name="plant" id="plant" class="form-control" required placeholder="Contoh: 1000">
                         </div>
                         <div class="col-12 mt-4">
-                            <input type="file" name="file" id="file-input" required class="d-none">
+                            <input type="file" name="file" id="file-input" required class="d-none" accept=".xls,.xlsx,.csv">
                             <div id="drop-zone" class="p-4 text-center" style="cursor: pointer;">
                                 <dotlottie-player src="{{ asset('animations/Greenish arrow down.lottie') }}" background="transparent" speed="1" style="width: 150px; height: 150px; margin: 0 auto;" loop autoplay></dotlottie-player>
                                 <p class="mb-0 mt-2 fw-bold" id="main-text">Drag & drop your BOM Excel file here</p>
@@ -177,7 +176,52 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // --- LOGIKA FORM AWAL ---
+            // --- Helper Functions ---
+            const getHeaders = () => ({
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            });
+
+            const getAuthBody = (additionalData) => JSON.stringify({
+                username: document.getElementById('sap-username').value,
+                password: document.getElementById('sap-password').value,
+                ...additionalData
+            });
+
+            function setLoadingState(button, isLoading) {
+                if (!button) return;
+                const spinner = button.querySelector('.spinner-border');
+                button.disabled = isLoading;
+                if (spinner) isLoading ? spinner.classList.remove('d-none') : spinner.classList.add('d-none');
+            }
+
+            function showResult(div, isSuccess, message, details = null) {
+                if (!div) return;
+                const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
+                let html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
+                if (details && Array.isArray(details)) {
+                    html += '<div class="upload-details"><ul>';
+                    details.forEach(item => {
+                        // --- PERBAIKAN DI SINI ---
+                        // Cek apakah item.status ada (untuk hasil upload) atau tidak (untuk hasil generate)
+                        if (item.status !== undefined) {
+                            // Ini untuk hasil UPLOAD
+                            const icon = item.status === 'Success' ? '✅' : '❌';
+                            html += `<li>${icon} <strong>${item.material_code}:</strong> ${item.message}</li>`;
+                        } else {
+                            // Ini untuk hasil GENERATE
+                            const icon = item.code !== 'tidak ditemukan' ? '✅' : '❌';
+                            html += `<li>${icon} <strong>${item.description}:</strong> ${item.code}</li>`;
+                        }
+                    });
+                    html += '</ul></div>';
+                }
+                div.innerHTML = html;
+            }
+
+
+            // --- Form Upload Logic ---
             const form = document.getElementById('upload-form');
             if (form) {
                 const dropZone = document.getElementById('drop-zone');
@@ -213,11 +257,7 @@
                 submitButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     if (form.checkValidity()) {
-                        const spinner = submitButton.querySelector('.spinner-border');
-                        const text = document.getElementById('submit-button-text');
-                        if(spinner) spinner.classList.remove('d-none');
-                        if(text) text.textContent = 'Processing...';
-                        submitButton.disabled = true;
+                        setLoadingState(submitButton, true);
                         form.submit();
                     } else {
                         form.reportValidity();
@@ -225,20 +265,20 @@
                 });
             }
 
-            // --- LOGIKA HALAMAN HASIL ---
+            // --- Result Page Logic ---
             const resultArea = document.getElementById('result-area');
             if (resultArea) {
                 const generateBtn = document.getElementById('generate-codes-btn');
                 const uploadBomBtn = document.getElementById('upload-bom-btn');
-                const downloadBtn = document.getElementById('download-only-btn');
-                const generationResultDiv = document.getElementById('generation-result');
-                const uploadResultDiv = document.getElementById('upload-result');
+                const downloadBtn = document.getElementById('download-processed-btn');
+                const resultDiv = document.getElementById('result-display');
                 const sapLoginModal = new bootstrap.Modal(document.getElementById('sapLoginModal'));
                 const confirmBtn = document.getElementById('confirm-action-btn');
 
+                // Step 1: Generate Codes
                 generateBtn.addEventListener('click', async () => {
                     setLoadingState(generateBtn, true);
-                    generationResultDiv.innerHTML = '';
+                    resultDiv.innerHTML = '';
 
                     try {
                         const response = await fetch("{{ route('api.bom.generate_codes') }}", {
@@ -248,7 +288,8 @@
                         });
                         const result = await response.json();
 
-                        showResult(generationResultDiv, response.ok, result.message);
+                        // Menggunakan 'result.results' yang berisi 'description' dan 'code'
+                        showResult(resultDiv, response.ok, result.message, result.results);
 
                         if (response.ok && result.status === 'success') {
                             generateBtn.classList.add('d-none');
@@ -256,16 +297,18 @@
                             downloadBtn.classList.remove('d-none');
                         }
                     } catch (error) {
-                        showResult(generationResultDiv, false, 'Network error during code generation.');
+                        showResult(resultDiv, false, 'Network error during code generation.');
                     } finally {
                         setLoadingState(generateBtn, false);
                     }
                 });
 
+                // Step 2: Show login modal when Upload is clicked
                 uploadBomBtn.addEventListener('click', () => {
                     sapLoginModal.show();
                 });
 
+                // Step 3: Handle the actual upload after login confirmation
                 confirmBtn.addEventListener('click', async () => {
                     sapLoginModal.hide();
                     await handleBomUpload();
@@ -273,7 +316,7 @@
 
                 async function handleBomUpload() {
                     setLoadingState(uploadBomBtn, true);
-                    uploadResultDiv.innerHTML = '';
+                    resultDiv.innerHTML = '';
                     try {
                         const response = await fetch("{{ route('api.bom.upload') }}", {
                             method: 'POST',
@@ -281,51 +324,22 @@
                             body: getAuthBody({ filename: uploadBomBtn.dataset.filename })
                         });
                         const result = await response.json();
-                        showResult(uploadResultDiv, response.ok && result.status === 'success', result.message, result.results);
+
+                        // Menggunakan 'result.results' yang berisi 'material_code' dan 'message'
+                        showResult(resultDiv, response.ok && result.status === 'success', result.message, result.results);
 
                         if (response.ok && result.status === 'success') {
                             const hasFailures = result.results.some(r => r.status === 'Failed');
                             if (!hasFailures) {
+                                // If everything succeeded, hide the upload button
                                 uploadBomBtn.classList.add('d-none');
                             }
                         }
                     } catch (error) {
-                        showResult(uploadResultDiv, false, 'Network Error during BOM upload.');
+                        showResult(resultDiv, false, 'Network Error during BOM upload.');
                     } finally {
                         setLoadingState(uploadBomBtn, false);
                     }
-                }
-
-                const getHeaders = () => ({
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                });
-
-                const getAuthBody = (additionalData) => JSON.stringify({
-                    username: document.getElementById('sap-username').value,
-                    password: document.getElementById('sap-password').value,
-                    ...additionalData
-                });
-
-                function setLoadingState(button, isLoading) {
-                    const spinner = button.querySelector('.spinner-border');
-                    button.disabled = isLoading;
-                    if(spinner) isLoading ? spinner.classList.remove('d-none') : spinner.classList.add('d-none');
-                }
-
-                function showResult(div, isSuccess, message, details = null) {
-                    const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
-                    let html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
-                    if (details && Array.isArray(details)) {
-                        html += '<div class="upload-details"><ul>';
-                        details.forEach(item => {
-                            const icon = item.status === 'Success' ? '✅' : '❌';
-                            html += `<li>${icon} <strong>${item.material_code}:</strong> ${item.message}</li>`;
-                        });
-                        html += '</ul></div>';
-                    }
-                    div.innerHTML = html;
                 }
             }
         });

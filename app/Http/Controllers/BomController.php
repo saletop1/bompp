@@ -50,7 +50,7 @@ class BomImport extends DefaultValueBinder implements ToCollection, WithCustomVa
 class BomController extends Controller
 {
     // ===================================================================
-    // == FUNGSI UNTUK BOM UPLOADER ==
+    // == FUNGSI UNTUK BOM UPLOADER (TIDAK BERUBAH)==
     // ===================================================================
 
     public function index()
@@ -91,9 +91,6 @@ class BomController extends Controller
                 return $default;
             };
 
-            // ## PERBAIKAN TOTAL DI SINI ##
-            // Logika dirombak untuk menangani struktur di mana "part" dan "raw material"
-            // berada di baris yang sama (dual-node creation).
             $nodes = [];
             foreach ($inventorData as $row) {
                 if (empty(array_filter($row->toArray()))) {
@@ -104,27 +101,24 @@ class BomController extends Controller
                 $itemNumber = $findValue($rowData, ['item']);
                 if (empty($itemNumber)) continue;
 
-                // 1. Selalu buat node untuk 'Part' atau 'Assembly' itu sendiri
                 $partNode = [
                     'item'        => $itemNumber,
                     'description' => $findValue($rowData, ['material description']),
                     'qty'         => str_replace(',', '.', $findValue($rowData, ['qty'], '1')),
                     'sloc'        => $findValue($rowData, ['sloc']),
-                    'code'        => '', // Dikosongkan karena part ini akan dibuat, bukan diambil dari stok
+                    'code'        => '',
                     'uom'         => $findValue($rowData, ['uom'], 'PC'),
                 ];
                 $nodes[$itemNumber] = $partNode;
 
-                // 2. Cek apakah 'part' ini memiliki bahan baku (level cutting)
                 $rawMaterialCode = $findValue($rowData, ['kode material']);
                 if (!empty($rawMaterialCode)) {
-                    // Jika ada, buat node BARU untuk bahan baku tersebut sebagai anak dari part
                     $materialNode = [
-                        'item'        => $itemNumber . '.1', // Item buatan untuk linking
+                        'item'        => $itemNumber . '.1',
                         'description' => $findValue($rowData, ['description2']),
                         'qty'         => str_replace(',', '.', $findValue($rowData, ['unit of issue'], '0')),
                         'sloc'        => $findValue($rowData, ['sloc']),
-                        'code'        => $rawMaterialCode, // Ini adalah kode bahan baku
+                        'code'        => $rawMaterialCode,
                         'uom'         => $findValue($rowData, ['uom1'], 'PC'),
                     ];
                     $nodes[$itemNumber . '.1'] = $materialNode;
@@ -134,13 +128,12 @@ class BomController extends Controller
             $bomsByParentItem = [];
             foreach ($nodes as $childItemNumber => $childNode) {
                 if ($childItemNumber === '0.0') {
-                    continue; // Root item has no parent.
+                    continue;
                 }
 
                 $parts = explode('.', $childItemNumber);
                 $parentItemNumber = null;
 
-                // Logika hierarki yang mampu menangani kedalaman tak terbatas
                 $level = count($parts);
 
                 if ($level === 2) {
@@ -322,7 +315,7 @@ class BomController extends Controller
             }
 
             if (empty($bomsForUpload)) {
-                 Storage::disk('local')->delete($filename);
+                //  Storage::disk('local')->delete($filename);
                  return response()->json(['status' => 'success', 'message' => 'BOM upload process finished. No valid BOMs remained after final validation.', 'results' => []]);
             }
 
@@ -334,7 +327,7 @@ class BomController extends Controller
                 'boms' => $bomsForUpload
             ]);
 
-            Storage::disk('local')->delete($filename);
+            // Storage::disk('local')->delete($filename);
             return $response->json();
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => 'A fatal error occurred: ' . $e->getMessage()], 500);
@@ -561,32 +554,50 @@ class BomController extends Controller
         }
     }
 
-    public function uploadToSap(Request $request)
+    // --- PERUBAHAN 1: GANTI NAMA DAN FUNGSI METHOD INI ---
+    public function stageMaterials(Request $request)
     {
-        $request->validate(['username' => 'required', 'password' => 'required', 'filename' => 'required']);
+        $request->validate(['filename' => 'required']);
         try {
-            $filename = 'material_processed_' . Str::after($request->input('filename'), 'material_processed_');
+            // Nama file sekarang datang dari frontend, bukan dari request asli
+            $filename = $request->input('filename');
             if (!Storage::disk('local')->exists($filename)) {
                 return response()->json(['status' => 'error', 'message' => 'Processed file not found.'], 404);
             }
+
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
             $materials = json_decode(Storage::disk('local')->get($filename), true);
-            $response = Http::timeout(600)->post($pythonApiUrl . '/upload_material', ['username' => $request->input('username'),'password' => $request->input('password'),'materials' => $materials]);
+
+            // Panggil endpoint Python yang baru: /stage_materials
+            $response = Http::timeout(600)->post($pythonApiUrl . '/stage_materials', [
+                'materials' => $materials
+            ]);
+
+            // Hapus file sementara setelah diproses
             Storage::disk('local')->delete($filename);
+
+            // Kembalikan respons dari Python langsung ke frontend
             return $response->json();
         } catch (\Exception $e) {
-            Log::error('Upload to SAP API Error: ' . $e->getMessage());
+            Log::error('Staging API Error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
 
     public function download($filename)
     {
-        $filePath = 'material_processed_' . Str::after($filename, 'material_processed_');
+        // Pastikan nama file adalah yang benar
+        $filePath = $filename;
+        if (!Str::startsWith($filename, 'material_processed_')) {
+             $filePath = 'material_processed_' . Str::after($filename, 'material_processed_');
+        }
+
         try {
             if (!Storage::disk('local')->exists($filePath)) abort(404, 'File not found.');
+
             $processedData = json_decode(Storage::disk('local')->get($filePath), true);
             $downloadFilename = 'SAP_MATERIAL_MASTER_TEMPLATE_' . date('Y-m-d_H-i') . '.xlsx';
+
             return Excel::download(new MaterialMasterExport($processedData), $downloadFilename);
         } catch (\Exception $e) {
             Log::error("Error downloading processed material file: " . $e->getMessage());
@@ -594,14 +605,21 @@ class BomController extends Controller
         }
     }
 
-    public function activateQm(Request $request)
+    // --- PERUBAHAN 2: GANTI NAMA DAN FUNGSI METHOD INI ---
+    public function activateAndUpload(Request $request)
     {
         $request->validate(['username' => 'required', 'password' => 'required', 'materials' => 'required|array']);
         try {
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
-            $response = Http::timeout(600)->post($pythonApiUrl . '/activate_qm', $request->all());
+
+            // Panggil endpoint Python yang baru: /activate_qm_and_upload
+            // $request->all() sudah berisi username, password, dan materials
+            $response = Http::timeout(600)->post($pythonApiUrl . '/activate_qm_and_upload', $request->all());
+
+            // Kembalikan respons dari Python langsung ke frontend
             return $response->json();
         } catch (\Exception $e) {
+            Log::error('Activate and Upload API Error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
@@ -652,4 +670,3 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
-

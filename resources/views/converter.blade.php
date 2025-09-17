@@ -38,8 +38,6 @@
         .page-title-container .main-title { color: #ffffffff; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); margin-bottom: 0; }
         .page-title-container .subtitle { color: #d7d7d7ff; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-size: 0.9rem; }
         .sap-logo-header { height: 100px; width: auto; margin-left: 20px; }
-
-        /* Style untuk Hasil Proses */
         .download-area-header { display: flex; justify-content: center; align-items: center; text-align: left; }
         .download-area-header dotlottie-player { flex-shrink: 0; }
         .download-area-title { color: #d1d5db; font-weight: bold; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6); }
@@ -48,13 +46,9 @@
         .alert.alert-danger { background: rgba(220, 53, 69, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .upload-details { max-height: 200px; overflow-y: auto; text-align: left; font-size: 0.85rem; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; margin-top: 15px; }
         .upload-details ul li { color: #e2e0e0ff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-
-        /* Style Navigasi */
         .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.2); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; }
         .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff64; color: #08e6ffd8; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .nav-pills .nav-link:hover:not(.active) { background-color: rgba(255, 255, 255, 0.4); color: #ffffff; border-color: rgba(255,255,255,0.5); }
-
-        /* Style Modal */
         .modal-content.frosted-glass { background: rgba(30, 30, 30, 0.4); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border-radius: 0.75rem; color: #ffffff; }
         .input-group-underline { position: relative; }
         .input-underline { background-color: transparent !important; border: none !important; border-bottom: 2px solid rgba(255, 255, 255, 0.4) !important; border-radius: 0 !important; padding-left: 35px !important; color: #ffffff !important; transition: border-color 0.3s ease; }
@@ -64,12 +58,8 @@
         .frosted-glass .modal-header, .frosted-glass .modal-footer { border-bottom: none; border-top: none; }
         .frosted-glass .modal-title { font-weight: 300; }
         #confirmationModal .modal-body { max-height: 40vh; overflow-y: auto; }
-
-        /* Style Tombol Process Another */
         #process-another-btn { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
         #process-another-btn:hover { background-color: #157347 !important; border-color: #146c43 !important; }
-
-        /* Style Progress Bar (DIPERBARUI) */
         #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: -20px; }
     </style>
 </head>
@@ -117,7 +107,6 @@
                         </div>
                     </div>
 
-                    <!-- Progress Bar Animation (DIPERBARUI) -->
                     <div id="progress-container" class="text-center mt-4 d-none">
                         <dotlottie-player src="{{ asset('animations/buble.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay></dotlottie-player>
                         <p id="progress-text" class="text-center">Processing...</p>
@@ -126,7 +115,6 @@
                     <div id="upload-result" class="mt-3"></div>
                     <div id="email-result" class="mt-3"></div>
 
-                    <!-- Area Notifikasi Email -->
                     <div id="email-notification-area" class="mt-4 d-none">
                         <div class="input-group mb-3 mx-auto" style="max-width: 450px;">
                             <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
@@ -140,7 +128,6 @@
                             <i class="bi bi-cloud-upload"></i> Upload to SAP
                         </button>
 
-                        <!-- Tombol Notifikasi Email -->
                         <button type="button" id="send-email-btn" class="btn btn-danger btn-lg px-4 gap-3 d-none">
                             <span class="spinner-border spinner-border-sm d-none"></span>
                             <i class="bi bi-envelope-at-fill"></i> Send Notification
@@ -301,6 +288,7 @@
             // --- LOGIKA FORM AWAL ---
             const form = document.getElementById('upload-form');
             if (form) {
+                // ... (Kode form awal tidak berubah, biarkan seperti adanya) ...
                 const materialTypeSelect = document.getElementById('material_type');
                 const fertOptionsContainer = document.getElementById('fert-options');
                 const divisionSelect = document.getElementById('division');
@@ -388,7 +376,7 @@
                 });
             }
 
-            // --- LOGIKA HALAMAN HASIL ---
+            // --- LOGIKA HALAMAN HASIL (WORKFLOW BARU) ---
             const downloadArea = document.getElementById('download-area');
             if (downloadArea) {
                 const uploadSapBtn = document.getElementById('upload-sap-btn');
@@ -401,17 +389,23 @@
                 const confirmActivateBtn = document.getElementById('confirm-activate-btn');
                 const uploadResultDiv = document.getElementById('upload-result');
                 const progressContainer = document.getElementById('progress-container');
-                const progressText = document.getElementById('progress-text');
                 const sendEmailBtn = document.getElementById('send-email-btn');
                 const emailNotificationArea = document.getElementById('email-notification-area');
                 const emailRecipientInput = document.getElementById('email-recipient');
                 const emailResultDiv = document.getElementById('email-result');
 
+                // Langkah 1: Tombol "Upload to SAP" diklik, buka modal login.
                 if(uploadSapBtn) uploadSapBtn.addEventListener('click', () => sapLoginModal.show());
+
+                // Langkah 2: Tombol "Confirm" di modal login diklik, jalankan proses staging.
                 if(confirmLoginBtn) confirmLoginBtn.addEventListener('click', handleStaging);
+
+                // Langkah 4: Tombol "Confirm & Activate" di modal konfirmasi diklik, jalankan aktivasi final.
                 if(confirmActivateBtn) confirmActivateBtn.addEventListener('click', handleFinalActivation);
+
                 if(sendEmailBtn) sendEmailBtn.addEventListener('click', handleSendEmail);
 
+                // Fungsi untuk proses Staging (persiapan data)
                 async function handleStaging() {
                     sapUsername = document.getElementById('sap-username').value;
                     sapPassword = document.getElementById('sap-password').value;
@@ -420,36 +414,49 @@
                         return;
                     }
                     sapLoginModal.hide();
-                    setLoadingState(uploadSapBtn, true);
+                    setLoadingState(uploadSapBtn, true, 'Staging...');
                     showProgressBar('Preparing data for SAP...');
 
                     try {
-                        const response = await fetch("{{ route('api.sap.upload') }}", {
+                        // --- PERBAIKAN: Menggunakan route staging yang baru ---
+                        const response = await fetch("{{ route('api.sap.stage') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({
-                                username: sapUsername,
+                                username: sapUsername, // Kredensial tetap dikirim jika dibutuhkan untuk membaca file
                                 password: sapPassword,
                                 filename: uploadSapBtn.dataset.filename
                             })
                         });
                         const result = await response.json();
 
+                        // --- PERBAIKAN LOGGING ---
+                        // Menampilkan respons dari server di console untuk debugging
+                        console.log("Server Response for Staging:", result);
+
+                        // Langkah 3: Jika staging sukses, simpan data material dan tampilkan modal konfirmasi.
                         if (response.ok && result.status === 'staged') {
                             stagedMaterials = result.results;
                             showConfirmationModal(stagedMaterials);
                         } else {
-                            showResult(uploadResultDiv, false, result.message || 'Staging process failed.');
+                            // Memberikan pesan error yang lebih jelas
+                            let errorMessage = result.message || 'Staging process failed.';
+                            if (result.status !== 'staged') {
+                                errorMessage += ` (Expected status 'staged', but got '${result.status || 'undefined'}'). Please check the API response.`;
+                            }
+                            showResult(uploadResultDiv, false, errorMessage);
                         }
 
                     } catch (error) {
-                        showResult(uploadResultDiv, false, 'Network Error during staging process.');
+                        console.error("Fetch Error:", error);
+                        showResult(uploadResultDiv, false, 'Network Error during staging. Check the browser console for details.');
                     } finally {
                         setLoadingState(uploadSapBtn, false);
                         hideProgressBar();
                     }
                 }
 
+                // Fungsi untuk menampilkan modal konfirmasi dengan daftar material
                 function showConfirmationModal(materials) {
                     const modalBody = document.getElementById('confirmation-modal-body');
                     let materialListHtml = `<p>The following ${materials.length} material(s) will be uploaded and activated:</p><ul class="list-group">`;
@@ -461,6 +468,7 @@
                     confirmationModal.show();
                 }
 
+                // Fungsi untuk proses aktivasi final
                 async function handleFinalActivation() {
                     confirmationModal.hide();
                     setLoadingState(confirmActivateBtn, true);
@@ -468,13 +476,14 @@
                     showProgressBar('Uploading materials and activating QM...');
 
                     try {
-                        const response = await fetch("{{ route('api.qm.activate') }}", {
+                        // --- PERBAIKAN: Menggunakan route aktivasi yang baru ---
+                        const response = await fetch("{{ route('api.sap.activate_and_upload') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({
                                 username: sapUsername,
                                 password: sapPassword,
-                                materials: stagedMaterials
+                                materials: stagedMaterials // Menggunakan data dari hasil staging
                             })
                         });
                         const result = await response.json();
@@ -501,6 +510,7 @@
                 }
 
                 async function handleSendEmail() {
+                    // ... (Fungsi ini tidak berubah) ...
                     const recipient = emailRecipientInput.value;
                     if (!recipient) {
                         alert('Please enter a recipient email address.');
@@ -544,6 +554,7 @@
                 }
 
                 function showProgressBar(text) {
+                    const progressText = document.getElementById('progress-text');
                     if (progressContainer && progressText) {
                         progressText.textContent = text;
                         progressContainer.classList.remove('d-none');
@@ -562,11 +573,19 @@
                     'Accept': 'application/json'
                 });
 
-                function setLoadingState(button, isLoading) {
+                function setLoadingState(button, isLoading, text = null) {
                     if(!button) return;
                     const spinner = button.querySelector('.spinner-border');
+                    const buttonTextEl = button.querySelector('i') ? button.childNodes[button.childNodes.length - 1] : null;
+                    const originalText = button.dataset.originalText || (buttonTextEl ? buttonTextEl.textContent.trim() : '');
+                    if(!button.dataset.originalText) button.dataset.originalText = originalText;
+
                     button.disabled = isLoading;
                     if(spinner) isLoading ? spinner.classList.remove('d-none') : spinner.classList.add('d-none');
+
+                    if(buttonTextEl) {
+                        buttonTextEl.textContent = isLoading && text ? ` ${text}` : ` ${originalText}`;
+                    }
                 }
 
                 function showResult(div, isSuccess, message, details = null) {
@@ -589,4 +608,5 @@
     </script>
 </body>
 </html>
+
 
