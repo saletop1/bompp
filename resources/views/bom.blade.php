@@ -91,7 +91,7 @@
 
                     <!-- Progress Bar Animation -->
                     <div id="progress-container" class="text-center mt-4 d-none">
-                        <dotlottie-player src="{{ asset('animations/dot_shoot.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay></dotlottie-player>
+                        <dotlottie-player src="{{ asset('animations/dotsnake.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay></dotlottie-player>
                         <p id="progress-text">Uploading...</p>
                     </div>
 
