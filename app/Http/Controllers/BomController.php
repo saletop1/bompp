@@ -228,14 +228,73 @@ class BomController extends Controller
                 ];
             }
 
-            $fileContent['boms'] = $updatedBoms;
+            // ===================================================================
+            // == LOGIKA BARU: Membersihkan dan menggabungkan data duplikat ==
+            // ===================================================================
+            Log::info('Starting BOM deduplication process.');
+            $cleanedBomsMap = [];
+
+            foreach ($updatedBoms as $bom) {
+                $parent = $bom['parent'];
+                // Gunakan kode sebagai kunci utama, fallback ke deskripsi jika kode tidak ada/tidak ditemukan
+                $parentKey = (!empty($parent['code']) && $parent['code'] !== '#NOT_FOUND#')
+                             ? $parent['code']
+                             : strtolower(trim($parent['description']));
+
+                if (!isset($cleanedBomsMap[$parentKey])) {
+                    // Jika parent ini belum ada, tambahkan sebagai entri baru.
+                    $cleanedBomsMap[$parentKey] = $bom;
+                    // Pastikan komponen di dalamnya juga unik.
+                    $componentMap = [];
+                    foreach ($bom['components'] as $component) {
+                        $componentKey = (!empty($component['code']) && $component['code'] !== '#NOT_FOUND#')
+                                        ? $component['code']
+                                        : strtolower(trim($component['description']));
+                        if (!isset($componentMap[$componentKey])) {
+                            $componentMap[$componentKey] = $component;
+                        }
+                    }
+                    $cleanedBomsMap[$parentKey]['components'] = array_values($componentMap);
+                } else {
+                    // Jika parent sudah ada, gabungkan (merge) komponennya.
+                    $existingComponents = $cleanedBomsMap[$parentKey]['components'];
+                    $componentMap = [];
+
+                    // Petakan komponen yang sudah ada untuk pengecekan duplikat
+                    foreach ($existingComponents as $component) {
+                        $componentKey = (!empty($component['code']) && $component['code'] !== '#NOT_FOUND#')
+                                        ? $component['code']
+                                        : strtolower(trim($component['description']));
+                        $componentMap[$componentKey] = $component;
+                    }
+
+                    // Tambahkan komponen baru dari BOM saat ini, hanya jika belum ada.
+                    foreach ($bom['components'] as $newComponent) {
+                        $componentKey = (!empty($newComponent['code']) && $newComponent['code'] !== '#NOT_FOUND#')
+                                        ? $newComponent['code']
+                                        : strtolower(trim($newComponent['description']));
+                        if (!isset($componentMap[$componentKey])) {
+                            $componentMap[$componentKey] = $newComponent;
+                        }
+                    }
+                    // Perbarui daftar komponen untuk parent ini.
+                    $cleanedBomsMap[$parentKey]['components'] = array_values($componentMap);
+                }
+            }
+
+            // Konversi map kembali ke array numerik
+            $finalCleanedBoms = array_values($cleanedBomsMap);
+            Log::info('BOM deduplication finished. Count before: ' . count($updatedBoms) . ', Count after: ' . count($finalCleanedBoms));
+
+            // Timpa file JSON dengan data yang sudah bersih
+            $fileContent['boms'] = $finalCleanedBoms;
             Storage::disk('local')->put($filename, json_encode($fileContent));
 
             $notFoundCount = count($detailedResults) - $foundCount;
 
             return response()->json([
                 'status' => 'success',
-                'message' => "Code generation complete. Found: {$foundCount}, Not Found: {$notFoundCount}.",
+                'message' => "Code generation and data cleaning complete. Found: {$foundCount}, Not Found: {$notFoundCount}.",
                 'results' => $detailedResults
             ]);
 
@@ -244,6 +303,7 @@ class BomController extends Controller
             return response()->json(['status' => 'error', 'message' => 'An error occurred during code generation.'], 500);
         }
     }
+
 
     public function uploadProcessedBom(Request $request)
     {
@@ -254,6 +314,7 @@ class BomController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Processed file not found.'], 404);
             }
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+            // File content sekarang sudah bersih karena diperbarui oleh generateBomMaterialCodes
             $fileContent = json_decode(Storage::disk('local')->get($filename), true);
             $plant = $fileContent['plant'];
             $boms = $fileContent['boms'];
@@ -340,25 +401,14 @@ class BomController extends Controller
                 abort(404, 'File not found or invalid.');
             }
 
+            // File content sekarang sudah bersih karena diperbarui oleh generateBomMaterialCodes
             $fileContent = json_decode(Storage::disk('local')->get($filename), true);
             $boms = $fileContent['boms'] ?? [];
             $plant = $fileContent['plant'] ?? '';
 
-            $bomsForExport = collect($boms)->map(function ($bom) {
-                if (isset($bom['parent']['code'])) {
-                    $bom['parent']['code'] = ltrim($bom['parent']['code'], '0');
-                }
-
-                if (isset($bom['components']) && is_array($bom['components'])) {
-                    $bom['components'] = array_map(function ($component) {
-                        if (isset($component['code'])) {
-                            $component['code'] = ltrim($component['code'], '0');
-                        }
-                        return $component;
-                    }, $bom['components']);
-                }
-                return $bom;
-            })->all();
+            // Data untuk ekspor sekarang diambil langsung dari file yang telah diproses tanpa modifikasi (ltrim dihapus).
+            // Ini memastikan data di file Excel konsisten dengan sumber data.
+            $bomsForExport = $boms;
 
             $downloadFilename = 'SAP_MULTILEVEL_BOM_TEMPLATE_' . date('Y-m-d_H-i') . '.xlsx';
             return Excel::download(new ProcessedBomExport($bomsForExport, $plant), $downloadFilename);

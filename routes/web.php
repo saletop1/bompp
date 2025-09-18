@@ -38,3 +38,4 @@ Route::post('/api/bom/upload-sap', [BomController::class, 'uploadProcessedBom'])
 
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');
+
