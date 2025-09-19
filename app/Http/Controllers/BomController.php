@@ -481,7 +481,7 @@ class BomController extends Controller
         }
     }
 
-    
+
     // ===================================================================
     // == FUNGSI UNTUK MATERIAL CONVERTER ==
     // ===================================================================
@@ -678,6 +678,29 @@ class BomController extends Controller
         }
     }
 
+    // --- START: FUNGSI BARU UNTUK INSPECTION PLAN ---
+    public function createInspectionPlan(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string',
+            'materials' => 'required|array',
+            'plan_details' => 'required|array',
+        ]);
+        try {
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+
+            // Panggil endpoint Python yang baru: /create_inspection_plan
+            $response = Http::timeout(600)->post($pythonApiUrl . '/create_inspection_plan', $request->all());
+
+            return $response->json();
+        } catch (\Exception $e) {
+            Log::error('Create Inspection Plan API Error: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Error communicating with SAP service: ' . $e->getMessage()], 500);
+        }
+    }
+    // --- END: FUNGSI BARU UNTUK INSPECTION PLAN ---
+
     public function downloadUploadReport(Request $request)
     {
         try {
@@ -753,4 +776,3 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
-

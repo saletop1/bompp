@@ -119,6 +119,9 @@
                     </div>
 
                     <div id="upload-result" class="mt-3"></div>
+                    {{-- START: DIV BARU UNTUK HASIL INSPECTION PLAN --}}
+                    <div id="inspection-plan-result" class="mt-3"></div>
+                    {{-- END: DIV BARU UNTUK HASIL INSPECTION PLAN --}}
                     <div id="email-result" class="mt-3"></div>
 
                     <div id="email-notification-area" class="mt-4 d-none">
@@ -399,6 +402,7 @@
                 const emailNotificationArea = document.getElementById('email-notification-area');
                 const emailRecipientInput = document.getElementById('email-recipient');
                 const emailResultDiv = document.getElementById('email-result');
+                const inspectionPlanResultDiv = document.getElementById('inspection-plan-result');
 
                 // Langkah 1: Tombol "Upload to SAP" diklik, buka modal login.
                 if(uploadSapBtn) uploadSapBtn.addEventListener('click', () => sapLoginModal.show());
@@ -424,28 +428,21 @@
                     showProgressBar('Preparing data for SAP...');
 
                     try {
-                        // --- PERBAIKAN: Menggunakan route staging yang baru ---
                         const response = await fetch("{{ route('api.sap.stage') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({
-                                username: sapUsername, // Kredensial tetap dikirim jika dibutuhkan untuk membaca file
+                                username: sapUsername,
                                 password: sapPassword,
                                 filename: uploadSapBtn.dataset.filename
                             })
                         });
                         const result = await response.json();
-
-                        // --- PERBAIKAN LOGGING ---
-                        // Menampilkan respons dari server di console untuk debugging
                         console.log("Server Response for Staging:", result);
-
-                        // Langkah 3: Jika staging sukses, simpan data material dan tampilkan modal konfirmasi.
                         if (response.ok && result.status === 'staged') {
                             stagedMaterials = result.results;
                             showConfirmationModal(stagedMaterials);
                         } else {
-                            // Memberikan pesan error yang lebih jelas
                             let errorMessage = result.message || 'Staging process failed.';
                             if (result.status !== 'staged') {
                                 errorMessage += ` (Expected status 'staged', but got '${result.status || 'undefined'}'). Please check the API response.`;
@@ -479,17 +476,17 @@
                     confirmationModal.hide();
                     setLoadingState(confirmActivateBtn, true);
                     uploadResultDiv.innerHTML = '';
+                    inspectionPlanResultDiv.innerHTML = ''; // Kosongkan hasil sebelumnya
                     showProgressBar('Uploading materials and activating QM...');
 
                     try {
-                        // --- PERBAIKAN: Menggunakan route aktivasi yang baru ---
                         const response = await fetch("{{ route('api.sap.activate_and_upload') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({
                                 username: sapUsername,
                                 password: sapPassword,
-                                materials: stagedMaterials // Menggunakan data dari hasil staging
+                                materials: stagedMaterials
                             })
                         });
                         const result = await response.json();
@@ -499,12 +496,17 @@
                             finalUploadResults = result.results;
                             const successfulMaterials = finalUploadResults.filter(r => r.status === 'Success');
 
+                            // --- START: LOGIKA BARU UNTUK MEMICU INSPECTION PLAN ---
                             if (successfulMaterials.length > 0) {
+                                // Panggil fungsi untuk membuat inspection plan
+                                await handleInspectionPlanCreation(successfulMaterials, sapUsername, sapPassword);
+
                                 if(uploadSapBtn) uploadSapBtn.classList.add('d-none');
                                 if(downloadOnlyBtn) downloadOnlyBtn.classList.add('d-none');
                                 if(emailNotificationArea) emailNotificationArea.classList.remove('d-none');
                                 if(sendEmailBtn) sendEmailBtn.classList.remove('d-none');
                             }
+                            // --- END: LOGIKA BARU ---
                         }
 
                     } catch (error) {
@@ -515,8 +517,43 @@
                     }
                 }
 
+                // --- START: FUNGSI BARU UNTUK MEMBUAT INSPECTION PLAN ---
+                async function handleInspectionPlanCreation(successfulMaterials, username, password) {
+                    showProgressBar('Creating Inspection Task Lists...');
+                    try {
+                        // Definisikan detail statis untuk inspection plan di sini
+                        const planDetails = {
+                            task_usage: '5', // Goods receipt
+                            task_status: '4', // Released (general)
+                            control_key: 'QM01', // QM in procurement is active
+                            inspchar: 'THICKNESS' // Master inspection characteristic
+                        };
+
+                        const response = await fetch("{{ route('api.sap.create_inspection_plan') }}", {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify({
+                                username: username,
+                                password: password,
+                                materials: successfulMaterials,
+                                plan_details: planDetails
+                            })
+                        });
+
+                        const result = await response.json();
+                        // Tampilkan hasil di div yang terpisah
+                        showResult(inspectionPlanResultDiv, response.ok && result.status === 'success', result.message, result.results);
+
+                    } catch (error) {
+                        showResult(inspectionPlanResultDiv, false, 'Network Error during Inspection Plan creation.');
+                    } finally {
+                        // Sembunyikan progress bar setelah semuanya selesai
+                        hideProgressBar();
+                    }
+                }
+                // --- END: FUNGSI BARU UNTUK MEMBUAT INSPECTION PLAN ---
+
                 async function handleSendEmail() {
-                    // ... (Fungsi ini tidak berubah) ...
                     const recipient = emailRecipientInput.value;
                     if (!recipient) {
                         alert('Please enter a recipient email address.');
@@ -614,5 +651,3 @@
     </script>
 </body>
 </html>
-
-

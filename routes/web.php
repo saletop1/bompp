@@ -46,3 +46,5 @@ Route::post('/api/bom/upload-sap', [BomController::class, 'uploadProcessedBom'])
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');
 
+// Tambahkan di dalam file routes Anda
+Route::post('/api/sap/create_inspection_plan', [App\Http\Controllers\BomController::class, 'createInspectionPlan'])->name('api.sap.create_inspection_plan');

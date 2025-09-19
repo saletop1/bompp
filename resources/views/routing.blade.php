@@ -195,17 +195,17 @@
                 <ul class="nav nav-pills nav-fill mb-4">
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('converter.index') ? 'active' : '' }}" href="{{ route('converter.index') }}">
-                            <i class="bi bi-box-seam me-2"></i>Material Converter
+                            <i class="bi bi-box-seam me-2"></i>Material Master
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}">
-                            <i class="bi bi-diagram-3 me-2"></i>BOM Uploader
+                            <i class="bi bi-diagram-3 me-2"></i>BOM Master
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('routing.index') ? 'active' : '' }}" href="{{ route('routing.index') }}">
-                            <i class="bi bi-signpost-split me-2"></i>Routing
+                            <i class="bi bi-signpost-split me-2"></i>Routing Master
                         </a>
                     </li>
                 </ul>
