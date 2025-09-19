@@ -16,6 +16,7 @@
         <thead>
             <tr>
                 <th>Material Code</th>
+                <th>Material Description</th>
                 <th>Status</th>
                 {{-- <th>Plant</th> --}}
             </tr>
@@ -24,6 +25,7 @@
             @foreach($results as $item)
                 <tr>
                     <td>{{ $item['material_code'] }}</td>
+                    <td>{{ $item['description'] ?? 'N/A' }}</td>
                     <td>{{ $item['message'] }}</td>
                     {{-- <td>{{ $item['plant'] }}</td> --}}
                 </tr>
