@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BomController;
+use App\Http\Controllers\RoutingController; // Tambahkan ini
 
 // Mengarahkan URL utama ('/') ke halaman Material Converter sebagai halaman default.
 Route::get('/', function () {
@@ -21,6 +22,12 @@ Route::get('/converter/download/{filename}', [BomController::class, 'download'])
 Route::get('/bom', [BomController::class, 'index'])->name('bom.index');
 Route::post('/bom/upload', [BomController::class, 'processAndStoreFile'])->name('bom.upload');
 Route::get('/bom/download/{filename}', [BomController::class, 'downloadProcessedFile'])->name('bom.download');
+
+// ===================================================================
+// == ROUTING ROUTES (BARU) ==
+// ===================================================================
+Route::get('/routing', [RoutingController::class, 'index'])->name('routing.index');
+
 
 // ===================================================================
 // == API ROUTES (UNTUK JAVASCRIPT) ==

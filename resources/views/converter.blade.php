@@ -46,8 +46,8 @@
         .alert.alert-danger { background: rgba(220, 53, 69, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .upload-details { max-height: 200px; overflow-y: auto; text-align: left; font-size: 0.85rem; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; margin-top: 15px; }
         .upload-details ul li { color: #e2e0e0ff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-        .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.2); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; }
-        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff64; color: #08e6ffd8; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; }
+        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff1c; color: #a6ff00ff; font-weight: bold; box-shadow: 0 8px 15px rgba(0, 0, 0, 0.76); }
         .nav-pills .nav-link:hover:not(.active) { background-color: rgba(255, 255, 255, 0.4); color: #ffffff; border-color: rgba(255,255,255,0.5); }
         .modal-content.frosted-glass { background: rgba(30, 30, 30, 0.4); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border-radius: 0.75rem; color: #ffffff; }
         .input-group-underline { position: relative; }
@@ -81,12 +81,18 @@
                     <ul class="nav nav-pills nav-fill mb-4">
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('converter.index') ? 'active' : '' }}" href="{{ route('converter.index') }}">
-                                <i class="bi bi-box-seam me-2"></i>Material Converter
+                                <i class="bi bi-box-seam me-2"></i>Material Master
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}">
-                                <i class="bi bi-diagram-3 me-2"></i>BOM Converter
+                                <i class="bi bi-diagram-3 me-2"></i>BOM Master
+                            </a>
+                        </li>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('routing.index') ? 'active' : '' }}" href="{{ route('routing.index') }}">
+                                <i class="bi bi-signpost-split me-2"></i>Routing Master
                             </a>
                         </li>
                     </ul>

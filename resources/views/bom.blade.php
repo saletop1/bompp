@@ -34,7 +34,7 @@
         .frosted-glass .modal-header, .frosted-glass .modal-footer { border-bottom: none; border-top: none; }
         .frosted-glass .modal-title { font-weight: 300; }
         .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.2); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; }
-        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff64; color: #08e6ffd8; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff1c; color: #a6ff00ff; font-weight: bold; box-shadow: 0 8px 15px rgba(0, 0, 0, 0.76); }
         .nav-pills .nav-link:hover:not(.active) { background-color: rgba(255, 255, 255, 0.4); color: #ffffff; border-color: rgba(255,255,255,0.5); }
         .download-area-header { display: flex; justify-content: center; align-items: center; text-align: left; }
         .download-area-header dotlottie-player { flex-shrink: 0; }
@@ -63,12 +63,17 @@
                     <ul class="nav nav-pills nav-fill mb-4">
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('converter.index') ? 'active' : '' }}" href="{{ route('converter.index') }}">
-                                <i class="bi bi-box-seam me-2"></i>Material Converter
+                                <i class="bi bi-box-seam me-2"></i>Material Master
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}">
-                                <i class="bi bi-diagram-3 me-2"></i>BOM Converter
+                                <i class="bi bi-diagram-3 me-2"></i>BOM Master
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('routing.index') ? 'active' : '' }}" href="{{ route('routing.index') }}">
+                                <i class="bi bi-signpost-split me-2"></i>Routing Master
                             </a>
                         </li>
                     </ul>
