@@ -39,10 +39,22 @@ def increment_material_code(code):
     return f"{prefix}{str(number + 1).zfill(padding)}"
 
 def format_material_code_for_sap(code):
-    """Memformat kode material untuk SAP dengan padding 18 karakter."""
-    return str(code).zfill(18)
+    """
+    Memformat kode material untuk SAP dengan membersihkan data input.
+    - Jika kode berisi huruf (alphanumeric), hapus semua leading zero.
+    - Jika kode hanya berisi angka (numeric), tambahkan padding zero hingga 18 karakter.
+    """
+    if not code:
+        return ''
+    code_str = str(code).strip()
 
-# ... (semua endpoint Anda yang sudah ada tetap di sini) ...
+    # Cek apakah ada huruf di dalam string
+    if not code_str.isdigit():
+        # Jika ada huruf, ini adalah kode alfanumerik. Hapus leading zero.
+        return code_str.lstrip('0')
+    else:
+        # Jika hanya angka, ini adalah kode numerik. Tambahkan padding.
+        return code_str.zfill(18)
 
 @app.route('/stage_materials', methods=['POST'])
 def stage_materials():
@@ -51,7 +63,6 @@ def stage_materials():
         return jsonify({"error": "Request tidak valid, 'materials' dibutuhkan"}), 400
 
     materials_data = data['materials']
-
     staged_results = []
     for material in materials_data:
         staged_results.append({
@@ -185,7 +196,6 @@ def get_next_material():
 def upload_material_legacy():
     return jsonify({"status":"legacy", "message": "This endpoint is deprecated"})
 
-
 @app.route('/activate_qm_and_upload', methods=['POST'])
 def activate_qm_and_upload():
     data = request.get_json()
@@ -247,9 +257,9 @@ def activate_qm_and_upload():
                 time.sleep(1)
                 matnr = get_string('Material')
                 werks = get_string('Plant')
-                matnr_padded = str(matnr).zfill(18)
+                matnr_padded = format_material_code_for_sap(matnr)
                 mat_desc = get_string('Material Description')
-                base_uom = get_string('Base Unit of Measure') # MENGAMBIL BASE UOM
+                base_uom = get_string('Base Unit of Measure')
 
                 qm_result = conn.call('Z_RFC_ACTV_QM', IV_MATNR=matnr_padded, IV_WERKS=werks, IV_INSPTYPE='04')
                 message = qm_result.get('EX_RETURN_MSG', '').strip()
@@ -261,7 +271,7 @@ def activate_qm_and_upload():
                         "message": "Material Created & QM Activated.",
                         "description": mat_desc,
                         "plant": werks,
-                        "base_uom": base_uom # MENAMBAHKAN BASE UOM KE HASIL
+                        "base_uom": base_uom
                     })
                 else:
                     failure_message = f"Material created, but QM activation failed: {message}" if message else "Material created, but QM activation failed with no specific error."
@@ -309,30 +319,20 @@ def create_inspection_plan():
                 continue
 
             try:
-                # --- START: LOGIKA KONDISIONAL BARU ---
-                method_val = ''
-                char_descr_val = ''
+                method_val, char_descr_val = '', ''
                 plant_str = str(plant)
-
                 if plant_str == '3000':
-                    method_val = 'MIC00005'
-                    char_descr_val = 'MIC PRODUCT SMG'
+                    method_val, char_descr_val = 'MIC00005', 'MIC PRODUCT SMG'
                 elif plant_str == '2000':
-                    method_val = 'MIC00002'
-                    char_descr_val = 'MIC PRODUCT SBY'
+                    method_val, char_descr_val = 'MIC00002', 'MIC PRODUCT SBY'
                 elif plant_str == '1000':
-                    method_val = 'MIC00001'
-                    char_descr_val = 'MIC KMI 1 SURABAYA'
+                    method_val, char_descr_val = 'MIC00001', 'MIC KMI 1 SURABAYA'
                 elif plant_str == '1001':
-                    method_val = 'MIC00003'
-                    char_descr_val = 'MIC PRODUCT SBY PLANT 1001'
+                    method_val, char_descr_val = 'MIC00003', 'MIC PRODUCT SBY PLANT 1001'
                 else:
-                    # Default jika plant tidak cocok
-                    method_val = 'MIC00005' # Sensible default
-                    char_descr_val = f"CHECK 0010 FOR PLANT {plant_str}"
+                    method_val, char_descr_val = 'MIC00005', f"CHECK 0010 FOR PLANT {plant_str}"
 
                 task_desc_val = str(mat_desc[:40])
-                # --- END: LOGIKA KONDISIONAL BARU ---
 
                 rfc_params = {
                     'IM_VALID_FROM': datetime.now().strftime('%Y%m%d'),
@@ -345,7 +345,7 @@ def create_inspection_plan():
                     'IM_PLANT': str(plant),
                     'IM_ACTIVITY': str('0010'),
                     'IM_CONTROL_KEY': str(plan_details.get('control_key', 'QM01')),
-                    'IM_OPERATION_DESC': task_desc_val, # Disamakan dengan IM_TASK_DESC
+                    'IM_OPERATION_DESC': task_desc_val,
                     'IM_OPERATION_MEASURE_UNIT': str(base_uom),
                     'IM_BASE_QTY': 1.0,
                     'IM_SMPL_QUANT': 1.0,
@@ -373,19 +373,13 @@ def create_inspection_plan():
                         "message": f"Inspection Plan created. Group: {result.get('EX_GROUP')} / Cnt: {result.get('EX_GROUP_COUNTER')}"
                     })
                 else:
-                    # --- START: LOGIKA BARU UNTUK MENAMPILKAN ERROR ASLI ---
                     if not message:
-                        error_id = return_msg.get('ID', '')
-                        error_number = return_msg.get('NUMBER', '')
-                        msg_v1 = return_msg.get('MESSAGE_V1', '')
-                        msg_v2 = return_msg.get('MESSAGE_V2', '')
-                        msg_v3 = return_msg.get('MESSAGE_V3', '')
-                        msg_v4 = return_msg.get('MESSAGE_V4', '')
-
-                        # Gabungkan semua bagian menjadi string error yang detail
-                        full_error = f"Type: {msg_type}, ID: {error_id}, Num: {error_number}. Details: {msg_v1} {msg_v2} {msg_v3} {msg_v4}".strip()
-                        message = f"Undescribed error from SAP. Raw details: [{full_error}]"
-                    # --- END: LOGIKA BARU ---
+                        error_parts = [
+                            return_msg.get('MESSAGE_V1', ''), return_msg.get('MESSAGE_V2', ''),
+                            return_msg.get('MESSAGE_V3', ''), return_msg.get('MESSAGE_V4', '')
+                        ]
+                        full_error = ' '.join(filter(None, error_parts))
+                        message = f"Undescribed error from SAP. Details: [{full_error.strip()}]"
                     results.append({"material_code": mat_code, "status": "Failed", "message": f"SAP Error: {message}"})
 
             except ABAPApplicationError as e:
@@ -404,4 +398,3 @@ def create_inspection_plan():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
-
