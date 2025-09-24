@@ -52,7 +52,7 @@
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
                 <h1 class="h3 main-title">SAP Bill of Materials (BOM) Uploader</h1>
-                <p class="subtitle mb-0">Automate your BOM creation process</p>
+                <p class="subtitle mb-0">Accelerate Engineering-to-ERP Sync: Automate BOM Uploads to SAP</p>
             </div>
             <img src="{{ asset('images/saplogo.png') }}" alt="SAP Logo" class="sap-logo-header">
         </div>

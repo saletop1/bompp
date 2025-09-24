@@ -44,8 +44,8 @@
     <div class="container converter-container">
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
-                <h1 class="h3 main-title">SAP Data Master Center</h1>
-                <p class="subtitle mb-0">Manage Material, BOM, and Routing Data</p>
+                <h1 class="h3 main-title">SAP Routing Data Center</h1>
+                <p class="subtitle mb-0">Manage Routing Data SAP PP Module</p>
             </div>
             <img src="{{ asset('images/saplogo.png') }}" alt="SAP Logo" class="sap-logo-header">
         </div>
