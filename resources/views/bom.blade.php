@@ -94,7 +94,6 @@
                         </div>
                     </div>
 
-                    <!-- Progress Bar Animation -->
                     <div id="progress-container" class="text-center mt-4 d-none">
                         <dotlottie-player src="{{ asset('animations/dotsnake.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay></dotlottie-player>
                         <p id="progress-text">Uploading...</p>
@@ -108,7 +107,7 @@
                     <div id="email-notification-area" class="mt-4 d-none">
                         <div class="input-group mb-3 mx-auto" style="max-width: 450px;">
                             <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
-                            <input type="email" id="email-recipient-bom" class="form-control" placeholder="Enter recipient email for notification...">
+                            <input type="text" id="email-recipient-bom" class="form-control" placeholder="Masukkan email, pisahkan dengan koma...">
                         </div>
                     </div>
 
@@ -127,6 +126,9 @@
                         </button>
                         <a href="{{ route('bom.download', ['filename' => session('processed_filename')]) }}" id="download-processed-btn" class="btn btn-success btn-lg px-4 d-none">
                             <i class="bi bi-download"></i> Download Processed File
+                        </a>
+                        <a href="{{ route('bom.download_routing_template', ['filename' => session('processed_filename')]) }}" id="download-routing-btn" class="btn btn-info btn-lg px-4 d-none">
+                            <i class="bi bi-signpost-split"></i> Download Routing
                         </a>
                          {{-- Tombol Notifikasi Email (Awalnya tersembunyi) --}}
                         <button type="button" id="send-email-btn-bom" class="btn btn-danger btn-lg px-4 d-none">
@@ -204,6 +206,8 @@
         document.addEventListener('DOMContentLoaded', function () {
             // --- Variabel Global ---
             let finalBomUploadResults = [];
+            // [FIX] Simpan plant di variabel JavaScript
+            const processedPlant = @json(session('processed_plant'));
 
             // --- Helper Functions ---
             const getHeaders = () => ({
@@ -313,6 +317,7 @@
                 const generateBtn = document.getElementById('generate-codes-btn');
                 const uploadBomBtn = document.getElementById('upload-bom-btn');
                 const downloadBtn = document.getElementById('download-processed-btn');
+                const downloadRoutingBtn = document.getElementById('download-routing-btn');
                 const resultDiv = document.getElementById('result-display');
                 const sapLoginModal = new bootstrap.Modal(document.getElementById('sapLoginModal'));
                 const confirmBtn = document.getElementById('confirm-action-btn');
@@ -335,10 +340,28 @@
                         });
                         const result = await response.json();
                         showResult(resultDiv, response.ok, result.message, result.results);
+
                         if (response.ok && result.status === 'success') {
                             generateBtn.classList.add('d-none');
+
+                            const hasNotFound = result.results.some(item => item.code === 'tidak ditemukan');
+
+                            if (hasNotFound) {
+                                uploadBomBtn.disabled = true;
+                                uploadBomBtn.setAttribute('title', 'Upload dinonaktifkan karena ada kode material yang tidak ditemukan.');
+                                uploadBomBtn.classList.remove('btn-primary');
+                                uploadBomBtn.classList.add('btn-secondary');
+                            } else {
+                                uploadBomBtn.disabled = false;
+                                uploadBomBtn.removeAttribute('title');
+                                uploadBomBtn.classList.remove('btn-secondary');
+                                uploadBomBtn.classList.add('btn-primary');
+                            }
+
+                            // Tampilkan semua tombol aksi
                             uploadBomBtn.classList.remove('d-none');
                             downloadBtn.classList.remove('d-none');
+                            downloadRoutingBtn.classList.remove('d-none');
                         }
                     } catch (error) {
                         showResult(resultDiv, false, 'Network error during code generation.');
@@ -373,10 +396,13 @@
                             body: getAuthBody({ filename: uploadBomBtn.dataset.filename })
                         });
                         const result = await response.json();
-                        showResult(resultDiv, response.ok && result.status === 'success', result.message, result.results);
+                        // Simpan hasil yang sudah diperkaya dengan deskripsi ke variabel global
+                        finalBomUploadResults = result.results;
+
+                        // Tampilkan hasil ke pengguna
+                        showResult(resultDiv, response.ok && result.status === 'success', result.message, finalBomUploadResults);
 
                         if (response.ok && result.status === 'success') {
-                            finalBomUploadResults = result.results; // Simpan hasil untuk dikirim via email
                             const successfulUploads = finalBomUploadResults.filter(r => r.status === 'Success');
 
                             if (successfulUploads.length > 0) {
@@ -399,13 +425,20 @@
 
                 async function handleSendBomEmail() {
                     const recipientInput = document.getElementById('email-recipient-bom');
-                    const recipient = recipientInput.value;
-                    if (!recipient) {
-                        alert('Please enter a recipient email address.');
+                    const recipientsString = recipientInput.value.trim();
+
+                    if (!recipientsString) {
+                        alert('Silakan masukkan setidaknya satu alamat email penerima.');
                         return;
                     }
                     if (!finalBomUploadResults || finalBomUploadResults.length === 0) {
-                        alert('There are no results to send.');
+                        alert('Tidak ada hasil untuk dikirim.');
+                        return;
+                    }
+
+                    const recipients = recipientsString.split(',').map(email => email.trim()).filter(email => email);
+                    if (recipients.length === 0) {
+                         alert('Format email tidak valid.');
                         return;
                     }
 
@@ -417,7 +450,12 @@
                         const response = await fetch("{{ route('api.notification.send') }}", {
                             method: 'POST',
                             headers: getHeaders(),
-                            body: JSON.stringify({ recipient: recipient, results: finalBomUploadResults })
+                            // [FIX] Sertakan plant dalam payload
+                            body: JSON.stringify({
+                                recipients: recipients,
+                                results: finalBomUploadResults,
+                                plant: processedPlant
+                            })
                         });
                         const result = await response.json();
                         showResult(emailResultDiv, response.ok, result.message);
@@ -437,4 +475,3 @@
     </script>
 </body>
 </html>
-

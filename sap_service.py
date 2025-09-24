@@ -5,18 +5,47 @@ import re
 import time
 import logging
 from datetime import datetime
+import json
 
-# Konfigurasi logging dasar untuk output yang lebih bersih
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# --- KONFIGURASI LOGGING ---
+# Format logging diubah untuk menyertakan nama fungsi untuk konteks yang lebih baik.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s'
+)
 
 app = Flask(__name__)
 
+# Lokasi file untuk menyimpan counter material terakhir
+COUNTER_CACHE_FILE = 'material_counter_cache.json'
+
 # --- FUNGSI HELPER ---
+
+def read_counter_cache():
+    """Membaca cache counter dari file JSON."""
+    if not os.path.exists(COUNTER_CACHE_FILE):
+        return {}
+    try:
+        with open(COUNTER_CACHE_FILE, 'r') as f:
+            return json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        logging.warning(f"Tidak dapat membaca file cache: {e}")
+        return {}
+
+def write_counter_cache(data):
+    """Menulis data cache ke file JSON."""
+    try:
+        with open(COUNTER_CACHE_FILE, 'w') as f:
+            json.dump(data, f, indent=4)
+    except IOError as e:
+        logging.error(f"Gagal menulis ke file cache: {e}")
+
+
 def connect_sap_with_credentials(user, passwd):
     """Membuka koneksi ke SAP menggunakan kredensial yang diberikan."""
     try:
         # Mengambil detail koneksi dari environment variables untuk fleksibilitas
-        return Connection(
+        conn = Connection(
             user=user,
             passwd=passwd,
             ashost=os.getenv("SAP_ASHOST", "192.168.254.154"),
@@ -24,8 +53,10 @@ def connect_sap_with_credentials(user, passwd):
             client=os.getenv("SAP_CLIENT", "300"),
             lang="EN"
         )
+        logging.info(f"Koneksi SAP berhasil dibuat untuk user '{user}'.")
+        return conn
     except Exception as e:
-        logging.error(f"Gagal saat membuka koneksi ke SAP: {e}")
+        logging.error(f"Gagal saat membuka koneksi ke SAP untuk user '{user}': {e}")
         return None
 
 def increment_material_code(code):
@@ -39,22 +70,16 @@ def increment_material_code(code):
     return f"{prefix}{str(number + 1).zfill(padding)}"
 
 def format_material_code_for_sap(code):
-    """
-    Memformat kode material untuk SAP dengan membersihkan data input.
-    - Jika kode berisi huruf (alphanumeric), hapus semua leading zero.
-    - Jika kode hanya berisi angka (numeric), tambahkan padding zero hingga 18 karakter.
-    """
+    """Memformat kode material untuk SAP dengan membersihkan data input."""
     if not code:
         return ''
     code_str = str(code).strip()
-
-    # Cek apakah ada huruf di dalam string
     if not code_str.isdigit():
-        # Jika ada huruf, ini adalah kode alfanumerik. Hapus leading zero.
         return code_str.lstrip('0')
     else:
-        # Jika hanya angka, ini adalah kode numerik. Tambahkan padding.
         return code_str.zfill(18)
+
+# --- ENDPOINTS ---
 
 @app.route('/stage_materials', methods=['POST'])
 def stage_materials():
@@ -71,6 +96,7 @@ def stage_materials():
             'original_data': material
         })
 
+    logging.info(f"Menyiapkan {len(staged_results)} material untuk aktivasi.")
     return jsonify({
         "status": "staged",
         "message": "Materials staged for activation.",
@@ -80,24 +106,30 @@ def stage_materials():
 @app.route('/upload_bom', methods=['POST'])
 def upload_bom():
     data = request.get_json()
-    logging.info("--- 1. Received raw data from Laravel ---")
-    print(data)
-    logging.info("---------------------------------------")
     if not all(k in data for k in ['username', 'password', 'boms']):
         return jsonify({"error": "Request tidak valid, kekurangan 'username', 'password', atau 'boms'"}), 400
+
     username = data['username']
     password = data['password']
     boms_data = data['boms']
+
+    # Log yang disederhanakan: Memberi tahu berapa banyak BOM yang diterima.
+    logging.info(f"Menerima permintaan untuk mengunggah {len(boms_data)} BOM.")
+
     results = []
     for i, bom in enumerate(boms_data):
         conn = None
-        parent_material = bom.get('IV_MATNR')
-        logging.info(f"\n--- 2. Processing BOM #{i+1} for Parent: {parent_material} ---")
+        parent_material = bom.get('IV_MATNR', 'N/A')
+
+        # Log yang lebih informatif untuk setiap item yang diproses.
+        logging.info(f"Memproses BOM #{i+1}/{len(boms_data)} untuk Parent Material: '{parent_material}'")
+
         try:
             conn = connect_sap_with_credentials(username, password)
             if not conn:
-                results.append({"material_code": parent_material, "status": "Failed", "message": "Connection to SAP failed."})
+                results.append({"material_code": parent_material, "status": "Failed", "message": "Koneksi ke SAP gagal."})
                 continue
+
             def format_quantity_for_sap(qty_val):
                 try:
                     numeric_val = float(str(qty_val).replace(',', '.'))
@@ -108,6 +140,7 @@ def upload_bom():
                 else:
                     rounded_val = round(numeric_val, 3)
                     return f"{rounded_val:.3f}".replace('.', ',')
+
             base_quantity_str = format_quantity_for_sap(bom.get('IV_BMENG', 1))
             formatted_components = []
             for comp in bom.get('IT_COMPONENTS', []):
@@ -119,6 +152,7 @@ def upload_bom():
                     'PROD_STOR_LOC': str(comp.get('PROD_STOR_LOC', '')), 'SCRAP': str(comp.get('SCRAP', '0')),
                     'ITEM_TEXT': str(comp.get('ITEM_TEXT', '')), 'ITEM_TEXT2': str(comp.get('ITEM_TEXT2', '')),
                 })
+
             rfc_params = {
                 'IV_MATNR': format_material_code_for_sap(bom.get('IV_MATNR', '')), 'IV_WERKS': str(bom.get('IV_WERKS', '')),
                 'IV_STLAN': str(bom.get('IV_STLAN', '')), 'IV_STLAL': str(bom.get('IV_STLAL', '')),
@@ -126,34 +160,37 @@ def upload_bom():
                 'IV_BMEIN': str(bom.get('IV_BMEIN', '')), 'IV_STKTX': str(bom.get('IV_STKTX', '')),
                 'IT_COMPONENTS': formatted_components
             }
-            logging.info("--- 3. Parameters being sent to SAP RFC ---")
-            print(rfc_params)
-            logging.info("-----------------------------------------")
+
             result = conn.call('Z_RFC_UPLOAD_BOM_CS01', **rfc_params)
-            logging.info("--- 4. Result from SAP RFC ---")
-            print(result)
-            logging.info("------------------------------")
+
             message = result.get('EX_RETURN_MSG', 'No message returned.')
             status = "Success" if "berhasil" in message.lower() else "Failed"
             results.append({"material_code": parent_material, "status": status, "message": message})
+
         except ABAPApplicationError as e:
             error_message = e.message
             results.append({"material_code": parent_material, "status": "Failed", "message": error_message})
-            logging.error(f"!!! ABAP EXCEPTION for {parent_material}: {error_message}")
+            logging.error(f"ABAP EXCEPTION untuk '{parent_material}': {error_message}")
         except Exception as e:
             error_message = str(e)
             results.append({"material_code": parent_material, "status": "Failed", "message": error_message})
-            logging.error(f"!!! GENERAL EXCEPTION for {parent_material}: {error_message}", exc_info=True)
+            logging.error(f"GENERAL EXCEPTION untuk '{parent_material}': {error_message}", exc_info=True)
         finally:
             if conn:
                 conn.close()
-    return jsonify({ "status": "success", "message": "BOM upload process finished.", "results": results })
+                logging.info(f"Koneksi SAP untuk user '{username}' ditutup.")
+
+    return jsonify({ "status": "success", "message": "Proses unggah BOM selesai.", "results": results })
+
 
 @app.route('/find_material', methods=['GET'])
 def find_material_by_description():
     description = request.args.get('description')
     if not description:
         return jsonify({"error": "Parameter 'description' dibutuhkan"}), 400
+
+    logging.info(f"Mencari material dengan deskripsi: '{description}'")
+
     user = os.getenv("SAP_USERNAME", "auto_email")
     passwd = os.getenv("SAP_PASSWORD", "11223344")
     conn = None
@@ -161,40 +198,68 @@ def find_material_by_description():
         conn = connect_sap_with_credentials(user, passwd)
         if not conn:
             return jsonify({"error": "Tidak bisa terhubung ke SAP dengan kredensial default"}), 500
+
         result = conn.call('Z_RFC_GET_MATERIAL_BY_DESC', IV_MAKTX=description)
         materials_table = result.get('ET_MATERIAL', [])
+
         if materials_table:
             materials_table.sort(key=lambda x: x['MATNR'])
             first_match = materials_table[0]
             material_code = first_match.get('MATNR', '').strip()
             if material_code:
+                logging.info(f"Material ditemukan: '{material_code}' untuk deskripsi '{description}'.")
                 return jsonify({"status": "success", "material_code": material_code})
+
+        logging.warning(f"Material dengan deskripsi '{description}' tidak ditemukan.")
         return jsonify({"status": "not_found", "message": f"Material dengan deskripsi '{description}' tidak ditemukan di SAP."}), 404
     except Exception as e:
-        logging.error(f"Error in /find_material: {str(e)}", exc_info=True)
+        logging.error(f"Error di /find_material: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
     finally:
         if conn:
             conn.close()
+            logging.info(f"Koneksi SAP untuk user '{user}' ditutup.")
+
+# ... (Fungsi lain seperti get_next_material, set_next_material tidak banyak berubah karena logging-nya sudah cukup baik) ...
 
 @app.route('/get_next_material', methods=['GET'])
 def get_next_material():
     material_type = request.args.get('material_type')
-    if not material_type: return jsonify({"error": "Parameter 'material_type' dibutuhkan"}), 400
-    try:
-        conn = connect_sap_with_credentials(user=os.getenv("SAP_USERNAME", "auto_email"), passwd=os.getenv("SAP_PASSWORD", "11223344"))
-        if not conn: return jsonify({"error": "Tidak bisa terhubung ke SAP dengan kredensial default"}), 500
-        result = conn.call('ZRFC_GET_LAST_MATERIAL_BY_TYPE', I_MTART=material_type)
-        last_code = result.get('E_MATNR', '').strip()
-        conn.close()
-        if not last_code: return jsonify({"error": f"Tidak ada material ditemukan untuk tipe {material_type}"}), 404
-        return jsonify({"next_material_code": increment_material_code(last_code)})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if not material_type:
+        return jsonify({"status": "error", "message": "Parameter 'material_type' dibutuhkan"}), 400
 
-@app.route('/upload_material_legacy', methods=['POST'])
-def upload_material_legacy():
-    return jsonify({"status":"legacy", "message": "This endpoint is deprecated"})
+    cache = read_counter_cache()
+    last_code = cache.get(material_type)
+
+    if last_code:
+        logging.info(f"Kode untuk tipe '{material_type}' ditemukan di cache: {last_code}")
+        return jsonify({"status": "success", "next_material_code": last_code})
+
+    logging.info(f"Kode untuk tipe '{material_type}' tidak ada di cache, mengambil dari SAP...")
+    try:
+        conn = connect_sap_with_credentials(
+            user=os.getenv("SAP_USERNAME", "auto_email"),
+            passwd=os.getenv("SAP_PASSWORD", "11223344")
+        )
+        if not conn:
+            return jsonify({"status": "error", "message": "Tidak bisa terhubung ke SAP dengan kredensial default"}), 500
+
+        # [FIX] Sekarang memanggil SAP untuk SEMUA tipe material, termasuk HALM
+        result = conn.call('ZRFC_GET_LAST_MATERIAL_BY_TYPE', I_MTART=material_type)
+        last_code_from_sap = result.get('E_MATNR', '').strip()
+        conn.close()
+
+        if not last_code_from_sap:
+            logging.warning(f"Tidak ada material ditemukan di SAP untuk tipe {material_type}")
+            return jsonify({"status": "error", "message": f"Tidak ada material ditemukan di SAP untuk tipe {material_type}"}), 404
+
+        next_code = increment_material_code(last_code_from_sap)
+        logging.info(f"Kode berikutnya untuk tipe '{material_type}' dari SAP adalah '{next_code}' (berdasarkan '{last_code_from_sap}')")
+        return jsonify({"status": "success", "next_material_code": next_code})
+
+    except Exception as e:
+        logging.error(f"Error saat mengambil kode dari SAP: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/activate_qm_and_upload', methods=['POST'])
 def activate_qm_and_upload():
@@ -207,14 +272,18 @@ def activate_qm_and_upload():
     materials_to_process = [item['original_data'] for item in data['materials']]
     results = []
 
+    logging.info(f"Memulai proses aktivasi QM dan unggah untuk {len(materials_to_process)} material.")
+
     conn = None
     try:
         conn = connect_sap_with_credentials(username, password)
         if not conn:
             return jsonify({"error": "Koneksi ke SAP gagal", "status": "failed"}), 500
 
-        for material in materials_to_process:
+        for i, material in enumerate(materials_to_process):
             material_code_for_log = material.get('Material', 'N/A')
+            logging.info(f"Memproses material #{i+1}/{len(materials_to_process)}: '{material_code_for_log}'")
+
             try:
                 def get_string(key):
                     value = str(material.get(key, ''))
@@ -252,7 +321,7 @@ def activate_qm_and_upload():
                     'LOT_SIZE': get_numeric('Costing lot size'),
                 }
                 conn.call('Z_RFC_UPL_MATERIAL', **rfc_params)
-                logging.info(f"Material {material_code_for_log} uploaded successfully.")
+                logging.info(f"Material '{material_code_for_log}' berhasil diunggah.")
 
                 time.sleep(1)
                 matnr = get_string('Material')
@@ -261,35 +330,36 @@ def activate_qm_and_upload():
                 mat_desc = get_string('Material Description')
                 base_uom = get_string('Base Unit of Measure')
 
+                logging.info(f"Mengaktifkan QM untuk material '{matnr}' di plant '{werks}' dengan tipe inspeksi '04'.")
                 qm_result = conn.call('Z_RFC_ACTV_QM', IV_MATNR=matnr_padded, IV_WERKS=werks, IV_INSPTYPE='04')
                 message = qm_result.get('EX_RETURN_MSG', '').strip()
 
                 if message == 'Inspection type successfully updated':
+                    logging.info(f"Aktivasi QM untuk '{matnr}' berhasil.")
                     results.append({
-                        "material_code": matnr,
-                        "status": "Success",
-                        "message": "Material Created & QM Activated.",
-                        "description": mat_desc,
-                        "plant": werks,
-                        "base_uom": base_uom
+                        "material_code": matnr, "status": "Success", "message": "Material Dibuat & QM Diaktifkan.",
+                        "description": mat_desc, "plant": werks, "base_uom": base_uom
                     })
                 else:
-                    failure_message = f"Material created, but QM activation failed: {message}" if message else "Material created, but QM activation failed with no specific error."
+                    failure_message = f"Material dibuat, tapi aktivasi QM gagal: {message}" if message else "Material dibuat, tapi aktivasi QM gagal tanpa pesan spesifik."
+                    logging.warning(f"Aktivasi QM untuk '{matnr}' gagal: {message}")
                     results.append({"material_code": matnr, "status": "Failed", "message": failure_message})
 
             except ABAPApplicationError as e:
+                logging.error(f"ABAP EXCEPTION saat mengunggah/aktivasi '{material_code_for_log}': {e.message}")
                 results.append({ "material_code": material_code_for_log, "status": "Failed", "message": f"Upload/Activation Error: {e.message}" })
             except Exception as e:
+                logging.error(f"GENERAL EXCEPTION saat mengunggah/aktivasi '{material_code_for_log}': {str(e)}", exc_info=True)
                 results.append({ "material_code": material_code_for_log, "status": "Failed", "message": f"General Error: {str(e)}" })
 
     finally:
         if conn:
             conn.close()
+            logging.info(f"Koneksi SAP untuk user '{username}' ditutup.")
 
-    return jsonify({ "status": "success", "message": "Material processing finished.", "results": results })
+    return jsonify({ "status": "success", "message": "Proses material selesai.", "results": results })
 
 
-# --- Endpoint untuk Inspection Plan ---
 @app.route('/create_inspection_plan', methods=['POST'])
 def create_inspection_plan():
     data = request.get_json()
@@ -302,99 +372,85 @@ def create_inspection_plan():
     plan_details = data['plan_details']
     results = []
 
+    logging.info(f"Menerima permintaan untuk membuat Inspection Plan untuk {len(materials)} material.")
+
     conn = None
     try:
         conn = connect_sap_with_credentials(username, password)
         if not conn:
             return jsonify({"error": "Koneksi ke SAP gagal", "status": "failed"}), 500
 
-        for material in materials:
+        for i, material in enumerate(materials):
             mat_code = material.get('material_code')
-            mat_desc = material.get('description', f"Inspection for {mat_code}")
             plant = material.get('plant')
+            logging.info(f"Memproses Inspection Plan #{i+1}/{len(materials)} untuk Material: '{mat_code}' di Plant: '{plant}'")
+
+            mat_desc = material.get('description', f"Inspection for {mat_code}")
             base_uom = material.get('base_uom', 'PC')
 
             if not all([mat_code, plant]):
-                results.append({"material_code": mat_code or "N/A", "status": "Skipped", "message": "Material code or plant is missing."})
+                logging.warning(f"Melewatkan material karena kode atau plant tidak ada: {material}")
+                results.append({"material_code": mat_code or "N/A", "status": "Skipped", "message": "Material code atau plant tidak ada."})
                 continue
 
             try:
                 method_val, char_descr_val = '', ''
                 plant_str = str(plant)
-                if plant_str == '3000':
-                    method_val, char_descr_val = 'MIC00005', 'MIC PRODUCT SMG'
-                elif plant_str == '2000':
-                    method_val, char_descr_val = 'MIC00002', 'MIC PRODUCT SBY'
-                elif plant_str == '1000':
-                    method_val, char_descr_val = 'MIC00001', 'MIC KMI 1 SURABAYA'
-                elif plant_str == '1001':
-                    method_val, char_descr_val = 'MIC00003', 'MIC PRODUCT SBY PLANT 1001'
-                else:
-                    method_val, char_descr_val = 'MIC00005', f"CHECK 0010 FOR PLANT {plant_str}"
+                if plant_str == '3000': method_val, char_descr_val = 'MIC00005', 'MIC PRODUCT SMG'
+                elif plant_str == '2000': method_val, char_descr_val = 'MIC00002', 'MIC PRODUCT SBY'
+                elif plant_str == '1000': method_val, char_descr_val = 'MIC00001', 'MIC KMI 1 SURABAYA'
+                elif plant_str == '1001': method_val, char_descr_val = 'MIC00003', 'MIC PRODUCT SBY PLANT 1001'
+                else: method_val, char_descr_val = 'MIC00005', f"CHECK 0010 FOR PLANT {plant_str}"
 
                 task_desc_val = str(mat_desc[:40])
 
                 rfc_params = {
-                    'IM_VALID_FROM': datetime.now().strftime('%Y%m%d'),
-                    'IM_TASK_USAGE': str(plan_details.get('task_usage', '5')),
-                    'IM_TASK_STATUS': str(plan_details.get('task_status', '4')),
-                    'IM_TASK_UNIT': str(base_uom),
-                    'IM_LOT_SIZE_TO': str('9999999999'),
-                    'IM_TASK_DESC': task_desc_val,
-                    'IM_MATERIAL': format_material_code_for_sap(mat_code),
-                    'IM_PLANT': str(plant),
-                    'IM_ACTIVITY': str('0010'),
-                    'IM_CONTROL_KEY': str(plan_details.get('control_key', 'QM01')),
-                    'IM_OPERATION_DESC': task_desc_val,
-                    'IM_OPERATION_MEASURE_UNIT': str(base_uom),
-                    'IM_BASE_QTY': 1.0,
-                    'IM_SMPL_QUANT': 1.0,
-                    'IM_INSPCHAR': '0010',
-                    'IM_CHAR_DESCR': str(char_descr_val[:40]).upper(),
-                    'IM_METHOD': str(method_val),
-                    'IM_PMETHOD': str(plant),
-                    'IM_SMPL_PROCEDURE': str('SAMP0001'),
-                    'IM_SMPL_UNIT': str(base_uom)
+                    'IM_VALID_FROM': datetime.now().strftime('%Y%m%d'), 'IM_TASK_USAGE': str(plan_details.get('task_usage', '5')),
+                    'IM_TASK_STATUS': str(plan_details.get('task_status', '4')), 'IM_TASK_UNIT': str(base_uom),
+                    'IM_LOT_SIZE_TO': str('9999999999'), 'IM_TASK_DESC': task_desc_val, 'IM_MATERIAL': format_material_code_for_sap(mat_code),
+                    'IM_PLANT': str(plant), 'IM_ACTIVITY': str('0010'), 'IM_CONTROL_KEY': str(plan_details.get('control_key', 'QM01')),
+                    'IM_OPERATION_DESC': task_desc_val, 'IM_OPERATION_MEASURE_UNIT': str(base_uom), 'IM_BASE_QTY': 1.0, 'IM_SMPL_QUANT': 1.0,
+                    'IM_INSPCHAR': '0010', 'IM_CHAR_DESCR': str(char_descr_val[:40]).upper(), 'IM_METHOD': str(method_val), 'IM_PMETHOD': str(plant),
+                    'IM_SMPL_PROCEDURE': str('SAMP0001'), 'IM_SMPL_UNIT': str(base_uom)
                 }
 
-                logging.info(f"Calling ZRFC_CREATE_INSPECTION_PLAN for Material: {mat_code} in Plant: {plant}")
-                logging.info(f"Parameters: {rfc_params}")
                 result = conn.call('ZRFC_CREATE_INSPECTION_PLAN', **rfc_params)
-                logging.info(f"Result from SAP: {result}")
 
                 return_msg = result.get('EX_RETURN', {})
                 msg_type = return_msg.get('TYPE', '')
                 message = return_msg.get('MESSAGE', '').strip()
 
                 if msg_type == 'S' or not msg_type:
+                     group = result.get('EX_GROUP')
+                     counter = result.get('EX_GROUP_COUNTER')
+                     logging.info(f"Inspection plan untuk '{mat_code}' berhasil dibuat. Grup: {group}, Counter: {counter}")
                      results.append({
-                        "material_code": mat_code,
-                        "status": "Success",
-                        "message": f"Inspection Plan created. Group: {result.get('EX_GROUP')} / Cnt: {result.get('EX_GROUP_COUNTER')}"
+                        "material_code": mat_code, "status": "Success",
+                        "message": f"Inspection Plan dibuat. Grup: {group} / Cnt: {counter}"
                     })
                 else:
                     if not message:
-                        error_parts = [
-                            return_msg.get('MESSAGE_V1', ''), return_msg.get('MESSAGE_V2', ''),
-                            return_msg.get('MESSAGE_V3', ''), return_msg.get('MESSAGE_V4', '')
-                        ]
+                        error_parts = [return_msg.get(f'MESSAGE_V{i}', '') for i in range(1, 5)]
                         full_error = ' '.join(filter(None, error_parts))
-                        message = f"Undescribed error from SAP. Details: [{full_error.strip()}]"
+                        message = f"Error dari SAP tidak terdeskripsi. Detail: [{full_error.strip()}]"
+                    logging.error(f"Gagal membuat inspection plan untuk '{mat_code}': {message}")
                     results.append({"material_code": mat_code, "status": "Failed", "message": f"SAP Error: {message}"})
 
             except ABAPApplicationError as e:
-                logging.error(f"ABAP Error for {mat_code}: {e.message}")
+                logging.error(f"ABAP Error untuk '{mat_code}': {e.message}")
                 results.append({ "material_code": mat_code, "status": "Failed", "message": f"ABAP Error: {e.message}" })
             except Exception as e:
-                logging.error(f"General Error for {mat_code}: {str(e)}")
+                logging.error(f"General Error untuk '{mat_code}': {str(e)}", exc_info=True)
                 results.append({ "material_code": mat_code, "status": "Failed", "message": f"General Error: {str(e)}" })
 
     finally:
         if conn:
             conn.close()
+            logging.info(f"Koneksi SAP untuk user '{username}' ditutup.")
 
-    return jsonify({"status": "success", "message": "Inspection plan creation process finished.", "results": results})
+    return jsonify({"status": "success", "message": "Proses pembuatan inspection plan selesai.", "results": results})
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='127.0.0.1', port=5001, debug=True)
+

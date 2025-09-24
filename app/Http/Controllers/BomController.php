@@ -21,6 +21,7 @@ use App\Exports\MaterialMasterExport;
 use App\Exports\SapUploadReportExport;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\SapUploadNotification;
+use App\Exports\RoutingTemplateExport;
 
 /**
  * Custom import class untuk BOM Uploader.
@@ -226,6 +227,7 @@ class BomController extends Controller
                     'parent' => $parentData,
                     'components' => $updatedComponents
                 ];
+
             }
 
             // ===================================================================
@@ -304,6 +306,65 @@ class BomController extends Controller
         }
     }
 
+    public function downloadRoutingTemplate(Request $request, $filename)
+    {
+        try {
+            if (!Storage::disk('local')->exists($filename) || !Str::startsWith($filename, 'bom_processed_')) {
+                abort(404, 'File not found or invalid.');
+            }
+
+            $fileContent = json_decode(Storage::disk('local')->get($filename), true);
+            $boms = $fileContent['boms'] ?? [];
+            $plant = $fileContent['plant'] ?? '';
+            $dataForExport = [];
+
+            foreach ($boms as $bom) {
+                if (empty($bom['parent']) || empty($bom['parent']['code']) || $bom['parent']['code'] === '#NOT_FOUND#') {
+                    continue;
+                }
+                $parent = $bom['parent'];
+
+                // Membuat satu baris data untuk setiap parent BOM
+                $dataForExport[] = [
+                    'Material'      => ltrim($parent['code'], '0'), // Menghapus nol di depan untuk tampilan
+                    'Plant'         => $plant,
+                    'Description'   => $parent['description'] ?? '',
+                    'Usage'         => '1', // Nilai default
+                    'Status'        => '4', // Nilai default
+                    'Grp Ctr'       => '1', // Nilai default
+                    'Operation'     => '',  // Dikosongkan untuk diisi user
+                    'Work Ctr'      => '',
+                    'Ctrl Key'      => '',
+                    'Descriptions'  => '',
+                    'Base Qty'      => '',
+                    'UoM'           => $parent['uom'] ?? 'PC', // Mengambil dari data BOM
+                    'Activity 1'    => '',
+                    'UoM 1'         => '',
+                    'Activity 2'    => '',
+                    'UoM 2'         => '',
+                    'Activity 3'    => '',
+                    'UoM 3'         => '',
+                    'Activity 4'    => '',
+                    'UoM 4'         => '',
+                    'Activity 5'    => '',
+                    'UoM 5'         => '',
+                    'Activity 6'    => '',
+                    'UoM 6'         => '',
+                ];
+            }
+
+            if (empty($dataForExport)) {
+                 return redirect()->route('bom.index')->withErrors('No valid parent materials found to generate a routing template.');
+            }
+
+            $downloadFilename = 'SAP_ROUTING_TEMPLATE_FROM_BOM_' . date('Y-m-d') . '.xlsx';
+            return Excel::download(new RoutingTemplateExport($dataForExport), $downloadFilename);
+
+        } catch (\Exception $e) {
+            Log::error("Error generating routing template: " . $e->getMessage());
+            return redirect()->route('bom.index')->withErrors('Could not generate the routing template due to a server error.');
+        }
+    }
 
     public function uploadProcessedBom(Request $request)
     {
@@ -314,81 +375,80 @@ class BomController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Processed file not found.'], 404);
             }
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
-            // File content sekarang sudah bersih karena diperbarui oleh generateBomMaterialCodes
             $fileContent = json_decode(Storage::disk('local')->get($filename), true);
             $plant = $fileContent['plant'];
             $boms = $fileContent['boms'];
 
             $bomsForUpload = [];
+            $descriptionMap = [];
+
             foreach ($boms as $bom) {
-                if (!is_array($bom) || !isset($bom['parent']['code']) || !isset($bom['components']) || !is_array($bom['components'])) {
-                    continue;
-                }
+                if (!is_array($bom) || !isset($bom['parent']['code']) || !isset($bom['components']) || !is_array($bom['components'])) continue;
+
                 $parentCode = $bom['parent']['code'];
-                if ($parentCode === null || $parentCode === '' || $parentCode === '#NOT_FOUND#') {
-                    continue;
-                }
+                if ($parentCode === null || $parentCode === '' || $parentCode === '#NOT_FOUND#') continue;
+
+                // [FIX] Gunakan kode tanpa leading zero sebagai kunci yang konsisten
+                $cleanParentCode = ltrim($parentCode, '0');
+                $descriptionMap[$cleanParentCode] = $bom['parent']['description'] ?? 'No Description';
 
                 $validComponents = [];
                 foreach ($bom['components'] as $comp) {
-                    $componentCode = $comp['code'] ?? null;
-                    if ($componentCode !== null && $componentCode !== '' && $componentCode !== '#NOT_FOUND#') {
+                    if (!empty($comp['code']) && $comp['code'] !== '#NOT_FOUND#') {
                         $validComponents[] = $comp;
                     }
                 }
 
-                if (count($validComponents) === 0) {
-                    continue;
-                }
+                if (count($validComponents) === 0) continue;
 
                 $componentsPayload = [];
                 foreach ($validComponents as $key => $comp) {
                     $itemNumber = ($key + 1) * 10;
                     $quantity = (float)str_replace(',', '.', $comp['qty'] ?? '0');
                     $componentsPayload[] = [
-                        'ITEM_CATEG'    => 'L',
-                        'POSNR'         => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
+                        'ITEM_CATEG'    => 'L', 'POSNR' => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
                         'COMPONENT'     => str_pad($comp['code'], 18, '0', STR_PAD_LEFT),
-                        'COMP_QTY'      => $quantity,
-                        'COMP_UNIT'     => $comp['uom'] ?? 'PC',
-                        'PROD_STOR_LOC' => $comp['sloc'] ?? '',
-                        'SCRAP'         => '0',
-                        'ITEM_TEXT'     => '',
-                        'ITEM_TEXT2'    => '',
+                        'COMP_QTY'      => $quantity, 'COMP_UNIT' => $comp['uom'] ?? 'PC',
+                        'PROD_STOR_LOC' => $comp['sloc'] ?? '', 'SCRAP' => '0',
+                        'ITEM_TEXT'     => '', 'ITEM_TEXT2' => '',
                     ];
                 }
 
                 $baseQuantity = (float)str_replace(',', '.', $bom['parent']['qty'] ?? '1');
-                if ($baseQuantity == floor($baseQuantity)) {
-                    $baseQuantity = (int)$baseQuantity;
-                }
+                if ($baseQuantity == floor($baseQuantity)) $baseQuantity = (int)$baseQuantity;
 
                 $bomsForUpload[] = [
                     'IV_MATNR'      => str_pad($parentCode, 18, '0', STR_PAD_LEFT),
-                    'IV_WERKS'      => $plant,
-                    'IV_STLAN'      => '1',
-                    'IV_STLAL'      => '01',
-                    'IV_DATUV'      => date('dmY'),
-                    'IV_BMENG'      => $baseQuantity,
-                    'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC',
-                    'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload',
+                    'IV_WERKS'      => $plant, 'IV_STLAN' => '1', 'IV_STLAL' => '01',
+                    'IV_DATUV'      => date('dmY'), 'IV_BMENG' => $baseQuantity,
+                    'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC', 'IV_STKTX' => $bom['parent']['description'] ?? 'BOM Upload',
                     'IT_COMPONENTS' => $componentsPayload,
                 ];
             }
 
             if (empty($bomsForUpload)) {
-                 return response()->json(['status' => 'success', 'message' => 'BOM upload process finished. No valid BOMs remained after final validation.', 'results' => []]);
+                 return response()->json(['status' => 'success', 'message' => 'BOM upload process finished. No valid BOMs remained.', 'results' => []]);
             }
 
             Log::info('Final BOM payload being sent to Python API:', ['count' => count($bomsForUpload), 'data' => $bomsForUpload]);
-
             $response = Http::timeout(600)->post($pythonApiUrl . '/upload_bom', [
-                'username' => $request->input('username'),
-                'password' => $request->input('password'),
+                'username' => $request->input('username'), 'password' => $request->input('password'),
                 'boms' => $bomsForUpload
             ]);
 
-            return $response->json();
+            $pythonResponse = $response->json();
+            if (isset($pythonResponse['results']) && is_array($pythonResponse['results'])) {
+                $enrichedResults = [];
+                foreach($pythonResponse['results'] as $result) {
+                    $matCode = ltrim($result['material_code'], '0');
+                    // [FIX] Mencari deskripsi menggunakan kunci yang sudah konsisten
+                    $result['description'] = $descriptionMap[$matCode] ?? 'N/A';
+                    $enrichedResults[] = $result;
+                }
+                $pythonResponse['results'] = $enrichedResults;
+            }
+
+            return response()->json($pythonResponse);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => 'A fatal error occurred: ' . $e->getMessage()], 500);
         }
@@ -745,18 +805,23 @@ class BomController extends Controller
 
     public function sendNotification(Request $request)
     {
+        // [FIX] Validasi diubah untuk mengambil plant dari request, bukan session
         $request->validate([
-            'recipient' => 'required|email',
-            'results' => 'required|array'
+            'recipients'   => 'required|array',
+            'recipients.*' => 'required|email',
+            'results'      => 'required|array',
+            'plant'        => 'required|string', // Menjadikan plant wajib ada di request
         ]);
+
         try {
-            $plant = $request->session()->get('processed_plant', 'N/A');
+            $plant = $request->input('plant'); // Mengambil plant dari request
             $resultsWithPlant = array_map(function($result) use ($plant) {
                 $result['plant'] = $plant;
                 return $result;
             }, $request->input('results'));
 
-            Mail::to($request->input('recipient'))->send(new SapUploadNotification($resultsWithPlant));
+            Mail::to($request->input('recipients'))->send(new SapUploadNotification($resultsWithPlant));
+
             return response()->json(['message' => 'Email notification sent successfully!']);
         } catch (\Exception $e) {
             Log::error('Email sending failed: ' . $e->getMessage());

@@ -69,7 +69,7 @@
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
                 <h1 class="h3 main-title">SAP Material Master Converter</h1>
-                <p class="subtitle mb-0">Automate your apps to SAP data conversion</p>
+                <p class="subtitle mb-0">Automate Your CAD-to-ERP Workflow: From Inventor to SAP Material Master</p>
             </div>
             <img src="{{ asset('images/saplogo.png') }}" alt="SAP Logo" class="sap-logo-header">
         </div>

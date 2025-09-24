@@ -5,32 +5,55 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class SapUploadNotification extends Mailable
 {
     use Queueable, SerializesModels;
 
+    /**
+     * Properti publik ini akan otomatis tersedia di dalam file view email.
+     */
     public $results;
 
     /**
      * Create a new message instance.
-     *
-     * @return void
      */
-    public function __construct($results)
+    public function __construct(array $results)
     {
         $this->results = $results;
     }
 
     /**
-     * Build the message.
-     *
-     * @return $this
+     * Get the message envelope.
      */
-    public function build()
+    public function envelope(): Envelope
     {
-        return $this->subject('SAP Material Upload Notification')
-                    ->view('emails.sap_upload_notification');
+        return new Envelope(
+            subject: 'Laporan Status Unggah BOM ke SAP',
+        );
+    }
+
+    /**
+     * Get the message content definition.
+     */
+    public function content(): Content
+    {
+        // Memberitahu Laravel untuk menggunakan file view ini untuk konten email
+        return new Content(
+            view: 'emails.sap_upload_notification',
+        );
+    }
+
+    /**
+     * Get the attachments for the message.
+     *
+     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     */
+    public function attachments(): array
+    {
+        return [];
     }
 }

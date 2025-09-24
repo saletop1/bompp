@@ -1,37 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>SAP Material Upload Notification</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Upload BOM</title>
     <style>
-        body { font-family: sans-serif; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #dddddd; text-align: left; padding: 8px; }
-        th { background-color: #f2f2f2; }
+        body { font-family: Arial, sans-serif; color: #333; }
+        .container { padding: 20px; max-width: 800px; margin: auto; }
+        .header { background-color: #f2f2f2; padding: 10px; text-align: center; font-size: 20px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #4CAF50; color: white; }
+        .status-success { color: green; font-weight: bold; }
+        .status-failed { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
-    <h2>SAP Material Upload Process Completed</h2>
-    <p>The following materials have been successfully created in SAP:</p>
-    <table>
-        <thead>
-            <tr>
-                <th>Material Code</th>
-                <th>Material Description</th>
-                <th>Status</th>
-                {{-- <th>Plant</th> --}}
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($results as $item)
+    <div class="container">
+        <div class="header">Laporan Status Unggah BOM ke SAP</div>
+        <p>Berikut adalah rincian status dari proses unggah Bill of Materials (BOM) yang telah dijalankan:</p>
+        <table>
+            <thead>
                 <tr>
-                    <td>{{ $item['material_code'] }}</td>
-                    <td>{{ $item['description'] ?? 'N/A' }}</td>
-                    <td>{{ $item['message'] }}</td>
-                    {{-- <td>{{ $item['plant'] }}</td> --}}
+                    <th>Material</th>
+                    <th>Deskripsi</th>
+                    <th>Plant</th>
+                    <th>Status</th>
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
-    <p>This is an automated notification.</p>
+            </thead>
+            <tbody>
+                @foreach ($results as $result)
+                    <tr>
+                        <td>
+                            {{-- [PERMINTAAN 1] Menghilangkan leading zero --}}
+                            {{ ltrim($result['material_code'], '0') }}
+                        </td>
+                        <td>
+                            {{-- [PERMINTAAN 2] Menampilkan deskripsi --}}
+                            {{ $result['description'] ?? 'N/A' }}
+                        </td>
+                        <td>
+                             {{-- [PERMINTAAN 3] Menampilkan plant --}}
+                            {{ $result['plant'] ?? 'N/A' }}
+                        </td>
+                        <td>
+                            @if (($result['status'] ?? 'Failed') === 'Success')
+                                <span class="status-success">
+                                    {{-- [PERMINTAAN 4] Mengubah format pesan status --}}
+                                    BOM {{ ltrim($result['material_code'], '0') }} Berhasil dibuat
+                                </span>
+                            @else
+                                <span class="status-failed">
+                                    Gagal: {{ $result['message'] ?? 'Unknown error' }}
+                                </span>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+        <p style="margin-top: 20px; font-size: 12px; color: #777;">
+            Ini adalah email yang dibuat secara otomatis. Mohon untuk tidak membalas email ini.
+        </p>
+    </div>
 </body>
 </html>
