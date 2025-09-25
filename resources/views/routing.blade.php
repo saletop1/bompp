@@ -28,8 +28,8 @@
              color: white;
              font-weight: bold;
         }
-        .delete-icon { cursor: pointer; }
-        .delete-icon:hover { color: #dc3545; }
+        .delete-row-icon { cursor: pointer; }
+        .delete-row-icon:hover { color: #dc3545; }
         .file-header-row > td {
             background-color: rgba(0, 0, 0, 0.3) !important;
             font-weight: bold;
@@ -44,8 +44,8 @@
     <div class="container converter-container">
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
-                <h1 class="h3 main-title">SAP Routing Data Center</h1>
-                <p class="subtitle mb-0">Manage Routing Data SAP PP Module</p>
+                <h1 class="h3 main-title">SAP Data Master Center</h1>
+                <p class="subtitle mb-0">Manage Material, BOM, and Routing Data</p>
             </div>
             <img src="{{ asset('images/saplogo.png') }}" alt="SAP Logo" class="sap-logo-header">
         </div>
@@ -71,6 +71,9 @@
                 <div id="results-container" class="mt-4" style="display: none;">
                     <h4 class="mb-3">Preview Data Routing</h4>
                     <div class="d-flex justify-content-end mb-3 gap-2">
+                        <button class="btn btn-danger" id="delete-selected-btn" disabled>
+                            <i class="bi bi-trash-fill me-2"></i>Hapus yang Dipilih
+                        </button>
                         <button class="btn btn-warning" id="save-selected-btn" disabled>
                             <i class="bi bi-save-fill me-2"></i>Save
                         </button>
@@ -139,10 +142,7 @@
                 tbody.innerHTML += `<tr class="file-header-row"><td colspan="8">File: ${fileGroup.fileName}</td></tr>`;
                 fileGroup.data.forEach((group, itemIndex) => {
                     const detailsId = `details-${globalIndex}`;
-
-                    // [PERBAIKAN] Logika diubah dari .some() menjadi .filter().length > 1
                     const hasDuplicateZP01 = group.operations.filter(op => op.CONTROL_KEY === 'ZP01').length > 1;
-
                     const rowClass = hasDuplicateZP01 ? 'table-danger' : '';
                     const statusHtml = hasDuplicateZP01 ? `<span class="badge bg-danger">Error: Duplikat ZP01</span>` : `<span class="badge bg-secondary">Menunggu</span>`;
 
@@ -155,7 +155,7 @@
                             <td>${group.header.IV_DESCRIPTION}</td>
                             <td class="details-toggle" data-bs-toggle="collapse" data-bs-target="#${detailsId}">${group.operations.length} <i class="bi bi-chevron-down ms-1 small"></i></td>
                             <td class="status-cell">${statusHtml}</td>
-                            <td><i class="bi bi-trash-fill delete-icon" data-file-index="${fileIndex}" title="Hapus semua data dari file ${fileGroup.fileName}"></i></td>
+                            <td><i class="bi bi-trash-fill delete-row-icon" data-global-index="${globalIndex}" title="Hapus baris ini"></i></td>
                         </tr>`;
 
                     let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Work Center Desc.</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
@@ -183,9 +183,9 @@
         function handleCheckboxChange() {
             const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
             const enabledCount = document.querySelectorAll('.row-checkbox:not(:disabled)').length;
-
             const selectAllCheckbox = document.getElementById('select-all-checkbox');
 
+            document.getElementById('delete-selected-btn').disabled = checkedCount === 0;
             document.getElementById('upload-selected-btn').disabled = checkedCount === 0;
             document.getElementById('save-selected-btn').disabled = checkedCount === 0;
 
@@ -195,6 +195,22 @@
             }
         }
 
+        // [BARU] Fungsi terpusat untuk menghapus item berdasarkan global index
+        function deleteItemsByGlobalIndices(indicesToDeleteSet) {
+             let globalIndexCounter = 0;
+             const newProcessedDataByFile = processedDataByFile.map(fileGroup => {
+                const newData = fileGroup.data.filter(item => {
+                    const shouldKeep = !indicesToDeleteSet.has(globalIndexCounter);
+                    globalIndexCounter++;
+                    return shouldKeep;
+                });
+                return { ...fileGroup, data: newData };
+            }).filter(fileGroup => fileGroup.data.length > 0);
+
+            processedDataByFile = newProcessedDataByFile;
+            renderTable();
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             uploadModal = new bootstrap.Modal(document.getElementById('sap-credential-modal'));
             const uploadForm = document.getElementById('upload-form');
@@ -202,6 +218,7 @@
             const resultsContainer = document.getElementById('results-container');
             const uploadSelectedBtn = document.getElementById('upload-selected-btn');
             const saveSelectedBtn = document.getElementById('save-selected-btn');
+            const deleteSelectedBtn = document.getElementById('delete-selected-btn');
             const confirmUploadBtn = document.getElementById('confirm-upload-btn');
             const resultsTbody = document.getElementById('results-tbody');
             const selectAllCheckbox = document.getElementById('select-all-checkbox');
@@ -227,7 +244,6 @@
 
                     resultsContainer.style.display = 'block';
                     renderTable();
-
                     processBtn.innerHTML = `<i class="bi bi-plus-circle-fill me-2"></i>Tambah File Lain`;
 
                 } catch (error) {
@@ -247,9 +263,7 @@
                 if (selectedItems.length === 0) {
                     return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
                 }
-
                 saveSelectedBtn.disabled = true;
-
                 try {
                     const response = await fetch("{{ route('routing.save') }}", {
                         method: 'POST',
@@ -257,9 +271,7 @@
                         headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
                     });
                     const result = await response.json();
-                    if (!response.ok || result.status !== 'success') {
-                        throw new Error(result.message || 'Gagal menyimpan data.');
-                    }
+                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Gagal menyimpan data.');
                     Swal.fire('Sukses!', result.message, 'success');
                 } catch (error) {
                     Swal.fire('Error!', error.message, 'error');
@@ -306,33 +318,57 @@
                 handleCheckboxChange();
             });
 
+            // Listener untuk semua event 'change' & 'click' pada tabel body
+            resultsTbody.addEventListener('click', e => {
+                if (e.target.classList.contains('delete-row-icon')) {
+                    const indexToDelete = parseInt(e.target.getAttribute('data-global-index'), 10);
+
+                    Swal.fire({
+                        title: 'Hapus Baris Ini?',
+                        text: "Data akan dihapus dari tampilan preview.",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Ya, hapus!'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            deleteItemsByGlobalIndices(new Set([indexToDelete]));
+                            Swal.fire('Dihapus!', 'Baris telah dihapus dari preview.', 'success');
+                        }
+                    });
+                }
+            });
+
             resultsTbody.addEventListener('change', e => {
                 if (e.target.classList.contains('row-checkbox')) {
                     handleCheckboxChange();
                 }
             });
 
-            resultsTbody.addEventListener('click', e => {
-                if (e.target.classList.contains('delete-icon')) {
-                    const fileIndexToDelete = parseInt(e.target.getAttribute('data-file-index'), 10);
-                    const fileName = processedDataByFile[fileIndexToDelete].fileName;
-
-                    Swal.fire({
-                        title: 'Anda yakin?',
-                        text: `Semua data dari file "${fileName}" akan dihapus dari tampilan preview.`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: 'Ya, hapus semua!'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            processedDataByFile.splice(fileIndexToDelete, 1);
-                            renderTable();
-                            Swal.fire('Dihapus!', `Data dari file ${fileName} telah dihapus.`, 'success');
-                        }
-                    })
+            deleteSelectedBtn.addEventListener('click', () => {
+                const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+                if (checkedBoxes.length === 0) {
+                    return Swal.fire('Info', 'Tidak ada baris yang dipilih untuk dihapus.', 'info');
                 }
+
+                Swal.fire({
+                    title: 'Anda yakin?',
+                    text: `Anda akan menghapus ${checkedBoxes.length} baris yang dipilih dari tampilan.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, hapus yang dipilih!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const indicesToDelete = new Set(
+                            Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-global-index')))
+                        );
+                        deleteItemsByGlobalIndices(indicesToDelete);
+                        Swal.fire('Dihapus!', 'Baris yang dipilih telah dihapus dari preview.', 'success');
+                    }
+                });
             });
         });
     </script>
