@@ -133,7 +133,8 @@
         let processedDataByFile = [];
         let uploadModal;
 
-        function renderTable() {
+        // [PERUBAHAN 1] renderTable sekarang menerima daftar centang yang harus dipertahankan
+        function renderTable(checkedIndices = new Set()) {
             const tbody = document.getElementById('results-tbody');
             tbody.innerHTML = '';
             let globalIndex = 0;
@@ -146,9 +147,12 @@
                     const rowClass = hasDuplicateZP01 ? 'table-danger' : '';
                     const statusHtml = hasDuplicateZP01 ? `<span class="badge bg-danger">Error: Duplikat ZP01</span>` : `<span class="badge bg-secondary">Menunggu</span>`;
 
+                    // [PERUBAHAN 2] Menambahkan atribut 'checked' jika index baris ini ada di daftar yang disimpan
+                    const isChecked = checkedIndices.has(globalIndex) ? 'checked' : '';
+
                     const mainRow = `
                         <tr data-global-index="${globalIndex}" class="${rowClass}">
-                            <td><input class="form-check-input row-checkbox" type="checkbox" data-global-index="${globalIndex}" ${hasDuplicateZP01 ? 'disabled' : ''}></td>
+                            <td><input class="form-check-input row-checkbox" type="checkbox" data-global-index="${globalIndex}" ${hasDuplicateZP01 ? 'disabled' : ''} ${isChecked}></td>
                             <td>${globalIndex + 1}</td>
                             <td>${group.header.IV_MATERIAL}</td>
                             <td>${group.header.IV_PLANT}</td>
@@ -195,8 +199,18 @@
             }
         }
 
-        // [BARU] Fungsi terpusat untuk menghapus item berdasarkan global index
+        // [PERUBAHAN 3] Fungsi hapus sekarang "mengingat" centang sebelum menghapus
         function deleteItemsByGlobalIndices(indicesToDeleteSet) {
+             // Simpan dulu index dari checkbox yang tercentang SAAT INI
+             const currentlyCheckedIndices = new Set(
+                Array.from(document.querySelectorAll('.row-checkbox:checked'))
+                     .map(cb => parseInt(cb.getAttribute('data-global-index')))
+             );
+
+             // Hapus index dari item yang akan dihapus dari daftar yang kita simpan
+             indicesToDeleteSet.forEach(index => currentlyCheckedIndices.delete(index));
+
+             // Lakukan proses penghapusan data
              let globalIndexCounter = 0;
              const newProcessedDataByFile = processedDataByFile.map(fileGroup => {
                 const newData = fileGroup.data.filter(item => {
@@ -208,7 +222,9 @@
             }).filter(fileGroup => fileGroup.data.length > 0);
 
             processedDataByFile = newProcessedDataByFile;
-            renderTable();
+
+            // Render ulang tabel, sambil mengirimkan daftar centang yang harus dipertahankan
+            renderTable(currentlyCheckedIndices);
         }
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -318,7 +334,6 @@
                 handleCheckboxChange();
             });
 
-            // Listener untuk semua event 'change' & 'click' pada tabel body
             resultsTbody.addEventListener('click', e => {
                 if (e.target.classList.contains('delete-row-icon')) {
                     const indexToDelete = parseInt(e.target.getAttribute('data-global-index'), 10);
@@ -365,6 +380,8 @@
                         const indicesToDelete = new Set(
                             Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-global-index')))
                         );
+                        // Untuk tombol "Hapus yang Dipilih", kita tidak perlu mempertahankan centang apapun
+                        // karena semua yang dicentang akan dihapus.
                         deleteItemsByGlobalIndices(indicesToDelete);
                         Swal.fire('Dihapus!', 'Baris yang dipilih telah dihapus dari preview.', 'success');
                     }
