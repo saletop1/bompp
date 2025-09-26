@@ -44,7 +44,45 @@
         #process-another-btn-bom:hover { background-color: #157347 !important; border-color: #146c43 !important; }
         .alert.alert-success-frosted { background: rgba(25, 135, 126, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .alert.alert-danger { background: rgba(220, 53, 69, 0.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-        #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: -20px; }
+        #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: 1rem; }
+
+        /* [CSS LOADER BARU DITAMBAHKAN DI SINI] */
+        .main-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+        .loader {
+            width: 100%;
+            max-width: 400px; /* Batasi lebar agar tidak terlalu besar di layar lebar */
+        }
+        .trace-bg {
+            stroke: #333;
+            stroke-width: 1.8;
+            fill: none;
+        }
+        .trace-flow {
+            stroke-width: 1.8;
+            fill: none;
+            stroke-dasharray: 40 400;
+            stroke-dashoffset: 438;
+            filter: drop-shadow(0 0 6px currentColor);
+            animation: flow 3s cubic-bezier(0.5, 0, 0.9, 1) infinite;
+        }
+        .yellow { stroke: #ffea00; color: #ffea00; }
+        .blue { stroke: #00ccff; color: #00ccff; }
+        .green { stroke: #00ff15; color: #00ff15; }
+        .purple { stroke: #9900ff; color: #9900ff; }
+        .red { stroke: #ff3300; color: #ff3300; }
+
+        @keyframes flow {
+            to { stroke-dashoffset: 0; }
+        }
+        .chip-body { rx: 5; ry: 5; }
+        .chip-text { font-weight: bold; letter-spacing: 1px; font-size: 14px; }
+        .chip-pin { stroke: #444; stroke-width: 0.5; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6)); }
     </style>
 </head>
 <body>
@@ -94,16 +132,46 @@
                         </div>
                     </div>
 
+                    {{-- [UBAH] CONTAINER UNTUK LOADER BARU --}}
                     <div id="progress-container" class="text-center mt-4 d-none">
-                        <dotlottie-player src="{{ asset('animations/dotsnake.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay></dotlottie-player>
+                        <div class="main-container" style="height: 200px;">
+                            <svg class="loader" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                                <path class="trace-bg" d="M145 100 C 50 100, 50 20, 20 20"></path>
+                                <path class="trace-flow blue" d="M145 100 C 50 100, 50 20, 20 20"></path>
+                                <path class="trace-bg" d="M145 110 C 60 110, 60 180, 20 180"></path>
+                                <path class="trace-flow green" d="M145 110 C 60 110, 60 180, 20 180" style="animation-delay: 0.2s;"></path>
+                                <path class="trace-bg" d="M145 90 C 80 90, 80 50, 40 50"></path>
+                                <path class="trace-flow yellow" d="M145 90 C 80 90, 80 50, 40 50" style="animation-delay: 0.4s;"></path>
+
+                                <path class="trace-bg" d="M255 100 C 350 100, 350 20, 380 20"></path>
+                                <path class="trace-flow red" d="M255 100 C 350 100, 350 20, 380 20" style="animation-delay: 0.6s;"></path>
+                                <path class="trace-bg" d="M255 110 C 340 110, 340 180, 380 180"></path>
+                                <path class="trace-flow purple" d="M255 110 C 340 110, 340 180, 380 180" style="animation-delay: 0.8s;"></path>
+                                <path class="trace-bg" d="M255 90 C 320 90, 320 50, 360 50"></path>
+                                <path class="trace-flow blue" d="M255 90 C 320 90, 320 50, 360 50" style="animation-delay: 1s;"></path>
+
+                                <g>
+                                    <rect x="150" y="80" width="100" height="50" class="chip-body" fill="#222" stroke="#555" stroke-width="1"></rect>
+                                    <text x="200" y="108" text-anchor="middle" class="chip-text" fill="#00ff15">SAP</text>
+
+                                    <rect x="145" y="85" width="5" height="3" class="chip-pin"></rect>
+                                    <rect x="145" y="95" width="5" height="3" class="chip-pin"></rect>
+                                    <rect x="145" y="105" width="5" height="3" class="chip-pin"></rect>
+                                    <rect x="145" y="115" width="5" height="3" class="chip-pin"></rect>
+
+                                    <rect x="250" y="85" width="5" height="3" class="chip-pin"></rect>
+                                    <rect x="250" y="95" width="5" height="3" class="chip-pin"></rect>
+                                    <rect x="250" y="105" width="5" height="3" class="chip-pin"></rect>
+                                    <rect x="250" y="115" width="5" height="3" class="chip-pin"></rect>
+                                </g>
+                            </svg>
+                        </div>
                         <p id="progress-text">Uploading...</p>
                     </div>
 
-                    {{-- DIV untuk menampilkan hasil --}}
                     <div id="result-display" class="mt-3"></div>
                     <div id="email-result" class="mt-3"></div>
 
-                    {{-- Area Notifikasi Email (Awalnya tersembunyi) --}}
                     <div id="email-notification-area" class="mt-4 d-none">
                         <div class="input-group mb-3 mx-auto" style="max-width: 450px;">
                             <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
@@ -112,14 +180,10 @@
                     </div>
 
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
-
-                        {{-- Tombol untuk memicu pencarian kode material --}}
                         <button type="button" id="generate-codes-btn" class="btn btn-warning btn-lg px-4" data-filename="{{ session('processed_filename') }}">
                             <span class="spinner-border spinner-border-sm d-none me-2"></span>
                             <i class="bi bi-stars"></i> Generate Missing Codes
                         </button>
-
-                        {{-- Tombol-tombol ini disembunyikan awalnya --}}
                         <button type="button" id="upload-bom-btn" class="btn btn-primary btn-lg px-4 d-none" data-filename="{{ session('processed_filename') }}">
                             <span class="spinner-border spinner-border-sm d-none me-2"></span>
                             <i class="bi bi-cloud-upload"></i> Upload BOM to SAP
@@ -130,7 +194,6 @@
                         <a href="{{ route('bom.download_routing_template', ['filename' => session('processed_filename')]) }}" id="download-routing-btn" class="btn btn-info btn-lg px-4 d-none">
                             <i class="bi bi-signpost-split"></i> Download Routing
                         </a>
-                         {{-- Tombol Notifikasi Email (Awalnya tersembunyi) --}}
                         <button type="button" id="send-email-btn-bom" class="btn btn-danger btn-lg px-4 d-none">
                             <span class="spinner-border spinner-border-sm d-none"></span>
                             <i class="bi bi-envelope-at-fill"></i> Send Notification
@@ -203,32 +266,26 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Tidak ada perubahan pada JavaScript
         document.addEventListener('DOMContentLoaded', function () {
-            // --- Variabel Global ---
             let finalBomUploadResults = [];
-            // [FIX] Simpan plant di variabel JavaScript
             const processedPlant = @json(session('processed_plant'));
-
-            // --- Helper Functions ---
             const getHeaders = () => ({
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                 'Accept': 'application/json'
             });
-
             const getAuthBody = (additionalData) => JSON.stringify({
                 username: document.getElementById('sap-username').value,
                 password: document.getElementById('sap-password').value,
                 ...additionalData
             });
-
             function setLoadingState(button, isLoading) {
                 if (!button) return;
                 const spinner = button.querySelector('.spinner-border');
                 button.disabled = isLoading;
                 if (spinner) isLoading ? spinner.classList.remove('d-none') : spinner.classList.add('d-none');
             }
-
             function showResult(div, isSuccess, message, details = null) {
                 if (!div) return;
                 const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
@@ -250,7 +307,6 @@
                 }
                 div.innerHTML = html;
             }
-
             function showProgressBar(text) {
                 const progressContainer = document.getElementById('progress-container');
                 const progressText = document.getElementById('progress-text');
@@ -259,15 +315,12 @@
                     progressContainer.classList.remove('d-none');
                 }
             }
-
             function hideProgressBar() {
                 const progressContainer = document.getElementById('progress-container');
                 if (progressContainer) {
                     progressContainer.classList.add('d-none');
                 }
             }
-
-            // --- Form Upload Logic ---
             const form = document.getElementById('upload-form');
             if (form) {
                 const dropZone = document.getElementById('drop-zone');
@@ -275,7 +328,6 @@
                 const submitButton = document.getElementById('submit-button');
                 const fileInfoText = document.getElementById('file-info-text');
                 const mainText = document.getElementById('main-text');
-
                 function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
                 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                     dropZone.addEventListener(eventName, preventDefaults, false);
@@ -283,14 +335,11 @@
                 });
                 ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false));
                 ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false));
-
                 dropZone.addEventListener('drop', (event) => {
                     if (event.dataTransfer.files.length > 0) handleFile(event.dataTransfer.files[0]);
                 }, false);
-
                 dropZone.addEventListener('click', () => fileInput.click());
                 fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) handleFile(fileInput.files[0]); });
-
                 function handleFile(file) {
                     const dataTransfer = new DataTransfer();
                     dataTransfer.items.add(file);
@@ -299,7 +348,6 @@
                     fileInfoText.textContent = file.name;
                     submitButton.classList.remove('d-none');
                 }
-
                 submitButton.addEventListener('click', function(event) {
                     event.preventDefault();
                     if (form.checkValidity()) {
@@ -310,8 +358,6 @@
                     }
                 });
             }
-
-            // --- Result Page Logic ---
             const resultArea = document.getElementById('result-area');
             if (resultArea) {
                 const generateBtn = document.getElementById('generate-codes-btn');
@@ -321,13 +367,9 @@
                 const resultDiv = document.getElementById('result-display');
                 const sapLoginModal = new bootstrap.Modal(document.getElementById('sapLoginModal'));
                 const confirmBtn = document.getElementById('confirm-action-btn');
-
-                // Email Notification elements
                 const emailNotificationArea = document.getElementById('email-notification-area');
                 const sendEmailBtn = document.getElementById('send-email-btn-bom');
                 const emailResultDiv = document.getElementById('email-result');
-
-                // Step 1: Generate Codes
                 generateBtn.addEventListener('click', async () => {
                     setLoadingState(generateBtn, true);
                     resultDiv.innerHTML = '';
@@ -340,12 +382,9 @@
                         });
                         const result = await response.json();
                         showResult(resultDiv, response.ok, result.message, result.results);
-
                         if (response.ok && result.status === 'success') {
                             generateBtn.classList.add('d-none');
-
                             const hasNotFound = result.results.some(item => item.code === 'tidak ditemukan');
-
                             if (hasNotFound) {
                                 uploadBomBtn.disabled = true;
                                 uploadBomBtn.setAttribute('title', 'Upload dinonaktifkan karena ada kode material yang tidak ditemukan.');
@@ -357,8 +396,6 @@
                                 uploadBomBtn.classList.remove('btn-secondary');
                                 uploadBomBtn.classList.add('btn-primary');
                             }
-
-                            // Tampilkan semua tombol aksi
                             uploadBomBtn.classList.remove('d-none');
                             downloadBtn.classList.remove('d-none');
                             downloadRoutingBtn.classList.remove('d-none');
@@ -370,21 +407,14 @@
                         hideProgressBar();
                     }
                 });
-
-                // Step 2: Show login modal when Upload is clicked
                 uploadBomBtn.addEventListener('click', () => {
                     sapLoginModal.show();
                 });
-
-                // Step 3: Handle the actual upload after login confirmation
                 confirmBtn.addEventListener('click', () => {
                     sapLoginModal.hide();
                     handleBomUpload();
                 });
-
-                // Step 4 (New): Handle sending email
                 sendEmailBtn.addEventListener('click', handleSendBomEmail);
-
                 async function handleBomUpload() {
                     setLoadingState(uploadBomBtn, true);
                     resultDiv.innerHTML = '';
@@ -396,20 +426,14 @@
                             body: getAuthBody({ filename: uploadBomBtn.dataset.filename })
                         });
                         const result = await response.json();
-                        // Simpan hasil yang sudah diperkaya dengan deskripsi ke variabel global
                         finalBomUploadResults = result.results;
-
-                        // Tampilkan hasil ke pengguna
                         showResult(resultDiv, response.ok && result.status === 'success', result.message, finalBomUploadResults);
-
                         if (response.ok && result.status === 'success') {
                             const successfulUploads = finalBomUploadResults.filter(r => r.status === 'Success');
-
                             if (successfulUploads.length > 0) {
                                 emailNotificationArea.classList.remove('d-none');
                                 sendEmailBtn.classList.remove('d-none');
                             }
-
                             const hasFailures = finalBomUploadResults.some(r => r.status === 'Failed');
                             if (!hasFailures) {
                                 uploadBomBtn.classList.add('d-none');
@@ -422,11 +446,9 @@
                         hideProgressBar();
                     }
                 }
-
                 async function handleSendBomEmail() {
                     const recipientInput = document.getElementById('email-recipient-bom');
                     const recipientsString = recipientInput.value.trim();
-
                     if (!recipientsString) {
                         alert('Silakan masukkan setidaknya satu alamat email penerima.');
                         return;
@@ -435,22 +457,18 @@
                         alert('Tidak ada hasil untuk dikirim.');
                         return;
                     }
-
                     const recipients = recipientsString.split(',').map(email => email.trim()).filter(email => email);
                     if (recipients.length === 0) {
                          alert('Format email tidak valid.');
                         return;
                     }
-
                     setLoadingState(sendEmailBtn, true);
                     emailResultDiv.innerHTML = '';
                     showProgressBar('Sending email notification...');
-
                     try {
                         const response = await fetch("{{ route('api.notification.send') }}", {
                             method: 'POST',
                             headers: getHeaders(),
-                            // [FIX] Sertakan plant dalam payload
                             body: JSON.stringify({
                                 recipients: recipients,
                                 results: finalBomUploadResults,
