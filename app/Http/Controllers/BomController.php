@@ -22,6 +22,7 @@ use App\Exports\SapUploadReportExport;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\SapUploadNotification;
 use App\Exports\RoutingTemplateExport;
+use App\Mail\MaterialUploadNotification;
 
 /**
  * Custom import class untuk BOM Uploader.
@@ -488,7 +489,7 @@ class BomController extends Controller
             }
 
             // Langkah 1: Coba pencarian tepat dengan data asli (raw)
-            $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $originalDescription]);
+            $response = Http::timeout(20)->get($apiUrl . '/find_material', ['description' => $originalDescription]);
             if ($response->successful() && $response->json('status') === 'success') {
                 $foundCode = $response->json('material_code');
                 Log::info("Material '{$originalDescription}' ditemukan dengan pencarian tepat (raw): {$foundCode}");
@@ -498,7 +499,7 @@ class BomController extends Controller
             // Langkah 2: Jika gagal, bersihkan deskripsi dari spasi ganda dan coba lagi
             $cleanedDescription = preg_replace('/\s+/', ' ', $originalDescription);
             if ($cleanedDescription !== $originalDescription) {
-                $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $cleanedDescription]);
+                $response = Http::timeout(20)->get($apiUrl . '/find_material', ['description' => $cleanedDescription]);
                 if ($response->successful() && $response->json('status') === 'success') {
                     $foundCode = $response->json('material_code');
                     Log::info("Material '{$originalDescription}' (searched as '{$cleanedDescription}') ditemukan dengan pencarian tepat (cleaned): {$foundCode}");
@@ -506,31 +507,31 @@ class BomController extends Controller
                 }
             }
 
-            // Langkah 3: Jika deskripsi lebih dari 40 karakter, coba pencarian terpotong
-            if (strlen($cleanedDescription) > 40) {
-                $truncatedDescription = substr($cleanedDescription, 0, 39) . '*';
-                Log::info("Deskripsi terlalu panjang, mencoba pencarian terpotong: '{$truncatedDescription}'");
+            // // Langkah 3: Jika deskripsi lebih dari 40 karakter, coba pencarian terpotong
+            // if (strlen($cleanedDescription) > 40) {
+            //     $truncatedDescription = substr($cleanedDescription, 0, 39) . '*';
+            //     Log::info("Deskripsi terlalu panjang, mencoba pencarian terpotong: '{$truncatedDescription}'");
 
-                $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $truncatedDescription]);
-                if ($response->successful() && $response->json('status') === 'success') {
-                    $foundCode = $response->json('material_code');
-                    Log::info("Material '{$originalDescription}' (searched as '{$truncatedDescription}') ditemukan: {$foundCode}");
-                    return $foundCode;
-                }
-            }
+            //     $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $truncatedDescription]);
+            //     if ($response->successful() && $response->json('status') === 'success') {
+            //         $foundCode = $response->json('material_code');
+            //         Log::info("Material '{$originalDescription}' (searched as '{$truncatedDescription}') ditemukan: {$foundCode}");
+            //         return $foundCode;
+            //     }
+            // }
 
-            // Langkah 4: Jika masih gagal, gunakan pencarian wildcard penuh
-            Log::warning("Pencarian tepat untuk '{$cleanedDescription}' gagal, mencoba pencarian wildcard penuh.");
+            // // Langkah 4: Jika masih gagal, gunakan pencarian wildcard penuh
+            // Log::warning("Pencarian tepat untuk '{$cleanedDescription}' gagal, mencoba pencarian wildcard penuh.");
 
-            $tempSearch = str_replace([' ', '-'], '*', $cleanedDescription);
-            $wildcardDescription = '*' . preg_replace('/\*+/', '*', $tempSearch) . '*';
+            // $tempSearch = str_replace([' ', '-'], '*', $cleanedDescription);
+            // $wildcardDescription = '*' . preg_replace('/\*+/', '*', $tempSearch) . '*';
 
-            $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $wildcardDescription]);
-            if ($response->successful() && $response->json('status') === 'success') {
-                $foundCode = $response->json('material_code');
-                Log::info("Material '{$originalDescription}' (searched as '{$wildcardDescription}') ditemukan dengan pencarian wildcard: {$foundCode}");
-                return $foundCode;
-            }
+            // $response = Http::timeout(15)->get($apiUrl . '/find_material', ['description' => $wildcardDescription]);
+            // if ($response->successful() && $response->json('status') === 'success') {
+            //     $foundCode = $response->json('material_code');
+            //     Log::info("Material '{$originalDescription}' (searched as '{$wildcardDescription}') ditemukan dengan pencarian wildcard: {$foundCode}");
+            //     return $foundCode;
+            // }
 
             Log::warning("Semua metode pencarian untuk '{$originalDescription}' gagal.");
             return null;
@@ -820,7 +821,7 @@ class BomController extends Controller
                 return $result;
             }, $request->input('results'));
 
-            Mail::to($request->input('recipients'))->send(new SapUploadNotification($resultsWithPlant));
+            Mail::to($request->input('recipients'))->send(new MaterialUploadNotification($resultsWithPlant));
 
             return response()->json(['message' => 'Email notification sent successfully!']);
         } catch (\Exception $e) {

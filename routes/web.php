@@ -51,6 +51,7 @@ Route::post('/routing/process-file', [RoutingController::class, 'processFile'])-
 Route::post('/routing/upload-to-sap', [RoutingController::class, 'uploadToSap'])->name('api.routing.uploadToSap');
 Route::post('/routing/get-workcenter-desc', [RoutingController::class, 'getWorkCenterDescription'])->name('routing.getWorkCenterDesc');
 Route::post('/routing/save', [RoutingController::class, 'saveRoutings'])->name('routing.save');
+Route::post('/routing/mark-as-uploaded', [RoutingController::class, 'markAsUploaded'])->name('routing.markAsUploaded');
 
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');

@@ -54,7 +54,7 @@ class RoutingExport implements FromCollection, WithHeadings
         return [
             'Material' => $material['code'],
             'Plant' => $plant,
-            'Grp Ctr' => '1',
+            'Grp Cntr' => '1',
             'Description' => $material['description'],
             'Usage' => '1',
             'Status' => '4',
@@ -83,7 +83,7 @@ class RoutingExport implements FromCollection, WithHeadings
     {
         return [
             'Material', 'Plant', 'Grp Ctr', 'Description', 'Usage', 'Status',
-            'Operation', 'Work Ctr', 'Ctrl Key', 'Descriptions', 'Base Qty', 'UoM',
+            'Operation', 'Work Cntr', 'Ctrl Key', 'Descriptions', 'Base Qty', 'UoM',
             'Activity 1', 'UoM 1', 'Activity 2', 'UoM 2', 'Activity 3', 'UoM 3',
             'Activity 4', 'UoM 4', 'Activity 5', 'UoM 5', 'Activity 6', 'UoM 6',
             'Purchasing Group', 'Pln Deliv Time', 'Price Unit'

@@ -1,6 +1,7 @@
 import os
 from flask import Flask, request, jsonify
-from pyrfc import Connection, ABAPApplicationError
+from pyrfc import Connection, ABAPApplicationError, ABAPRuntimeError
+from datetime import datetime
 import logging
 
 # Format logging disesuaikan
@@ -40,8 +41,6 @@ def get_work_center_desc():
 
     logging.info(f"Menerima permintaan deskripsi untuk Plant: {iv_werks}, Work Center: {iv_arbpl}")
 
-    # [FIX] Gunakan kredensial statis/dari environment variable untuk fungsi internal ini
-    # Ganti dengan user SAP yang memiliki otorisasi untuk RFC Z_FM_GET_WC_DESC
     sap_user = os.getenv("SAP_RFC_USER", "auto_email")
     sap_pass = os.getenv("SAP_RFC_PASS", "11223344")
 
@@ -65,7 +64,7 @@ def get_work_center_desc():
 
     except ABAPApplicationError as e:
         logging.error(f"ABAP EXCEPTION untuk {iv_arbpl}: {e.message}")
-        return jsonify({"error": f"ABAP Error: {e.message}"}), 500
+        return jsonify({"error": f"ABAP Error: {e.message}"})
     except Exception as e:
         logging.error(f"GENERAL EXCEPTION untuk {iv_arbpl}: {str(e)}", exc_info=True)
         return jsonify({"error": f"General Error: {str(e)}"}), 500
@@ -73,6 +72,7 @@ def get_work_center_desc():
         if conn:
             conn.close()
             logging.info(f"Koneksi SAP untuk user '{sap_user}' ditutup.")
+
 
 # --- ENDPOINT UTAMA UNTUK UPLOAD ROUTING ---
 @app.route('/upload_routing', methods=['POST'])
@@ -96,26 +96,43 @@ def upload_routing():
         if not conn:
             return jsonify({"status": "Failed", "message": f"Koneksi ke SAP dengan user '{username}' gagal."}), 500
 
+        valid_from_date = header.get('IV_VALID_FROM')
+        if not valid_from_date:
+            valid_from_date = datetime.now().strftime('%Y%m%d')
+
         formatted_operations = []
         for op in operations:
             formatted_operations.append({
-                'ACTIVITY': op.get('ACTIVITY', ''), 'WORK_CNTR': op.get('WORK_CENTER', ''),
-                'CONTROL_KEY': op.get('CONTROL_KEY', ''), 'DESCRIPTION': op.get('ls_operation-description', ''),
-                'BASE_QUANTITY': str(op.get('BASE_QTY', '1')), 'OPERATION_MEASURE_UNIT': op.get('UOM', ''),
-                'STD_VALUE_01': str(op.get('STD_VALUE_01', '0')), 'STD_UNIT_01': op.get('STD_UNIT_01', ''),
-                'STD_VALUE_02': str(op.get('STD_VALUE_02', '0')), 'STD_UNIT_02': op.get('STD_UNIT_02', ''),
-                'STD_VALUE_03': str(op.get('STD_VALUE_03', '0')), 'STD_UNIT_03': op.get('STD_UNIT_03', ''),
-                'STD_VALUE_04': str(op.get('STD_VALUE_04', '0')), 'STD_UNIT_04': op.get('STD_UNIT_04', ''),
-                'STD_VALUE_05': str(op.get('STD_VALUE_05', '0')), 'STD_UNIT_05': op.get('STD_UNIT_05', ''),
-                'STD_VALUE_06': str(op.get('STD_VALUE_06', '0')), 'STD_UNIT_06': op.get('STD_UNIT_06', ''),
+                'ACTIVITY': op.get('ACTIVITY', ''),
+                'WORK_CNTR': op.get('WORK_CNTR', ''),
+                'CONTROL_KEY': op.get('CONTROL_KEY', ''),
+                'DESCRIPTION': op.get('DESCRIPTION', ''),
+                'BASE_QUANTITY': str(op.get('BASE_QTY', 1)),
+                'OPERATION_MEASURE_UNIT': str(op.get('UOM', '')),
+                'STD_VALUE_01': str(op.get('STD_VALUE_01', 0)), 'STD_UNIT_01': str(op.get('STD_UNIT_01', '')),
+                'STD_VALUE_02': str(op.get('STD_VALUE_02', 0)), 'STD_UNIT_02': str(op.get('STD_UNIT_02', '')),
+                'STD_VALUE_03': str(op.get('STD_VALUE_03', 0)), 'STD_UNIT_03': str(op.get('STD_UNIT_03', '')),
+                'STD_VALUE_04': str(op.get('STD_VALUE_04', 0)), 'STD_UNIT_04': str(op.get('STD_UNIT_04', '')),
+                'STD_VALUE_05': str(op.get('STD_VALUE_05', 0)), 'STD_UNIT_05': str(op.get('STD_UNIT_05', '')),
+                'STD_VALUE_06': str(op.get('STD_VALUE_06', 0)), 'STD_UNIT_06': str(op.get('STD_UNIT_06', '')),
             })
 
+        material_to_sap = str(header.get('IV_MATERIAL', '')).zfill(18)
+
+        # Parameter RFC disesuaikan dengan ABAP
         rfc_params = {
-            'iv_valid_from': header.get('IV_VALID_FROM', ''), 'iv_task_list_usage': header.get('IV_TASK_LIST_USAGE', ''),
-            'iv_plant': header.get('IV_PLANT', ''), 'iv_group_counter': header.get('IV_GROUP_COUNTER', '1'),
-            'iv_task_list_status': header.get('IV_TASK_LIST_STATUS', ''), 'iv_lot_size_to': header.get('IV_LOT_SIZE_TO', '999999999'),
-            'iv_description': header.get('IV_DESCRIPTION', ''), 'iv_material': header.get('IV_MATERIAL', ''),
-            'it_operation': formatted_operations
+            'IV_VALID_FROM': valid_from_date,
+            'IV_TASK_LIST_USAGE': str(header.get('IV_TASK_LIST_USAGE', '')),
+            'IV_PLANT': str(header.get('IV_PLANT', '')),
+            'IV_GROUP_COUNTER': str(header.get('IV_GROUP_COUNTER', '1')),
+            'IV_TASK_LIST_STATUS': str(header.get('IV_TASK_LIST_STATUS', '')),
+            'IV_LOT_SIZE_TO': str(header.get('IV_LOT_SIZE_TO', '999999999')),
+            'IV_DESCRIPTION': str(header.get('IV_DESCRIPTION', '')),
+            'IV_MATERIAL': material_to_sap,
+            # PERUBAHAN 1: Menambahkan IV_SEQUENCE_NO dari header, default '000000'
+            'IV_SEQUENCE_NO': str(header.get('IV_SEQUENCE_NO', '000000')),
+            'IV_TASK_MEASURE_UNIT': str(header.get('IV_TASK_MEASURE_UNIT', 'PC')),
+            'IT_OPERATION': formatted_operations
         }
 
         logging.info(f"Parameter untuk RFC Z_RFC_ROUTING_CREATE_PROD: {rfc_params}")
@@ -126,20 +143,26 @@ def upload_routing():
         message = return_msg.get('MESSAGE', '').strip()
         msg_type = return_msg.get('TYPE', '')
 
-        if msg_type == 'E' or msg_type == 'A':
+        # PERUBAHAN 2: Menghapus conn.rollback() dan conn.commit()
+        if msg_type in ('E', 'A'):
             status = "Failed"
             if not message:
                 error_parts = [return_msg.get(f'MESSAGE_V{i}', '') for i in range(1, 5)]
                 full_error = ' '.join(filter(None, error_parts))
+                # Pesan error dari BAPI_ROUTING_CREATE terkadang ada di MESSAGE_V1
+                if not full_error and return_msg.get('MESSAGE_V1'):
+                    full_error = return_msg.get('MESSAGE_V1')
+
                 message = f"Error dari SAP tidak spesifik. Detail: [{full_error.strip()}]" if full_error else "Terjadi error yang tidak diketahui di SAP."
         else:
             status = "Success"
+            logging.info(f"RFC Z_RFC_ROUTING_CREATE_PROD berhasil dan melakukan COMMIT di sisi SAP untuk material {material_code_for_log}.")
             if not message:
                 message = f"Routing untuk material {material_code_for_log} berhasil dibuat."
 
         return jsonify({"status": status, "message": message})
 
-    except ABAPApplicationError as e:
+    except (ABAPApplicationError, ABAPRuntimeError) as e:
         logging.error(f"ABAP EXCEPTION untuk {material_code_for_log}: {e.message}")
         return jsonify({"status": "Failed", "message": f"ABAP Error: {e.message}"})
     except Exception as e:
@@ -150,6 +173,6 @@ def upload_routing():
             conn.close()
             logging.info(f"Koneksi SAP untuk user '{username}' ditutup.")
 
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5002, debug=True)
-

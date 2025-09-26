@@ -37,7 +37,7 @@ class RoutingTemplateExport implements FromCollection, WithHeadings, ShouldAutoS
             'Status',
             'Grp Ctr',
             'Operation',
-            'Work Ctr',
+            'Work Cntr',
             'Ctrl Key',
             'Descriptions',
             'Base Qty',

@@ -119,15 +119,13 @@
                     </div>
 
                     <div id="upload-result" class="mt-3"></div>
-                    {{-- START: DIV BARU UNTUK HASIL INSPECTION PLAN --}}
                     <div id="inspection-plan-result" class="mt-3"></div>
-                    {{-- END: DIV BARU UNTUK HASIL INSPECTION PLAN --}}
                     <div id="email-result" class="mt-3"></div>
 
                     <div id="email-notification-area" class="mt-4 d-none">
                         <div class="input-group mb-3 mx-auto" style="max-width: 450px;">
                             <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
-                            <input type="email" id="email-recipient" class="form-control" placeholder="Enter recipient email for notification...">
+                            <input type="email" id="email-recipient" class="form-control" placeholder="pisahkan dengan koma untuk banyak email...">
                         </div>
                     </div>
 
@@ -236,7 +234,6 @@
         </footer>
     </div>
 
-    <!-- Modal Login SAP -->
     <div class="modal fade" id="sapLoginModal" tabindex="-1" aria-labelledby="sapLoginModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content frosted-glass">
@@ -263,7 +260,6 @@
         </div>
     </div>
 
-    <!-- Modal Konfirmasi Upload & Aktivasi QM -->
     <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content frosted-glass">
@@ -272,8 +268,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="confirmation-modal-body">
-                    <!-- Konten akan diisi oleh JavaScript -->
-                </div>
+                    </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-warning" id="confirm-activate-btn">
@@ -297,7 +292,6 @@
             // --- LOGIKA FORM AWAL ---
             const form = document.getElementById('upload-form');
             if (form) {
-                // ... (Kode form awal tidak berubah, biarkan seperti adanya) ...
                 const materialTypeSelect = document.getElementById('material_type');
                 const fertOptionsContainer = document.getElementById('fert-options');
                 const divisionSelect = document.getElementById('division');
@@ -404,18 +398,11 @@
                 const emailResultDiv = document.getElementById('email-result');
                 const inspectionPlanResultDiv = document.getElementById('inspection-plan-result');
 
-                // Langkah 1: Tombol "Upload to SAP" diklik, buka modal login.
                 if(uploadSapBtn) uploadSapBtn.addEventListener('click', () => sapLoginModal.show());
-
-                // Langkah 2: Tombol "Confirm" di modal login diklik, jalankan proses staging.
                 if(confirmLoginBtn) confirmLoginBtn.addEventListener('click', handleStaging);
-
-                // Langkah 4: Tombol "Confirm & Activate" di modal konfirmasi diklik, jalankan aktivasi final.
                 if(confirmActivateBtn) confirmActivateBtn.addEventListener('click', handleFinalActivation);
-
                 if(sendEmailBtn) sendEmailBtn.addEventListener('click', handleSendEmail);
 
-                // Fungsi untuk proses Staging (persiapan data)
                 async function handleStaging() {
                     sapUsername = document.getElementById('sap-username').value;
                     sapPassword = document.getElementById('sap-password').value;
@@ -438,20 +425,14 @@
                             })
                         });
                         const result = await response.json();
-                        console.log("Server Response for Staging:", result);
                         if (response.ok && result.status === 'staged') {
                             stagedMaterials = result.results;
                             showConfirmationModal(stagedMaterials);
                         } else {
-                            let errorMessage = result.message || 'Staging process failed.';
-                            if (result.status !== 'staged') {
-                                errorMessage += ` (Expected status 'staged', but got '${result.status || 'undefined'}'). Please check the API response.`;
-                            }
-                            showResult(uploadResultDiv, false, errorMessage);
+                            showResult(uploadResultDiv, false, result.message || 'Staging process failed.');
                         }
 
                     } catch (error) {
-                        console.error("Fetch Error:", error);
                         showResult(uploadResultDiv, false, 'Network Error during staging. Check the browser console for details.');
                     } finally {
                         setLoadingState(uploadSapBtn, false);
@@ -459,7 +440,6 @@
                     }
                 }
 
-                // Fungsi untuk menampilkan modal konfirmasi dengan daftar material
                 function showConfirmationModal(materials) {
                     const modalBody = document.getElementById('confirmation-modal-body');
                     let materialListHtml = `<p>The following ${materials.length} material(s) will be uploaded and activated:</p><ul class="list-group">`;
@@ -471,12 +451,11 @@
                     confirmationModal.show();
                 }
 
-                // Fungsi untuk proses aktivasi final
                 async function handleFinalActivation() {
                     confirmationModal.hide();
                     setLoadingState(confirmActivateBtn, true);
                     uploadResultDiv.innerHTML = '';
-                    inspectionPlanResultDiv.innerHTML = ''; // Kosongkan hasil sebelumnya
+                    inspectionPlanResultDiv.innerHTML = '';
                     showProgressBar('Uploading materials and activating QM...');
 
                     try {
@@ -493,20 +472,23 @@
                         showResult(uploadResultDiv, response.ok && result.status === 'success', result.message, result.results);
 
                         if (response.ok && result.status === 'success') {
-                            finalUploadResults = result.results;
+                            finalUploadResults = result.results.map(res => {
+                                const staged = stagedMaterials.find(s => s.Material === res.material_code);
+                                return {
+                                    ...res,
+                                    description: staged ? staged['Material Description'] : 'N/A'
+                                };
+                            });
+
                             const successfulMaterials = finalUploadResults.filter(r => r.status === 'Success');
 
-                            // --- START: LOGIKA BARU UNTUK MEMICU INSPECTION PLAN ---
                             if (successfulMaterials.length > 0) {
-                                // Panggil fungsi untuk membuat inspection plan
                                 await handleInspectionPlanCreation(successfulMaterials, sapUsername, sapPassword);
-
                                 if(uploadSapBtn) uploadSapBtn.classList.add('d-none');
                                 if(downloadOnlyBtn) downloadOnlyBtn.classList.add('d-none');
                                 if(emailNotificationArea) emailNotificationArea.classList.remove('d-none');
                                 if(sendEmailBtn) sendEmailBtn.classList.remove('d-none');
                             }
-                            // --- END: LOGIKA BARU ---
                         }
 
                     } catch (error) {
@@ -517,16 +499,14 @@
                     }
                 }
 
-                // --- START: FUNGSI BARU UNTUK MEMBUAT INSPECTION PLAN ---
                 async function handleInspectionPlanCreation(successfulMaterials, username, password) {
                     showProgressBar('Creating Inspection Task Lists...');
                     try {
-                        // Definisikan detail statis untuk inspection plan di sini
                         const planDetails = {
-                            task_usage: '5', // Goods receipt
-                            task_status: '4', // Released (general)
-                            control_key: 'QM01', // QM in procurement is active
-                            inspchar: 'THICKNESS' // Master inspection characteristic
+                            task_usage: '5',
+                            task_status: '4',
+                            control_key: 'QM01',
+                            inspchar: 'THICKNESS'
                         };
 
                         const response = await fetch("{{ route('api.sap.create_inspection_plan') }}", {
@@ -541,28 +521,42 @@
                         });
 
                         const result = await response.json();
-                        // Tampilkan hasil di div yang terpisah
                         showResult(inspectionPlanResultDiv, response.ok && result.status === 'success', result.message, result.results);
 
                     } catch (error) {
                         showResult(inspectionPlanResultDiv, false, 'Network Error during Inspection Plan creation.');
                     } finally {
-                        // Sembunyikan progress bar setelah semuanya selesai
                         hideProgressBar();
                     }
                 }
-                // --- END: FUNGSI BARU UNTUK MEMBUAT INSPECTION PLAN ---
 
                 async function handleSendEmail() {
-                    const recipient = emailRecipientInput.value;
-                    if (!recipient) {
-                        alert('Please enter a recipient email address.');
+                    const emailInput = emailRecipientInput.value.trim();
+                    if (!emailInput) {
+                        alert('Please enter at least one recipient email address.');
                         return;
                     }
                     if (!finalUploadResults || finalUploadResults.length === 0) {
                         alert('There are no results to send.');
                         return;
                     }
+
+                    let plant = '';
+                    if (finalUploadResults && finalUploadResults.length > 0) {
+                        const firstResultWithPlant = finalUploadResults.find(r => r.plant);
+                        if (firstResultWithPlant) {
+                            plant = firstResultWithPlant.plant;
+                        }
+                    }
+
+                    if (!plant) {
+                        alert('Plant information could not be found in the upload results. Cannot send email.');
+                        return;
+                    }
+
+                    const recipientsArray = emailInput.split(',')
+                                                    .map(email => email.trim())
+                                                    .filter(email => email !== '');
 
                     setLoadingState(sendEmailBtn, true);
                     if(emailResultDiv) emailResultDiv.innerHTML = '';
@@ -573,8 +567,9 @@
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({
-                                recipient: recipient,
-                                results: finalUploadResults
+                                recipients: recipientsArray,
+                                results: finalUploadResults,
+                                plant: plant
                             })
                         });
 
@@ -584,8 +579,12 @@
                             if(emailNotificationArea) emailNotificationArea.classList.add('d-none');
                             if(sendEmailBtn) sendEmailBtn.classList.add('d-none');
                         } else {
-                            let errorMessage = `Failed to send email: ${result.message || 'Unknown server error'}. <br><small>Please check the mail configuration in your application's <code>.env</code> file.</small>`;
-                            showResult(emailResultDiv, false, errorMessage);
+                            let errorMessages = result.message || 'Unknown server error';
+                            if (result.errors) {
+                                errorMessages = Object.values(result.errors).flat().join('<br>');
+                            }
+                            let finalErrorMessage = `Failed to send email: ${errorMessages}. <br><small>Please check the mail configuration in your application's <code>.env</code> file.</small>`;
+                            showResult(emailResultDiv, false, finalErrorMessage);
                         }
                     } catch (error) {
                         let networkErrorMessage = 'Network error while sending email. Please ensure the application server is running and check the browser console for more details.';
