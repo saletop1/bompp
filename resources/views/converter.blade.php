@@ -207,6 +207,7 @@
                                 <option value="3000">3000</option>
                                 <option value="2000">2000</option>
                                 <option value="1000">1000</option>
+                                <option value="1000">1001</option>
                             </select>
                         </div>
                         <div class="col-12 mt-4">

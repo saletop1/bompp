@@ -65,7 +65,7 @@
                             <i class="bi bi-save-fill me-2"></i>Save
                         </button>
                         <button class="btn btn-success" id="upload-selected-btn" disabled>
-                            <i class="bi bi-cloud-upload-fill me-2"></i>Upload
+                            <i class="bi bi-cloud-upload-fill me-2"></i>Release
                         </button>
                     </div>
                 </div>
@@ -104,6 +104,7 @@
             </div>
         </div>
     </div>
+
     <div class="modal fade" id="save-details-modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content text-dark">
@@ -116,6 +117,7 @@
             </div>
         </div>
     </div>
+
     <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content text-dark">
@@ -132,7 +134,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Variabel global dan fungsi renderTable, getFlatData, handleCheckboxChange, dll (Tidak berubah)
         const savedRoutings = @json($savedRoutings ?? []);
         const pythonApiUrl = @json($pythonApiUrl ?? 'http://127.0.0.1:5002');
         let processedDataByFile = savedRoutings;
@@ -216,7 +217,6 @@
             });
         }
 
-        // Fungsi-fungsi delete (Tidak berubah)
         function deleteItemsByGlobalIndices(indicesToDeleteSet) {
             if (indicesToDeleteSet.size === 0) return;
             let globalIndexCounter = 0;
@@ -231,6 +231,7 @@
             processedDataByFile = newProcessedDataByFile;
             renderTable();
         }
+
         async function deleteSavedDocuments(docNumbers) {
             try {
                 const response = await fetch("{{ route('routing.delete') }}", {
@@ -263,6 +264,7 @@
                     unsavedIndicesToDelete.add(index);
                 }
             });
+
             if (savedDocsToDelete.size === 0 && unsavedIndicesToDelete.size > 0) {
                 Swal.fire({
                     title: 'Hapus dari Preview?', text: `Anda akan menghapus ${unsavedIndicesToDelete.size} baris dari tampilan.`,
@@ -276,6 +278,7 @@
                 });
                 return;
             }
+
             if (savedDocsToDelete.size > 0) {
                 let confirmText = `Anda akan menghapus ${savedDocsToDelete.size} dokumen tersimpan. Data ini akan dihapus permanen dari database. Lanjutkan?`;
                 Swal.fire({
@@ -305,10 +308,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            // Inisialisasi Modal dan Event Listener Form (Tidak berubah)
             uploadModal = new bootstrap.Modal(document.getElementById('sap-credential-modal'));
             saveModal = new bootstrap.Modal(document.getElementById('save-details-modal'));
             progressModal = new bootstrap.Modal(document.getElementById('upload-progress-modal'));
+
             const uploadForm = document.getElementById('upload-form');
             const processBtn = document.getElementById('process-btn');
             const resultsContainer = document.getElementById('results-container');
@@ -319,10 +322,12 @@
             const confirmSaveBtn = document.getElementById('confirm-save-btn');
             const resultsTbody = document.getElementById('results-tbody');
             const selectAllCheckbox = document.getElementById('select-all-checkbox');
+
             if (processedDataByFile.length > 0) {
                 resultsContainer.style.display = 'block';
                 renderTable();
             }
+
             uploadForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 processBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
@@ -346,10 +351,10 @@
                     uploadForm.reset();
                 }
             });
+
             saveSelectedBtn.addEventListener('click', () => saveModal.show());
             uploadSelectedBtn.addEventListener('click', () => uploadModal.show());
 
-            // Logika Simpan (Tidak berubah)
             confirmSaveBtn.addEventListener('click', async () => {
                 const docName = document.getElementById('document-name').value;
                 const prodName = document.getElementById('product-name').value;
@@ -379,7 +384,6 @@
                 }
             });
 
-            // --- [UBAH] LOGIKA UPLOAD ---
             confirmUploadBtn.addEventListener('click', async function() {
                 const username = document.getElementById('sap-username').value;
                 const password = document.getElementById('sap-password').value;
@@ -411,42 +415,49 @@
                     let overallSuccess = false;
 
                     try {
-                        // Langkah 1: Panggil RFC Create Routing
                         const createResponse = await fetch("{{ route('api.routing.uploadToSap') }}", {
                             method: 'POST', body: JSON.stringify({ username, password, routing_data: routingData }),
                             headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
                         });
+
+                        if (createResponse.status === 403) {
+                            const errorResult = await createResponse.json();
+                            progressModal.hide();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Otorisasi Gagal',
+                                text: errorResult.message,
+                            });
+                            return;
+                        }
+
                         const createResult = await createResponse.json();
                         const taskListGroup = createResult.task_list_group;
 
-                        // Periksa apakah Create berhasil DAN mendapatkan task_list_group
                         if (createResponse.ok && createResult.status?.toLowerCase() === 'success' && taskListGroup) {
                             statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-info"></span> Menambahkan Operasi...`;
 
                             let allAddsSucceeded = true;
 
-                            // Langkah 2: Loop melalui operasi dan panggil RFC Add Operation
                             for (const [index, operation] of routingData.operations.entries()) {
-                                // Tambahkan delay kecil untuk menghindari SAP overload (opsional tapi disarankan)
                                 await new Promise(resolve => setTimeout(resolve, 500));
 
-                                // Siapkan parameter untuk Z_RFC_ROUTING_ADD
                                 const addParams = {
-                                IV_PLNAL: String(routingData.header.IV_GROUP_COUNTER), // <-- Diubah ke String
-                                IV_MATNR: String(routingData.header.IV_MATERIAL),       // <-- Diubah ke String (Best Practice)
-                                IV_WERKS: String(routingData.header.IV_PLANT),         // <-- Diubah ke String (Best Practice)
-                                IV_VORNR: String(operation.ACTIVITY),
-                                IV_ARBPL: String(operation.WORK_CNTR),
-                                IV_STEUS: String(operation.CONTROL_KEY),
-                                IV_LTXA1: String(operation.DESCRIPTION),
-                                IV_BMSCHX: String(operation.BASE_QTY),
-                                IV_VGW01X: String(operation.STD_VALUE_01), IV_VGE01X: String(operation.STD_UNIT_01),
-                                IV_VGW02X: String(operation.STD_VALUE_02), IV_VGE02X: String(operation.STD_UNIT_02),
-                                IV_VGW03X: String(operation.STD_VALUE_03), IV_VGE03X: String(operation.STD_UNIT_03),
-                                IV_VGW04X: String(operation.STD_VALUE_04), IV_VGE04X: String(operation.STD_UNIT_04),
-                                IV_VGW05X: String(operation.STD_VALUE_05), IV_VGE05X: String(operation.STD_UNIT_05),
-                                IV_VGW06X: String(operation.STD_VALUE_06), IV_VGE06X: String(operation.STD_UNIT_06)
-                            };
+                                    IV_PLNAL: String(routingData.header.IV_GROUP_COUNTER),
+                                    IV_MATNR: String(routingData.header.IV_MATERIAL),
+                                    IV_WERKS: String(routingData.header.IV_PLANT),
+                                    IV_VORNR: String(operation.ACTIVITY),
+                                    IV_ARBPL: String(operation.WORK_CNTR),
+                                    IV_STEUS: String(operation.CONTROL_KEY),
+                                    IV_LTXA1: String(operation.DESCRIPTION),
+                                    IV_BMSCHX: String(operation.BASE_QTY),
+                                    IV_VGW01X: String(operation.STD_VALUE_01), IV_VGE01X: String(operation.STD_UNIT_01),
+                                    IV_VGW02X: String(operation.STD_VALUE_02), IV_VGE02X: String(operation.STD_UNIT_02),
+                                    IV_VGW03X: String(operation.STD_VALUE_03), IV_VGE03X: String(operation.STD_UNIT_03),
+                                    IV_VGW04X: String(operation.STD_VALUE_04), IV_VGE04X: String(operation.STD_UNIT_04),
+                                    IV_VGW05X: String(operation.STD_VALUE_05), IV_VGE05X: String(operation.STD_UNIT_05),
+                                    IV_VGW06X: String(operation.STD_VALUE_06), IV_VGE06X: String(operation.STD_UNIT_06)
+                                };
 
                                 const addResponse = await fetch(`${pythonApiUrl}/add_routing_operation`, {
                                     method: 'POST',
@@ -458,7 +469,7 @@
                                 if (!addResponse.ok || addResult.status?.toLowerCase() !== 'success') {
                                     allAddsSucceeded = false;
                                     statusCell.innerHTML = `<span class="badge bg-danger" title="${addResult.message || 'Error'}">Add Op. ${operation.ACTIVITY} Failed</span>`;
-                                    break; // Hentikan loop jika satu operasi gagal
+                                    break;
                                 }
                             }
 
@@ -466,7 +477,6 @@
                                 overallSuccess = true;
                             }
                         } else {
-                            // Jika Create Gagal
                             let errorMessage = createResult.message || 'Gagal menciptakan routing awal.';
                             if (!taskListGroup) { errorMessage += " (Tidak menerima Task List Group dari SAP.)"; }
                             statusCell.innerHTML = `<span class="badge bg-danger" title="${errorMessage}">Create Failed</span>`;
@@ -478,10 +488,9 @@
                             statusCell.innerHTML = `<span class="badge bg-success">Success</span>`;
                             successCount++;
                             successfulIndices.add(globalIndex);
-                            const fileIndex = targetRow.dataset.fileIndex;
-                            const fileGroup = processedDataByFile[fileIndex];
-                            // Cek jika ini adalah data yang disimpan untuk menandainya di DB
-                            if (fileGroup.is_saved) {
+                            if (targetRow.closest('tr[data-is-saved="true"]')) {
+                                const fileIndex = targetRow.dataset.fileIndex;
+                                const fileGroup = processedDataByFile[fileIndex];
                                 const docNumber = fileGroup.document_number;
                                 if (docNumber) {
                                     successfulUploads.push({ material: routingData.header.IV_MATERIAL, doc_number: docNumber });
@@ -499,7 +508,6 @@
 
                 progressModal.hide();
 
-                // Jika ada data yang berhasil diupload dari database, tandai
                 if (successfulUploads.length > 0) {
                     try {
                         await fetch("{{ route('routing.markAsUploaded') }}", {
@@ -507,21 +515,22 @@
                             body: JSON.stringify({ successful_uploads: successfulUploads }),
                             headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
                         });
-                        // Hapus baris yang berhasil diupload dari tampilan
                         deleteItemsByGlobalIndices(successfulIndices);
                     } catch (error) {
                         console.error('Gagal menandai data sebagai ter-upload:', error);
                     }
                 }
 
-                Swal.fire('Proses Selesai', `Upload selesai: ${successCount} berhasil, ${failCount} gagal.`, 'info');
+                if (processedCount > 0 && document.querySelectorAll('.swal2-container').length === 0) {
+                     Swal.fire('Proses Selesai', `Upload selesai: ${successCount} berhasil, ${failCount} gagal.`, 'info');
+                }
             });
 
-            // Sisa event listener (select all, delete, dll - Tidak berubah)
             selectAllCheckbox.addEventListener('change', () => {
                 document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(cb => cb.checked = selectAllCheckbox.checked);
                 handleCheckboxChange();
             });
+
             resultsTbody.addEventListener('click', e => {
                 if (e.target.classList.contains('delete-row-icon')) {
                     const indexToDelete = parseInt(e.target.getAttribute('data-global-index'), 10);
@@ -536,11 +545,13 @@
                     handleCheckboxChange();
                 }
             });
+
             resultsTbody.addEventListener('change', e => {
                 if (e.target.classList.contains('row-checkbox')) {
                     handleCheckboxChange();
                 }
             });
+
             deleteSelectedBtn.addEventListener('click', () => {
                 const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
                 if (checkedBoxes.length === 0) return;

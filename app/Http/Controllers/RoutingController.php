@@ -223,24 +223,46 @@ class RoutingController extends Controller
     }
 
     public function uploadToSap(Request $request)
-    {
-        $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string',
-            'routing_data' => 'required|array',
-        ]);
-        $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002') . '/upload_routing';
-        try {
-            $response = Http::timeout(300)->post($pythonApiUrl, [
-                'username' => $request->username,
-                'password' => $request->password,
-                'routing_data' => $request->routing_data
-            ]);
-            return $response->json();
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'Failed', 'message' => 'Tidak dapat terhubung ke service Python: ' . $e->getMessage()], 500);
-        }
+{
+    $request->validate([
+        'username' => 'required|string',
+        'password' => 'required|string',
+        'routing_data' => 'required|array',
+    ]);
+
+    // --- [BARU] BLOK VALIDASI OTORISASI ---
+    $submittedUsername = $request->input('username');
+
+    // 1. Ambil daftar user yang diizinkan dari file .env, default string kosong jika tidak ada
+    $allowedUsersEnv = env('SAP_ROUTING_RELEASE_USERS', '');
+
+    // 2. Ubah string menjadi array, bersihkan spasi, dan ubah semua jadi huruf besar
+    $allowedUsers = array_map('strtoupper', array_map('trim', explode(',', $allowedUsersEnv)));
+
+    // 3. Lakukan pengecekan (case-insensitive)
+    if (!in_array(strtoupper($submittedUsername), $allowedUsers)) {
+        // 4. Jika user tidak ditemukan, kirim response error Forbidden
+        return response()->json([
+            'status' => 'Failed',
+            'message' => 'Otorisasi Gagal. Username Anda (' . $submittedUsername . ') tidak memiliki izin untuk melakukan release.'
+        ], 403); // 403 adalah status HTTP untuk "Forbidden" / Sorry!!!!
     }
+    // --- AKHIR BLOK VALIDASI ---
+
+
+    // Jika otorisasi berhasil, lanjutkan proses seperti biasa
+    $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002') . '/upload_routing';
+    try {
+        $response = Http::timeout(300)->post($pythonApiUrl, [
+            'username' => $request->username,
+            'password' => $request->password,
+            'routing_data' => $request->routing_data
+        ]);
+        return $response->json();
+    } catch (\Exception $e) {
+        return response()->json(['status' => 'Failed', 'message' => 'Tidak dapat terhubung ke service Python: ' . $e->getMessage()], 500);
+    }
+}
 
     public function getWorkCenterDescription(Request $request)
     {
