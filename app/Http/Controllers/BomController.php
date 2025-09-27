@@ -803,21 +803,21 @@ class BomController extends Controller
             return response()->json(['error' => 'Could not connect to the processing service.'], 500);
         }
     }
-
     public function sendNotification(Request $request)
     {
-        // [FIX] Validasi diubah untuk mengambil plant dari request, bukan session
         $request->validate([
             'recipients'   => 'required|array',
             'recipients.*' => 'required|email',
             'results'      => 'required|array',
-            'plant'        => 'required|string', // Menjadikan plant wajib ada di request
+            'plant'        => 'required|string',
         ]);
 
         try {
-            $plant = $request->input('plant'); // Mengambil plant dari request
+            $plant = $request->input('plant');
             $resultsWithPlant = array_map(function($result) use ($plant) {
-                $result['plant'] = $plant;
+                if (!isset($result['plant'])) {
+                    $result['plant'] = $plant;
+                }
                 return $result;
             }, $request->input('results'));
 
@@ -826,6 +826,34 @@ class BomController extends Controller
             return response()->json(['message' => 'Email notification sent successfully!']);
         } catch (\Exception $e) {
             Log::error('Email sending failed: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to send email. Server error: ' . $e->getMessage()], 500);
+        }
+    }
+    
+    public function sendBomNotification(Request $request)
+    {
+        $request->validate([
+            'recipients'   => 'required|array',
+            'recipients.*' => 'required|email',
+            'results'      => 'required|array',
+            'plant'        => 'required|string',
+        ]);
+
+        try {
+            $plant = $request->input('plant');
+            $resultsWithPlant = array_map(function($result) use ($plant) {
+                if (!isset($result['plant'])) {
+                    $result['plant'] = $plant;
+                }
+                return $result;
+            }, $request->input('results'));
+
+            // Menggunakan Mailable khusus BOM
+            Mail::to($request->input('recipients'))->send(new SapUploadNotification($resultsWithPlant));
+
+            return response()->json(['message' => 'Email notification sent successfully!']);
+        } catch (\Exception $e) {
+            Log::error('BOM Email sending failed: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to send email. Server error: ' . $e->getMessage()], 500);
         }
     }

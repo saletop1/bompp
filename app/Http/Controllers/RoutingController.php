@@ -14,8 +14,7 @@ class RoutingController extends Controller
 {
     public function index()
     {
-        // [UBAH] Tambahkan ->whereNull('uploaded_to_sap_at')
-        // Ini akan membuat controller HANYA mengambil data yang belum pernah di-upload ke SAP.
+        $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002');
         $savedData = Routing::whereNull('uploaded_to_sap_at')
                             ->orderBy('created_at', 'desc')
                             ->get();
@@ -51,17 +50,18 @@ class RoutingController extends Controller
 
             $formattedRoutings[] = [
                 'fileName' => $headerTitle,
-                'data' => $groupData
+                'data' => $groupData,
+                'is_saved' => true,
+                'document_number' => $docNumber
             ];
         }
 
-        return view('routing', ['savedRoutings' => $formattedRoutings]);
+        return view('routing', [
+        'savedRoutings' => $formattedRoutings,
+        'pythonApiUrl' => $pythonApiUrl
+    ]);
     }
 
-    // [TAMBAHKAN FUNGSI BARU INI]
-    /**
-     * Menandai routing sebagai "sudah di-upload" di database.
-     */
     public function markAsUploaded(Request $request)
     {
         $request->validate([
@@ -76,14 +76,12 @@ class RoutingController extends Controller
         foreach ($successfulUploads as $upload) {
             Routing::where('document_number', $upload['doc_number'])
                    ->where('material', $upload['material'])
-                   ->whereNull('uploaded_to_sap_at') // Pastikan hanya update yang belum ditandai
+                   ->whereNull('uploaded_to_sap_at')
                    ->update(['uploaded_to_sap_at' => $now]);
         }
 
         return response()->json(['status' => 'success', 'message' => 'Data berhasil ditandai sebagai ter-upload.']);
     }
-
-    // Fungsi lain di bawah ini tidak perlu diubah (saveRoutings, getNextDocumentNumber, dll.)
 
     public function saveRoutings(Request $request)
     {
@@ -147,6 +145,25 @@ class RoutingController extends Controller
         return $prefix . '.' . str_pad($documentNumber, 9, '0', STR_PAD_LEFT);
     }
 
+    public function deleteRoutings(Request $request)
+    {
+        $request->validate([
+            'document_numbers' => 'required|array',
+            'document_numbers.*' => 'string'
+        ]);
+
+        try {
+            $docNumbers = $request->input('document_numbers');
+            Routing::whereIn('document_number', $docNumbers)->delete();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Dokumen yang dipilih berhasil dihapus dari database.'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Gagal menghapus data dari database: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function processFile(Request $request)
     {
         $request->validate(['routing_file' => 'required|mimes:xlsx,xls,csv']);
@@ -194,7 +211,8 @@ class RoutingController extends Controller
             }
             return response()->json([
                 'fileName' => $originalFileName,
-                'data' => array_values($groupedData)
+                'data' => array_values($groupedData),
+                'is_saved' => false
             ]);
         } catch (\Exception $e) {
             if (strpos($e->getMessage(), 'Undefined array key') !== false) {

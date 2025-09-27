@@ -32,22 +32,18 @@
                 @foreach ($results as $result)
                     <tr>
                         <td>
-                            {{-- [PERMINTAAN 1] Menghilangkan leading zero --}}
                             {{ ltrim($result['material_code'], '0') }}
                         </td>
                         <td>
-                            {{-- [PERMINTAAN 2] Menampilkan deskripsi --}}
                             {{ $result['description'] ?? 'N/A' }}
                         </td>
                         <td>
-                             {{-- [PERMINTAAN 3] Menampilkan plant --}}
                             {{ $result['plant'] ?? 'N/A' }}
                         </td>
                         <td>
                             @if (($result['status'] ?? 'Failed') === 'Success')
                                 <span class="status-success">
-                                    {{-- [PERMINTAAN 4] Mengubah format pesan status --}}
-                                    BOM {{ ltrim($result['material_code'], '0') }} Berhasil dibuat
+                                    ✅ BOM {{ ltrim($result['material_code'], '0') }} berhasil dibuat
                                 </span>
                             @else
                                 <span class="status-failed">

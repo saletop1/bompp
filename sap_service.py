@@ -337,7 +337,7 @@ def activate_qm_and_upload():
                 if message == 'Inspection type successfully updated':
                     logging.info(f"Aktivasi QM untuk '{matnr}' berhasil.")
                     results.append({
-                        "material_code": matnr, "status": "Success", "message": "Material Dibuat & QM Diaktifkan.",
+                        "material_code": matnr, "status": "Success", "message": "Material Berhasil Dibuat & QM Diaktifkan.",
                         "description": mat_desc, "plant": werks, "base_uom": base_uom
                     })
                 else:
@@ -426,7 +426,7 @@ def create_inspection_plan():
                      logging.info(f"Inspection plan untuk '{mat_code}' berhasil dibuat. Grup: {group}, Counter: {counter}")
                      results.append({
                         "material_code": mat_code, "status": "Success",
-                        "message": f"Inspection Plan dibuat. Grup: {group} / Cnt: {counter}"
+                        "message": f"Inspection Plan Berhasil Dibuat. Grup: {group}"
                     })
                 else:
                     if not message:

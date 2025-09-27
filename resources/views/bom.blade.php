@@ -9,80 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
     <style>
-        body { background-image: url("{{ asset('images/ainun.jpg') }}"); background-size: cover; background-position: center; background-attachment: fixed; min-height: 100vh; padding-top: 1rem; padding-bottom: 1rem; }
-        .card { background: rgba(75, 74, 74, 0.33); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1); }
-        .converter-container { max-width: 800px; margin-top: 0; margin-bottom: 1rem; }
-        #drop-zone { border: 2px dashed rgba(255, 255, 255, 0.6); border-radius: 0.5rem; color: #343a40; transition: all 0.3s ease-in-out; background-color: rgba(255, 255, 255, 0.2); }
-        #drop-zone.dragover { border-color: #0d6efd; background-color: rgba(13, 110, 253, 0.1); }
-        .form-label { font-weight: 600; color: #FFFFFF; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
-        .form-control, .form-select { background-color: rgba(255, 255, 255, 0.5); border: 1px solid rgba(0, 0, 0, 0.1); }
-        .form-control:focus, .form-select:focus { background-color: rgba(255, 255, 255, 0.8); border-color: #0d6efd; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
-        .btn-primary { background-color: #0d6efd; border-color: #0d6efd; }
-        .btn .spinner-border { width: 1rem; height: 1rem; }
-        .page-title-container { text-align: center; }
-        .page-title-container .main-title { color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); margin-bottom: 0; }
-        .page-title-container .subtitle { color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-size: 0.9rem; }
-        .sap-logo-header { height: 80px; width: auto; margin-left: 20px; }
-        .upload-details { max-height: 200px; overflow-y: auto; text-align: left; font-size: 0.85rem; background-color: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; margin-top: 15px; }
-        .upload-details ul { color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); list-style-type: none; padding-left: 0; }
-        .modal-content.frosted-glass { background: rgba(30, 30, 30, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border-radius: 0.75rem; color: #ffffff; }
-        .input-group-underline { position: relative; }
-        .input-underline { background-color: transparent !important; border: none !important; border-bottom: 2px solid rgba(255, 255, 255, 0.4) !important; border-radius: 0 !important; padding-left: 35px !important; color: #ffffff !important; transition: border-color 0.3s ease; }
-        .input-underline::placeholder { color: rgba(255, 255, 255, 0.6); opacity: 1; }
-        .input-underline:focus { box-shadow: none !important; border-bottom-color: #ffffff !important; }
-        .input-group-underline .bi { position: absolute; left: 5px; top: 50%; transform: translateY(-50%); color: rgba(255, 255, 255, 0.6); font-size: 1.1rem; }
-        .frosted-glass .modal-header, .frosted-glass .modal-footer { border-bottom: none; border-top: none; }
-        .frosted-glass .modal-title { font-weight: 300; }
-        .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.2); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; }
-        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff1c; color: #a6ff00ff; font-weight: bold; box-shadow: 0 8px 15px rgba(0, 0, 0, 0.76); }
-        .nav-pills .nav-link:hover:not(.active) { background-color: rgba(255, 255, 255, 0.4); color: #ffffff; border-color: rgba(255,255,255,0.5); }
-        .download-area-header { display: flex; justify-content: center; align-items: center; text-align: left; }
-        .download-area-header dotlottie-player { flex-shrink: 0; }
-        .download-area-title { color: #ffffff; font-weight: bold; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6); }
-        .download-area-text { color: #d1d5db; font-size: 1.1rem; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); }
-        #process-another-btn-bom { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
-        #process-another-btn-bom:hover { background-color: #157347 !important; border-color: #146c43 !important; }
-        .alert.alert-success-frosted { background: rgba(25, 135, 126, 0.4); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-        .alert.alert-danger { background: rgba(220, 53, 69, 0.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-        #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: 1rem; }
-
-        /* [CSS LOADER BARU DITAMBAHKAN DI SINI] */
-        .main-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            width: 100%;
-        }
-        .loader {
-            width: 100%;
-            max-width: 400px; /* Batasi lebar agar tidak terlalu besar di layar lebar */
-        }
-        .trace-bg {
-            stroke: #333;
-            stroke-width: 1.8;
-            fill: none;
-        }
-        .trace-flow {
-            stroke-width: 1.8;
-            fill: none;
-            stroke-dasharray: 40 400;
-            stroke-dashoffset: 438;
-            filter: drop-shadow(0 0 6px currentColor);
-            animation: flow 3s cubic-bezier(0.5, 0, 0.9, 1) infinite;
-        }
-        .yellow { stroke: #ffea00; color: #ffea00; }
-        .blue { stroke: #00ccff; color: #00ccff; }
-        .green { stroke: #00ff15; color: #00ff15; }
-        .purple { stroke: #9900ff; color: #9900ff; }
-        .red { stroke: #ff3300; color: #ff3300; }
-
-        @keyframes flow {
-            to { stroke-dashoffset: 0; }
-        }
-        .chip-body { rx: 5; ry: 5; }
-        .chip-text { font-weight: bold; letter-spacing: 1px; font-size: 14px; }
-        .chip-pin { stroke: #444; stroke-width: 0.5; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6)); }
+        body{background-image:url("{{asset('images/ainun.jpg')}}");background-size:cover;background-position:center;background-attachment:fixed;min-height:100vh;padding-top:1rem;padding-bottom:1rem}.card{background:rgba(75,74,74,.33);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);border:1px solid rgba(255,255,255,.3);box-shadow:0 8px 32px 0 rgba(0,0,0,.1)}.converter-container{max-width:800px;margin-top:0;margin-bottom:1rem}#drop-zone{border:2px dashed rgba(255,255,255,.6);border-radius:.5rem;color:#343a40;transition:all .3s ease-in-out;background-color:rgba(255,255,255,.2)}#drop-zone.dragover{border-color:#0d6efd;background-color:rgba(13,110,253,.1)}.form-label{font-weight:600;color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.5)}.form-control,.form-select{background-color:rgba(255,255,255,.5);border:1px solid rgba(0,0,0,.1)}.form-control:focus,.form-select:focus{background-color:rgba(255,255,255,.8);border-color:#0d6efd;box-shadow:0 0 0 .25rem rgba(13,110,253,.25)}.btn-primary{background-color:#0d6efd;border-color:#0d6efd}.btn .spinner-border{width:1rem;height:1rem}.page-title-container{text-align:center}.page-title-container .main-title{color:#fff;text-shadow:1px 1px 3px rgba(0,0,0,.3);margin-bottom:0}.page-title-container .subtitle{color:#fff;text-shadow:1px 1px 2px rgba(0,0,0,.2);font-size:.9rem}.sap-logo-header{height:80px;width:auto;margin-left:20px}.upload-details{max-height:200px;overflow-y:auto;text-align:left;font-size:.85rem;background-color:rgba(0,0,0,.1);padding:10px;border-radius:5px;margin-top:15px}.upload-details ul{color:#fff;text-shadow:1px 1px 2px rgba(0,0,0,.5);list-style-type:none;padding-left:0}.modal-content.frosted-glass{background:rgba(30,30,30,.4);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);box-shadow:0 8px 32px 0 rgba(0,0,0,.3);border-radius:.75rem;color:#fff}.input-group-underline{position:relative}.input-underline{background-color:transparent!important;border:none!important;border-bottom:2px solid rgba(255,255,255,.4)!important;border-radius:0!important;padding-left:35px!important;color:#fff!important;transition:border-color .3s ease}.input-underline::-moz-placeholder{color:rgba(255,255,255,.6);opacity:1}.input-underline::placeholder{color:rgba(255,255,255,.6);opacity:1}.input-underline:focus{box-shadow:none!important;border-bottom-color:#fff!important}.input-group-underline .bi{position:absolute;left:5px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.6);font-size:1.1rem}.frosted-glass .modal-header,.frosted-glass .modal-footer{border-bottom:none;border-top:none}.frosted-glass .modal-title{font-weight:300}.nav-pills .nav-link{background-color:rgba(255,255,255,.2);color:#f0f0f0;margin:0 5px;transition:all .3s ease;border:1px solid transparent}.nav-pills .nav-link.active,.nav-pills .show>.nav-link{background-color:#ffffff1c;color:#a6ff00ff;font-weight:700;box-shadow:0 8px 15px rgba(0,0,0,.76)}.nav-pills .nav-link:hover:not(.active){background-color:rgba(255,255,255,.4);color:#fff;border-color:rgba(255,255,255,.5)}.download-area-header{display:flex;justify-content:center;align-items:center;text-align:left}.download-area-header dotlottie-player{flex-shrink:0}.download-area-title{color:#fff;font-weight:700;text-shadow:2px 2px 4px rgba(0,0,0,.6)}.download-area-text{color:#d1d5db;font-size:1.1rem;text-shadow:1px 1px 2px rgba(0,0,0,.5)}#process-another-btn-bom{background-color:#198754!important;border-color:#198754!important;color:#fff!important}#process-another-btn-bom:hover{background-color:#157347!important;border-color:#146c43!important}.alert.alert-success-frosted{background:rgba(25,135,126,.4);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);border:1px solid rgba(255,255,255,.2);color:#fff;text-shadow:1px 1px 2px rgba(0,0,0,.5)}.alert.alert-danger{background:rgba(220,53,69,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);border:1px solid rgba(255,255,255,.2);color:#fff;text-shadow:1px 1px 2px rgba(0,0,0,.5)}#progress-text{color:#e9ecef;text-shadow:1px 1px 2px rgba(0,0,0,.7);font-weight:500;margin-top:1rem}.main-container{display:flex;justify-content:center;align-items:center;height:100%;width:100%}.loader{width:100%;max-width:400px}.trace-bg{stroke:#333;stroke-width:1.8;fill:none}.trace-flow{stroke-width:1.8;fill:none;stroke-dasharray:40 400;stroke-dashoffset:438;filter:drop-shadow(0 0 6px currentColor);animation:flow 3s cubic-bezier(.5,0,.9,1) infinite}.yellow{stroke:#ffea00;color:#ffea00}.blue{stroke:#00ccff;color:#00ccff}.green{stroke:#00ff15;color:#00ff15}.purple{stroke:#9900ff;color:#9900ff}.red{stroke:#ff3300;color:#ff3300}@keyframes flow{to{stroke-dashoffset:0}}.chip-body{rx:5;ry:5}.chip-text{font-weight:700;letter-spacing:1px;font-size:14px}.chip-pin{stroke:#444;stroke-width:.5;filter:drop-shadow(0 0 2px rgba(0,0,0,.6))}
     </style>
 </head>
 <body>
@@ -123,7 +50,6 @@
                 @endif
 
                 @if (session('processed_filename'))
-                {{-- TAMPILAN AREA HASIL --}}
                 <div id="result-area" class="text-center">
                     <div class="download-area-header">
                         <div class="ms-3">
@@ -132,7 +58,6 @@
                         </div>
                     </div>
 
-                    {{-- [UBAH] CONTAINER UNTUK LOADER BARU --}}
                     <div id="progress-container" class="text-center mt-4 d-none">
                         <div class="main-container" style="height: 200px;">
                             <svg class="loader" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
@@ -142,23 +67,19 @@
                                 <path class="trace-flow green" d="M145 110 C 60 110, 60 180, 20 180" style="animation-delay: 0.2s;"></path>
                                 <path class="trace-bg" d="M145 90 C 80 90, 80 50, 40 50"></path>
                                 <path class="trace-flow yellow" d="M145 90 C 80 90, 80 50, 40 50" style="animation-delay: 0.4s;"></path>
-
                                 <path class="trace-bg" d="M255 100 C 350 100, 350 20, 380 20"></path>
                                 <path class="trace-flow red" d="M255 100 C 350 100, 350 20, 380 20" style="animation-delay: 0.6s;"></path>
                                 <path class="trace-bg" d="M255 110 C 340 110, 340 180, 380 180"></path>
                                 <path class="trace-flow purple" d="M255 110 C 340 110, 340 180, 380 180" style="animation-delay: 0.8s;"></path>
                                 <path class="trace-bg" d="M255 90 C 320 90, 320 50, 360 50"></path>
                                 <path class="trace-flow blue" d="M255 90 C 320 90, 320 50, 360 50" style="animation-delay: 1s;"></path>
-
                                 <g>
                                     <rect x="150" y="80" width="100" height="50" class="chip-body" fill="#222" stroke="#555" stroke-width="1"></rect>
                                     <text x="200" y="108" text-anchor="middle" class="chip-text" fill="#00ff15">SAP</text>
-
                                     <rect x="145" y="85" width="5" height="3" class="chip-pin"></rect>
                                     <rect x="145" y="95" width="5" height="3" class="chip-pin"></rect>
                                     <rect x="145" y="105" width="5" height="3" class="chip-pin"></rect>
                                     <rect x="145" y="115" width="5" height="3" class="chip-pin"></rect>
-
                                     <rect x="250" y="85" width="5" height="3" class="chip-pin"></rect>
                                     <rect x="250" y="95" width="5" height="3" class="chip-pin"></rect>
                                     <rect x="250" y="105" width="5" height="3" class="chip-pin"></rect>
@@ -168,17 +89,14 @@
                         </div>
                         <p id="progress-text">Uploading...</p>
                     </div>
-
                     <div id="result-display" class="mt-3"></div>
                     <div id="email-result" class="mt-3"></div>
-
                     <div id="email-notification-area" class="mt-4 d-none">
                         <div class="input-group mb-3 mx-auto" style="max-width: 450px;">
                             <span class="input-group-text"><i class="bi bi-envelope-at"></i></span>
                             <input type="text" id="email-recipient-bom" class="form-control" placeholder="Masukkan email, pisahkan dengan koma...">
                         </div>
                     </div>
-
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
                         <button type="button" id="generate-codes-btn" class="btn btn-warning btn-lg px-4" data-filename="{{ session('processed_filename') }}">
                             <span class="spinner-border spinner-border-sm d-none me-2"></span>
@@ -202,7 +120,6 @@
                     </div>
                 </div>
                 @else
-                {{-- FORM UPLOAD AWAL --}}
                 <form action="{{ route('bom.upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
                     @csrf
                     <div class="row g-3">
@@ -235,7 +152,6 @@
         </footer>
     </div>
 
-    {{-- Modal Login --}}
     <div class="modal fade" id="sapLoginModal" tabindex="-1" aria-labelledby="sapLoginModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content frosted-glass">
@@ -266,7 +182,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Tidak ada perubahan pada JavaScript
         document.addEventListener('DOMContentLoaded', function () {
             let finalBomUploadResults = [];
             const processedPlant = @json(session('processed_plant'));
@@ -466,7 +381,7 @@
                     emailResultDiv.innerHTML = '';
                     showProgressBar('Sending email notification...');
                     try {
-                        const response = await fetch("{{ route('api.notification.send') }}", {
+                        const response = await fetch("{{ route('api.notification.sendBom') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({
