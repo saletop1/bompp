@@ -307,4 +307,25 @@ class RoutingController extends Controller
             return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
         }
     }
+    public function markAsUploaded(Request $request)
+{
+    $request->validate([
+        'successful_uploads' => 'required|array',
+        'successful_uploads.*.material' => 'required|string',
+        'successful_uploads.*.doc_number' => 'required|string',
+    ]);
+
+    $successfulUploads = $request->input('successful_uploads');
+    $now = now();
+
+    foreach ($successfulUploads as $upload) {
+        // Logika UTAMA: Mengisi tanggal, bukan menghapus.
+        Routing::where('document_number', $upload['doc_number'])
+               ->where('material', $upload['material'])
+               ->whereNull('uploaded_to_sap_at')
+               ->update(['uploaded_to_sap_at' => $now]);
+    }
+
+    return response()->json(['status' => 'success', 'message' => 'Data berhasil ditandai sebagai ter-upload.']);
+}
 }
