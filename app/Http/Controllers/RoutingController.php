@@ -165,62 +165,124 @@ class RoutingController extends Controller
     }
 
     public function processFile(Request $request)
-    {
-        $request->validate(['routing_file' => 'required|mimes:xlsx,xls,csv']);
-        try {
-            $file = $request->file('routing_file');
-            $originalFileName = $file->getClientOriginalName();
-            $rows = Excel::toArray(new \stdClass(), $file)[0];
-            $header = array_map('trim', array_shift($rows));
-            $groupedData = [];
-            $currentMaterial = null;
-            foreach ($rows as $row) {
-                if (empty(array_filter($row))) continue;
-                $rowData = array_combine($header, $row);
-                if (!empty($rowData['Material']) && $rowData['Material'] !== $currentMaterial) {
-                    $currentMaterial = $rowData['Material'];
-                    $groupedData[$currentMaterial] = [
-                        'header' => [
-                            'IV_MATERIAL' => $rowData['Material'] ?? '',
-                            'IV_PLANT' => $rowData['Plant'] ?? '',
-                            'IV_DESCRIPTION' => $rowData['Description'] ?? '',
-                            'IV_TASK_LIST_USAGE' => $rowData['Usage'] ?? '1',
-                            'IV_TASK_LIST_STATUS' => $rowData['Status'] ?? '4',
-                            'IV_GROUP_COUNTER' => $rowData['Grp Ctr'] ?? '1',
-                            'IV_TASK_MEASURE_UNIT' => $rowData['UoM'] ?? 'PC',
-                        ],
-                        'operations' => []
-                    ];
+{
+    $request->validate(['routing_file' => 'required|mimes:xlsx,xls,csv']);
+    try {
+        $file = $request->file('routing_file');
+        $originalFileName = $file->getClientOriginalName();
+        $rows = Excel::toArray(new \stdClass(), $file)[0];
+
+        // --- [VALIDASI 1: PEMERIKSAAN HEADER KOLOM] ---
+        if (count($rows) < 1) {
+            throw new \Exception("File Excel kosong atau tidak memiliki baris header.");
+        }
+        $header = array_map('trim', array_shift($rows));
+        $requiredHeaders = [
+            'Material', 'Plant', 'Description', 'Usage', 'Status', 'Grp Ctr', 'UoM',
+            'Operation', 'Work Cntr', 'Ctrl Key', 'Descriptions', 'Base Qty',
+            'Activity 1', 'UoM 1', 'Activity 2', 'UoM 2', 'Activity 3', 'UoM 3',
+            'Activity 4', 'UoM 4', 'Activity 5', 'UoM 5', 'Activity 6', 'UoM 6'
+        ];
+
+        // Cek apakah ada header yang hilang
+        $missingHeaders = array_diff($requiredHeaders, $header);
+        if (!empty($missingHeaders)) {
+            throw new \Exception("Template Excel tidak sesuai. Kolom berikut tidak ditemukan: " . implode(', ', $missingHeaders));
+        }
+        // --- AKHIR VALIDASI 1 ---
+
+        $groupedData = [];
+        $currentMaterial = null;
+
+        foreach ($rows as $rowIndex => $row) {
+            if (empty(array_filter($row))) continue;
+            $rowData = array_combine($header, $row);
+
+            // --- [VALIDASI 2: PEMERIKSAAN KELENGKAPAN DATA BARIS] ---
+            // Validasi untuk baris yang mendefinisikan header material baru
+            if (!empty($rowData['Material'])) {
+                 if (empty($rowData['Plant'])) {
+                    throw new \Exception("Data tidak lengkap di baris Excel " . ($rowIndex + 2) . ". Kolom 'Plant' tidak boleh kosong untuk Material baru.");
                 }
-                if ($currentMaterial) {
-                    $groupedData[$currentMaterial]['operations'][] = [
+            }
+
+            // Validasi untuk setiap baris operasi
+            if (!empty($rowData['Operation']) || !empty($rowData['Work Cntr'])) {
+                 $requiredFields = [
+                    'Operation' => 'Nomor Operasi',
+                    'Work Cntr' => 'Work Center',
+                    'Ctrl Key' => 'Control Key',
+                    'Base Qty' => 'Base Quantity'
+                 ];
+                 foreach($requiredFields as $field => $displayName) {
+                    if (!isset($rowData[$field]) || $rowData[$field] === '' || $rowData[$field] === null) {
+                        throw new \Exception("Data tidak lengkap di baris Excel " . ($rowIndex + 2) . ". Kolom '{$displayName}' tidak boleh kosong.");
+                    }
+                 }
+            }
+            // --- AKHIR VALIDASI 2 ---
+
+
+            if (!empty($rowData['Material']) && $rowData['Material'] !== $currentMaterial) {
+                $currentMaterial = $rowData['Material'];
+                $groupedData[$currentMaterial] = [
+                    'header' => [
+                        'IV_MATERIAL' => $rowData['Material'] ?? '',
+                        'IV_PLANT' => $rowData['Plant'] ?? '',
+                        'IV_DESCRIPTION' => $rowData['Description'] ?? '',
+                        'IV_TASK_LIST_USAGE' => $rowData['Usage'] ?? '1',
+                        'IV_TASK_LIST_STATUS' => $rowData['Status'] ?? '4',
+                        'IV_GROUP_COUNTER' => $rowData['Grp Ctr'] ?? '1',
+                        'IV_TASK_MEASURE_UNIT' => $rowData['UoM'] ?? 'PC',
+                    ],
+                    'operations' => []
+                ];
+            }
+            if ($currentMaterial) {
+                $activityValues = [];
+                for ($i = 1; $i <= 6; $i++) {
+                    $activityKey = 'Activity ' . $i;
+                    $uomKey = 'UoM ' . $i;
+                    $value = $rowData[$activityKey] ?? '0';
+
+                    if ($value !== null && $value !== '' && !is_numeric($value)) {
+                        $material = $rowData['Material'] ?? $currentMaterial;
+                        $operation = $rowData['Operation'] ?? 'N/A';
+                        throw new \Exception(
+                            "Data tidak valid di file Excel (baris " . ($rowIndex + 2) . "). \n" .
+                            "Material: {$material}, Operasi: {$operation}. \n" .
+                            "Kolom '{$activityKey}' harus berupa angka, tetapi ditemukan nilai: '{$value}'."
+                        );
+                    }
+                    $activityValues['STD_VALUE_0' . $i] = ($value === null || $value === '') ? '0' : $value;
+                    $activityValues['STD_UNIT_0' . $i] = $rowData[$uomKey] ?? '';
+                }
+
+                // Hanya tambahkan operasi jika ada nomor operasi
+                if (!empty($rowData['Operation'])) {
+                    $groupedData[$currentMaterial]['operations'][] = array_merge([
                         'ACTIVITY' => $rowData['Operation'] ?? '',
                         'WORK_CNTR' => $rowData['Work Cntr'] ?? '',
                         'CONTROL_KEY' => $rowData['Ctrl Key'] ?? '',
                         'DESCRIPTION' => $rowData['Descriptions'] ?? 'N/A',
                         'BASE_QTY' => $rowData['Base Qty'] ?? '1',
                         'UOM' => $rowData['UoM'] ?? 'PC',
-                        'STD_VALUE_01' => $rowData['Activity 1'] ?? '0', 'STD_UNIT_01' => $rowData['UoM 1'] ?? '',
-                        'STD_VALUE_02' => $rowData['Activity 2'] ?? '0', 'STD_UNIT_02' => $rowData['UoM 2'] ?? '',
-                        'STD_VALUE_03' => $rowData['Activity 3'] ?? '0', 'STD_UNIT_03' => $rowData['UoM 3'] ?? '',
-                        'STD_VALUE_04' => $rowData['Activity 4'] ?? '0', 'STD_UNIT_04' => $rowData['UoM 4'] ?? '',
-                        'STD_VALUE_05' => $rowData['Activity 5'] ?? '0', 'STD_UNIT_05' => $rowData['UoM 5'] ?? '',
-                        'STD_VALUE_06' => $rowData['Activity 6'] ?? '0', 'STD_UNIT_06' => $rowData['UoM 6'] ?? '',
-                    ];
+                    ], $activityValues);
                 }
             }
-            return response()->json([
-                'fileName' => $originalFileName,
-                'data' => array_values($groupedData),
-                'is_saved' => false
-            ]);
-        } catch (\Exception $e) {
-            if (strpos($e->getMessage(), 'Undefined array key') !== false) {
-                return response()->json(['error' => 'Gagal memproses file. Pastikan nama kolom di file Excel sudah benar (contoh: Material, Plant, Description, Descriptions, dll).'], 500);
-            }
-            return response()->json(['error' => 'Gagal memproses file: ' . $e->getMessage()], 500);
         }
+        return response()->json([
+            'fileName' => $originalFileName,
+            'data' => array_values($groupedData),
+            'is_saved' => false
+        ]);
+    } catch (\Exception $e) {
+        if (strpos($e->getMessage(), 'Undefined array key') !== false) {
+            return response()->json(['error' => 'Gagal memproses file. Pastikan nama kolom di file Excel sudah benar.'], 500);
+        }
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 
     public function uploadToSap(Request $request)
 {
