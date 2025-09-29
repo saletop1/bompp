@@ -28,6 +28,18 @@
         .delete-row-icon:hover { color: #dc3545; }
         .file-header-row > td { background-color: rgba(0, 0, 0, 0.3) !important; font-weight: bold; font-style: italic; color: #ccc; padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
         .progress-bar { transition: width 0.4s ease; }
+
+        /* CSS untuk Sticky Header Tabel */
+        .table-responsive {
+            max-height: 65vh; /* Batasi tinggi container tabel agar scrollbar muncul */
+            overflow-y: auto;
+        }
+        thead th {
+            position: sticky;
+            top: 0; /* Menempel di bagian atas container */
+            background-color: #212529; /* Warna latar belakang agar tidak transparan saat scroll */
+            z-index: 10; /* Memastikan header selalu di atas baris lain */
+        }
     </style>
 </head>
 <body>
@@ -161,7 +173,7 @@
                     const mainRow = `
                         <tr data-global-index="${globalIndex}" data-file-index="${fileIndex}" class="${rowClass}">
                             <td><input class="form-check-input row-checkbox" type="checkbox" data-global-index="${globalIndex}" ${hasDuplicateZP01 ? 'disabled' : ''} ${isChecked}></td>
-                            <td>${globalIndex + 1}</td>
+                            <td>${itemIndex + 1}</td>
                             <td>${group.header.IV_MATERIAL}</td>
                             <td>${group.header.IV_PLANT}</td>
                             <td>${group.header.IV_DESCRIPTION}</td>
@@ -247,7 +259,6 @@
                 return { success: false, message: error.message };
             }
         }
-
         function performDeletion(itemsToDelete) {
             const savedDocsToDelete = new Set();
             const unsavedIndicesToDelete = new Set();
@@ -356,16 +367,14 @@
             saveSelectedBtn.addEventListener('click', () => saveModal.show());
             uploadSelectedBtn.addEventListener('click', () => uploadModal.show());
 
-            confirmSaveBtn.addEventListener('click', async () => {
-                const docName = document.getElementById('document-name').value;
-                const prodName = document.getElementById('product-name').value;
-                if (!docName || !prodName) return Swal.fire('Peringatan', 'Nama Dokumen dan Nama Produk harus diisi.', 'warning');
-                saveModal.hide();
+            async function performSave(docName, prodName) {
                 const allItems = getFlatData();
                 const selectedItems = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
                 if (selectedItems.length === 0) return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
+
                 saveSelectedBtn.disabled = true;
                 confirmSaveBtn.disabled = true;
+
                 try {
                     const response = await fetch("{{ route('routing.save') }}", {
                         method: 'POST',
@@ -374,6 +383,7 @@
                     });
                     const result = await response.json();
                     if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Gagal menyimpan data.');
+
                     Swal.fire('Sukses!', result.message, 'success').then(() => window.location.reload());
                 } catch (error) {
                     Swal.fire('Error!', error.message, 'error');
@@ -382,6 +392,47 @@
                     confirmSaveBtn.disabled = false;
                     document.getElementById('document-name').value = '';
                     document.getElementById('product-name').value = '';
+                }
+            }
+
+            confirmSaveBtn.addEventListener('click', async () => {
+                const docName = document.getElementById('document-name').value;
+                const prodName = document.getElementById('product-name').value;
+                if (!docName || !prodName) {
+                    return Swal.fire('Peringatan', 'Nama Dokumen dan Nama Produk harus diisi.', 'warning');
+                }
+
+                try {
+                    const checkResponse = await fetch("{{ route('routing.checkName') }}", {
+                        method: 'POST',
+                        body: JSON.stringify({ document_name: docName }),
+                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                    });
+                    const checkResult = await checkResponse.json();
+
+                    if (checkResult.exists) {
+                        Swal.fire({
+                            title: 'Peringatan!',
+                            text: "Nama Dokumen '" + docName + "' sudah ada. Apakah Anda yakin ingin melanjutkan dan membuat dokumen baru dengan nama yang sama?",
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#3085d6',
+                            cancelButtonColor: '#d33',
+                            confirmButtonText: 'Ya, Lanjutkan!',
+                            cancelButtonText: 'Batal'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                saveModal.hide();
+                                performSave(docName, prodName);
+                            }
+                        });
+                    } else {
+                        saveModal.hide();
+                        performSave(docName, prodName);
+                    }
+
+                } catch (error) {
+                    Swal.fire('Error!', 'Gagal memeriksa nama dokumen: ' + error.message, 'error');
                 }
             });
 
@@ -451,7 +502,7 @@
 
                             let allAddsSucceeded = true;
 
-                            for (const [index, operation] of routingData.operations.entries()) {
+                            for (const operation of routingData.operations) {
                                 await new Promise(resolve => setTimeout(resolve, 500));
 
                                 const addParams = {

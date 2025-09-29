@@ -307,6 +307,14 @@ class RoutingController extends Controller
             return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
         }
     }
+    public function checkDocumentNameExists(Request $request)
+{
+    $request->validate(['document_name' => 'required|string']);
+
+    $exists = \App\Models\Routing::where('document_name', $request->input('document_name'))->exists();
+
+    return response()->json(['exists' => $exists]);
+}
     public function markAsUploaded(Request $request)
 {
     $request->validate([

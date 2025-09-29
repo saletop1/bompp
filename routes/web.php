@@ -53,6 +53,7 @@ Route::post('/routing/get-workcenter-desc', [RoutingController::class, 'getWorkC
 Route::post('/routing/save', [RoutingController::class, 'saveRoutings'])->name('routing.save');
 Route::post('/routing/mark-as-uploaded', [RoutingController::class, 'markAsUploaded'])->name('routing.markAsUploaded');
 Route::post('/routing/delete', [RoutingController::class, 'deleteRoutings'])->name('routing.delete');
+Route::post('/routing/check-name', [RoutingController::class, 'checkDocumentNameExists'])->name('routing.checkName');
 
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');
