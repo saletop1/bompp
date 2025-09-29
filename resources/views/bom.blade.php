@@ -276,6 +276,7 @@
             const resultArea = document.getElementById('result-area');
             if (resultArea) {
                 const generateBtn = document.getElementById('generate-codes-btn');
+                const music = document.getElementById('generation-music');
                 const uploadBomBtn = document.getElementById('upload-bom-btn');
                 const downloadBtn = document.getElementById('download-processed-btn');
                 const downloadRoutingBtn = document.getElementById('download-routing-btn');
@@ -406,5 +407,11 @@
             }
         });
     </script>
+    <audio id="generation-music" loop>
+        <source src="{{ asset('music/Mozart Allegro (alegria).mp3') }}" type="audio/mpeg">
+        Browser Anda tidak mendukung elemen audio.
+    </audio>
+
+    <script>
 </body>
 </html>
