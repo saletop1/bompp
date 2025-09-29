@@ -426,7 +426,7 @@ def create_inspection_plan():
                      logging.info(f"Inspection plan untuk '{mat_code}' berhasil dibuat. Grup: {group}, Counter: {counter}")
                      results.append({
                         "material_code": mat_code, "status": "Success",
-                        "message": f"Inspection Plan Berhasil Dibuat. Grup: {group}"
+                        "message": f"Inspection Plan dibuat. Grup: {group}"
                     })
                 else:
                     if not message:

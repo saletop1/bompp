@@ -678,10 +678,6 @@ class BomController extends Controller
                 $tempSapRow["Procurement Type"] = "E";
             }
 
-            if ($tempSapRow["Procurement Type"] === "E" && empty($tempSapRow["Special Procurement Type"])) {
-                $tempSapRow["Special Procurement Type"] = "F";
-            }
-
             if ($selectedMaterialType === 'FERT') {
                 $tempSapRow['Sales Organization'] = '1000'; $tempSapRow['Tax Country'] = 'ID'; $tempSapRow['Tax Class'] = '1';
                 $tempSapRow['Tax Cat'] = 'ZPPN'; $tempSapRow['Item Category Group'] = 'Z001'; $tempSapRow['Trans Group'] = '0001';
