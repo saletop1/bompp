@@ -247,6 +247,7 @@
                 return { success: false, message: error.message };
             }
         }
+
         function performDeletion(itemsToDelete) {
             const savedDocsToDelete = new Set();
             const unsavedIndicesToDelete = new Set();
@@ -385,65 +386,62 @@
             });
 
             confirmUploadBtn.addEventListener('click', async function() {
-    const username = document.getElementById('sap-username').value;
-    const password = document.getElementById('sap-password').value;
-    if (!username || !password) return Swal.fire('Peringatan', 'Username dan Password SAP harus diisi.', 'warning');
+                const username = document.getElementById('sap-username').value;
+                const password = document.getElementById('sap-password').value;
+                if (!username || !password) return Swal.fire('Peringatan', 'Username dan Password SAP harus diisi.', 'warning');
 
-    uploadModal.hide();
-    const allItems = getFlatData();
-    const itemsToUpload = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
+                uploadModal.hide();
+                const allItems = getFlatData();
+                const itemsToUpload = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
 
-    const totalItems = itemsToUpload.length;
-    let successCount = 0, failCount = 0, processedCount = 0;
-    const successfulUploads = [];
-    const successfulIndices = new Set();
+                const totalItems = itemsToUpload.length;
+                let successCount = 0, failCount = 0, processedCount = 0;
+                const successfulUploads = [];
+                const successfulIndices = new Set();
 
-    const progressBar = document.getElementById('upload-progress-bar');
-    const statusText = document.getElementById('progress-status-text');
-    progressBar.style.width = '0%';
-    progressBar.textContent = '0%';
-    statusText.textContent = `Memulai... 0 / ${totalItems} berhasil`;
-    progressModal.show();
+                const progressBar = document.getElementById('upload-progress-bar');
+                const statusText = document.getElementById('progress-status-text');
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+                statusText.textContent = `Memulai... 0 / ${totalItems} berhasil`;
+                progressModal.show();
 
-    for (const routingData of itemsToUpload) {
-        processedCount++;
-        const globalIndex = allItems.findIndex(item => item === routingData);
-        const targetRow = document.querySelector(`tr[data-global-index="${globalIndex}"]`);
-        const statusCell = targetRow.querySelector('.status-cell');
-        statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-warning"></span> Menciptakan Routing...`;
+                for (const routingData of itemsToUpload) {
+                    processedCount++;
+                    const globalIndex = allItems.findIndex(item => item === routingData);
+                    const targetRow = document.querySelector(`tr[data-global-index="${globalIndex}"]`);
+                    const statusCell = targetRow.querySelector('.status-cell');
+                    statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-warning"></span> Menciptakan Routing...`;
 
-        let overallSuccess = false;
+                    let overallSuccess = false;
 
-        try {
-            const createResponse = await fetch("{{ route('api.routing.uploadToSap') }}", {
-                method: 'POST', body: JSON.stringify({ username, password, routing_data: routingData }),
-                headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
-            });
+                    try {
+                        const createResponse = await fetch("{{ route('api.routing.uploadToSap') }}", {
+                            method: 'POST', body: JSON.stringify({ username, password, routing_data: routingData }),
+                            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                        });
 
-            // --- [MODIFIKASI] Blok penanganan error otorisasi ---
-            if (createResponse.status === 403) {
-                const errorResult = await createResponse.json();
-                progressModal.hide();
-
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Otorisasi Gagal',
-                    text: errorResult.message,
-                }).then(() => {
-                    // Ini adalah blok rollback yang berjalan setelah user klik "OK"
-                    document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
-                        const idx = checkbox.dataset.globalIndex;
-                        const rowToReset = document.querySelector(`tr[data-global-index="${idx}"]`);
-                        if(rowToReset) {
-                            const cellToReset = rowToReset.querySelector('.status-cell');
-                            if(cellToReset) {
-                                cellToReset.innerHTML = `<span class="badge bg-secondary">Menunggu</span>`;
-                            }
+                        if (createResponse.status === 403) {
+                            const errorResult = await createResponse.json();
+                            progressModal.hide();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Otorisasi Gagal',
+                                text: errorResult.message,
+                            }).then(() => {
+                                document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
+                                    const idx = checkbox.dataset.globalIndex;
+                                    const rowToReset = document.querySelector(`tr[data-global-index="${idx}"]`);
+                                    if(rowToReset) {
+                                        const cellToReset = rowToReset.querySelector('.status-cell');
+                                        if(cellToReset) {
+                                            cellToReset.innerHTML = `<span class="badge bg-secondary">Menunggu</span>`;
+                                        }
+                                    }
+                                });
+                            });
+                            return;
                         }
-                    });
-                });
-                return; // Hentikan seluruh fungsi upload
-            }
 
                         const createResult = await createResponse.json();
                         const taskListGroup = createResult.task_list_group;
@@ -502,9 +500,9 @@
                             statusCell.innerHTML = `<span class="badge bg-success">Success</span>`;
                             successCount++;
                             successfulIndices.add(globalIndex);
-                            if (targetRow.closest('tr[data-is-saved="true"]')) {
-                                const fileIndex = targetRow.dataset.fileIndex;
-                                const fileGroup = processedDataByFile[fileIndex];
+                            const fileIndex = targetRow.dataset.fileIndex;
+                            const fileGroup = processedDataByFile[fileIndex];
+                            if (fileGroup.is_saved) {
                                 const docNumber = fileGroup.document_number;
                                 if (docNumber) {
                                     successfulUploads.push({ material: routingData.header.IV_MATERIAL, doc_number: docNumber });
