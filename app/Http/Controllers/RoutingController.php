@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Client\ConnectionException;
-use App\Models\Routing;
+use App\Models\Routing; // <-- Kemungkinan besar baris ini yang hilang
 use App\Models\DocumentSequence;
 use Illuminate\Support\Facades\DB;
 
@@ -15,8 +15,6 @@ class RoutingController extends Controller
     public function index()
     {
         $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002');
-        // Logika ini tetap mengambil data yang belum diupload, yang mana sudah benar.
-        // Jika data sudah dihapus setelah sukses, maka tidak akan muncul lagi di sini.
         $savedData = Routing::whereNull('uploaded_to_sap_at')
                             ->orderBy('created_at', 'desc')
                             ->get();
@@ -64,8 +62,7 @@ class RoutingController extends Controller
     ]);
     }
 
-    // Fungsi ini sekarang menghapus data setelah sukses upload
-    public function deleteUploadedRoutings(Request $request)
+    public function markAsUploaded(Request $request)
     {
         $request->validate([
             'successful_uploads' => 'required|array',
@@ -74,14 +71,16 @@ class RoutingController extends Controller
         ]);
 
         $successfulUploads = $request->input('successful_uploads');
+        $now = now();
 
         foreach ($successfulUploads as $upload) {
             Routing::where('document_number', $upload['doc_number'])
                    ->where('material', $upload['material'])
-                   ->delete();
+                   ->whereNull('uploaded_to_sap_at')
+                   ->update(['uploaded_to_sap_at' => $now]);
         }
 
-        return response()->json(['status' => 'success', 'message' => 'Data yang berhasil diupload telah dihapus dari database.']);
+        return response()->json(['status' => 'success', 'message' => 'Data berhasil ditandai sebagai ter-upload.']);
     }
 
     public function saveRoutings(Request $request)
@@ -92,34 +91,44 @@ class RoutingController extends Controller
             'product_name' => 'required|string|max:255',
         ]);
 
+        $routingsData = $request->input('routings');
+        $docName = $request->input('document_name');
+        $productName = $request->input('product_name');
+
         try {
-            $docName = $request->input('document_name');
-            $productName = $request->input('product_name');
+            DB::transaction(function () use ($routingsData, $docName, $productName) {
+                $materialsToSave = array_map(function ($routing) {
+                    return $routing['header']['IV_MATERIAL'];
+                }, $routingsData);
 
-            $docNumber = $this->getNextDocumentNumber('RPP');
-            $routingsData = $request->input('routings');
-            $insertData = [];
-            $now = now();
+                if (!empty($materialsToSave)) {
+                    Routing::whereIn('material', $materialsToSave)->delete();
+                }
 
-            foreach ($routingsData as $routing) {
-                $insertData[] = [
-                    'document_number' => $docNumber,
-                    'document_name' => $docName,
-                    'product_name' => $productName,
-                    'material' => $routing['header']['IV_MATERIAL'],
-                    'plant' => $routing['header']['IV_PLANT'],
-                    'description' => $routing['header']['IV_DESCRIPTION'],
-                    'operations' => json_encode($routing['operations']),
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
+                $docNumber = $this->getNextDocumentNumber('RPP');
+                $insertData = [];
+                $now = now();
 
-            Routing::insert($insertData);
+                foreach ($routingsData as $routing) {
+                    $insertData[] = [
+                        'document_number' => $docNumber,
+                        'document_name' => $docName,
+                        'product_name' => $productName,
+                        'material' => $routing['header']['IV_MATERIAL'],
+                        'plant' => $routing['header']['IV_PLANT'],
+                        'description' => $routing['header']['IV_DESCRIPTION'],
+                        'operations' => json_encode($routing['operations']),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                Routing::insert($insertData);
+            });
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Data berhasil disimpan dengan nomor dokumen: ' . $docNumber
+                'message' => 'Data berhasil disimpan/diperbarui.'
             ]);
 
         } catch (\Exception $e) {
@@ -145,7 +154,25 @@ class RoutingController extends Controller
         });
     }
 
-    // Fungsi ini berisi validasi template Excel yang sudah diperbarui
+    public function deleteRoutings(Request $request)
+    {
+        $request->validate([
+            'document_numbers' => 'required|array',
+            'document_numbers.*' => 'string'
+        ]);
+
+        try {
+            $docNumbers = $request->input('document_numbers');
+            Routing::whereIn('document_number', $docNumbers)->delete();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Dokumen yang dipilih berhasil dihapus dari database.'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Gagal menghapus data dari database: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function processFile(Request $request)
     {
         $request->validate(['routing_file' => 'required|mimes:xlsx,xls,csv']);
@@ -177,36 +204,13 @@ class RoutingController extends Controller
                 if (empty(array_filter($row))) continue;
                 $rowData = array_combine($header, $row);
 
-                if (!empty($rowData['Material'])) {
-                     if (empty($rowData['Plant'])) {
-                        throw new \Exception("Data tidak lengkap di baris Excel " . ($rowIndex + 2) . ". Kolom 'Plant' tidak boleh kosong untuk Material baru.");
-                    }
-                }
-
-                if (!empty($rowData['Operation']) || !empty($rowData['Work Cntr'])) {
-                     $requiredFields = [
-                        'Operation' => 'Nomor Operasi',
-                        'Work Cntr' => 'Work Center',
-                        'Ctrl Key' => 'Control Key',
-                        'Base Qty' => 'Base Quantity'
-                     ];
-                     foreach($requiredFields as $field => $displayName) {
-                        if (!isset($rowData[$field]) || $rowData[$field] === '' || $rowData[$field] === null) {
-                            throw new \Exception("Data tidak lengkap di baris Excel " . ($rowIndex + 2) . ". Kolom '{$displayName}' tidak boleh kosong.");
-                        }
-                     }
-                }
-
                 if (!empty($rowData['Material']) && $rowData['Material'] !== $currentMaterial) {
                     $currentMaterial = $rowData['Material'];
                     $groupedData[$currentMaterial] = [
                         'header' => [
-                            'IV_MATERIAL' => $rowData['Material'] ?? '',
-                            'IV_PLANT' => $rowData['Plant'] ?? '',
-                            'IV_DESCRIPTION' => $rowData['Description'] ?? '',
-                            'IV_TASK_LIST_USAGE' => $rowData['Usage'] ?? '1',
-                            'IV_TASK_LIST_STATUS' => $rowData['Status'] ?? '4',
-                            'IV_GROUP_COUNTER' => $rowData['Grp Ctr'] ?? '1',
+                            'IV_MATERIAL' => $rowData['Material'] ?? '', 'IV_PLANT' => $rowData['Plant'] ?? '',
+                            'IV_DESCRIPTION' => $rowData['Description'] ?? '', 'IV_TASK_LIST_USAGE' => $rowData['Usage'] ?? '1',
+                            'IV_TASK_LIST_STATUS' => $rowData['Status'] ?? '4', 'IV_GROUP_COUNTER' => $rowData['Grp Ctr'] ?? '1',
                             'IV_TASK_MEASURE_UNIT' => $rowData['UoM'] ?? 'PC',
                         ],
                         'operations' => []
@@ -215,8 +219,7 @@ class RoutingController extends Controller
                 if ($currentMaterial) {
                     $activityValues = [];
                     for ($i = 1; $i <= 6; $i++) {
-                        $activityKey = 'Activity ' . $i;
-                        $uomKey = 'UoM ' . $i;
+                        $activityKey = 'Activity ' . $i; $uomKey = 'UoM ' . $i;
                         $value = $rowData[$activityKey] ?? '0';
 
                         if ($value !== null && $value !== '' && !is_numeric($value)) {
@@ -234,12 +237,9 @@ class RoutingController extends Controller
 
                     if (!empty($rowData['Operation'])) {
                         $groupedData[$currentMaterial]['operations'][] = array_merge([
-                            'ACTIVITY' => $rowData['Operation'] ?? '',
-                            'WORK_CNTR' => $rowData['Work Cntr'] ?? '',
-                            'CONTROL_KEY' => $rowData['Ctrl Key'] ?? '',
-                            'DESCRIPTION' => $rowData['Descriptions'] ?? 'N/A',
-                            'BASE_QTY' => $rowData['Base Qty'] ?? '1',
-                            'UOM' => $rowData['UoM'] ?? 'PC',
+                            'ACTIVITY' => $rowData['Operation'] ?? '', 'WORK_CNTR' => $rowData['Work Cntr'] ?? '',
+                            'CONTROL_KEY' => $rowData['Ctrl Key'] ?? '', 'DESCRIPTION' => $rowData['Descriptions'] ?? 'N/A',
+                            'BASE_QTY' => $rowData['Base Qty'] ?? '1', 'UOM' => $rowData['UoM'] ?? 'PC',
                         ], $activityValues);
                     }
                 }
@@ -257,13 +257,10 @@ class RoutingController extends Controller
         }
     }
 
-    // Fungsi ini berisi validasi otorisasi user
     public function uploadToSap(Request $request)
     {
         $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string',
-            'routing_data' => 'required|array',
+            'username' => 'required|string', 'password' => 'required|string', 'routing_data' => 'required|array',
         ]);
 
         $submittedUsername = $request->input('username');
@@ -273,15 +270,14 @@ class RoutingController extends Controller
         if (!in_array(strtoupper($submittedUsername), $allowedUsers)) {
             return response()->json([
                 'status' => 'Failed',
-                'message' => 'Otorisasi Gagal. Username Anda (' . $submittedUsername . ') tidak memiliki izin untuk melakukan upload.'
+                'message' => 'Otorisasi Gagal. Username Anda (' . $submittedUsername . ') tidak memiliki izin untuk melakukan Release.'
             ], 403);
         }
 
         $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002') . '/upload_routing';
         try {
             $response = Http::timeout(300)->post($pythonApiUrl, [
-                'username' => $request->username,
-                'password' => $request->password,
+                'username' => $request->username, 'password' => $request->password,
                 'routing_data' => $request->routing_data
             ]);
             return $response->json();
@@ -296,8 +292,7 @@ class RoutingController extends Controller
         $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002') . '/get_work_center_desc';
         try {
             $response = Http::timeout(10)->post($pythonApiUrl, [
-                'IV_WERKS' => $request->IV_WERKS,
-                'IV_ARBPL' => $request->IV_ARBPL,
+                'IV_WERKS' => $request->IV_WERKS, 'IV_ARBPL' => $request->IV_ARBPL,
             ]);
             return response()->json($response->json(), $response->status());
         } catch (ConnectionException $e) {
@@ -307,33 +302,27 @@ class RoutingController extends Controller
             return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
         }
     }
+
     public function checkDocumentNameExists(Request $request)
-{
-    $request->validate(['document_name' => 'required|string']);
-
-    $exists = \App\Models\Routing::where('document_name', $request->input('document_name'))->exists();
-
-    return response()->json(['exists' => $exists]);
-}
-    public function markAsUploaded(Request $request)
-{
-    $request->validate([
-        'successful_uploads' => 'required|array',
-        'successful_uploads.*.material' => 'required|string',
-        'successful_uploads.*.doc_number' => 'required|string',
-    ]);
-
-    $successfulUploads = $request->input('successful_uploads');
-    $now = now();
-
-    foreach ($successfulUploads as $upload) {
-        // Logika UTAMA: Mengisi tanggal, bukan menghapus.
-        Routing::where('document_number', $upload['doc_number'])
-               ->where('material', $upload['material'])
-               ->whereNull('uploaded_to_sap_at')
-               ->update(['uploaded_to_sap_at' => $now]);
+    {
+        $request->validate(['document_name' => 'required|string']);
+        $exists = Routing::where('document_name', $request->input('document_name'))->exists();
+        return response()->json(['exists' => $exists]);
     }
 
-    return response()->json(['status' => 'success', 'message' => 'Data berhasil ditandai sebagai ter-upload.']);
-}
+    public function checkMaterialsInExistingDocument(Request $request)
+    {
+        $request->validate(['materials' => 'required|array']);
+        $materials = $request->input('materials');
+        $existingRouting = Routing::whereIn('material', $materials)->first();
+
+        if ($existingRouting) {
+            return response()->json([
+                'exists' => true, 'document_name' => $existingRouting->document_name,
+                'document_number' => $existingRouting->document_number,
+                'material' => $existingRouting->material
+            ]);
+        }
+        return response()->json(['exists' => false]);
+    }
 }

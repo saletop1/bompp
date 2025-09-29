@@ -29,16 +29,74 @@
         .file-header-row > td { background-color: rgba(0, 0, 0, 0.3) !important; font-weight: bold; font-style: italic; color: #ccc; padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
         .progress-bar { transition: width 0.4s ease; }
 
-        /* CSS untuk Sticky Header Tabel */
         .table-responsive {
-            max-height: 65vh; /* Batasi tinggi container tabel agar scrollbar muncul */
+            max-height: 65vh;
             overflow-y: auto;
         }
         thead th {
             position: sticky;
-            top: 0; /* Menempel di bagian atas container */
-            background-color: #212529; /* Warna latar belakang agar tidak transparan saat scroll */
-            z-index: 10; /* Memastikan header selalu di atas baris lain */
+            top: 0;
+            background-color: #212529;
+            z-index: 10;
+        }
+
+        .swal2-container {
+            background-color: rgba(0, 0, 0, 0.5) !important;
+        }
+        .swal2-popup {
+            background: rgba(52, 58, 64, 0.5) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 1rem !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15) !important;
+        }
+        .swal2-title,
+        .swal2-content,
+        .swal2-html-container {
+            color: #ffffff !important;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .swal2-icon.swal2-success .swal2-success-ring {
+            border-color: rgba(40, 167, 69, 0.5) !important;
+        }
+        .swal2-icon.swal2-error {
+            border-color: #dc3545 !important;
+        }
+        .swal2-icon.swal2-warning {
+            border-color: #ffc107 !important;
+            color: #ffc107 !important;
+        }
+        .swal2-icon.swal2-info {
+            border-color: #0dcaf0 !important;
+            color: #0dcaf0 !important;
+        }
+
+        #sap-credential-modal .modal-content,
+        #save-details-modal .modal-content {
+            background: rgba(52, 58, 64, 0.5) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 1rem !important;
+            color: #ffffff;
+        }
+        #sap-credential-modal .modal-header,
+        #save-details-modal .modal-header {
+            border-bottom-color: rgba(255, 255, 255, 0.2);
+        }
+        #sap-credential-modal .modal-footer,
+        #save-details-modal .modal-footer {
+            border-top-color: rgba(255, 255, 255, 0.2);
+        }
+        #sap-credential-modal .form-control,
+        #save-details-modal .form-control {
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #212529;
+        }
+        #sap-credential-modal .form-control::placeholder,
+        #save-details-modal .form-control::placeholder {
+            color: #6c757d;
         }
     </style>
 </head>
@@ -46,8 +104,8 @@
     <div class="container converter-container">
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
-                <h1 class="h3 main-title">SAP Data Master Center</h1>
-                <p class="subtitle mb-0">Manage Material, BOM, and Routing Data</p>
+                <h1 class="h3 main-title">SAP Routing Data Center</h1>
+                <p class="subtitle mb-0">Confirm & Release Routing Data</p>
             </div>
             <img src="{{ asset('images/saplogo.png') }}" alt="SAP Logo" class="sap-logo-header">
         </div>
@@ -106,8 +164,8 @@
 
     <div class="modal fade" id="sap-credential-modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
-            <div class="modal-content text-dark">
-                <div class="modal-header"><h5 class="modal-title">Masukkan Kredensial SAP untuk Upload</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Masukkan Kredensial SAP untuk Upload</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3"><label for="sap-username" class="form-label">SAP Username</label><input type="text" class="form-control" id="sap-username"></div>
                     <div class="mb-3"><label for="sap-password" class="form-label">SAP Password</label><input type="password" class="form-control" id="sap-password"></div>
@@ -119,8 +177,8 @@
 
     <div class="modal fade" id="save-details-modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
-            <div class="modal-content text-dark">
-                <div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3"><label for="document-name" class="form-label">Nama Dokumen</label><input type="text" class="form-control" id="document-name" placeholder="Contoh: Routing Pintu Depan" required></div>
                     <div class="mb-3"><label for="product-name" class="form-label">Nama Produk</label><input type="text" class="form-control" id="product-name" placeholder="Contoh: Pintu Jati Model A" required></div>
@@ -259,6 +317,7 @@
                 return { success: false, message: error.message };
             }
         }
+
         function performDeletion(itemsToDelete) {
             const savedDocsToDelete = new Set();
             const unsavedIndicesToDelete = new Set();
@@ -396,45 +455,79 @@
             }
 
             confirmSaveBtn.addEventListener('click', async () => {
-                const docName = document.getElementById('document-name').value;
-                const prodName = document.getElementById('product-name').value;
-                if (!docName || !prodName) {
-                    return Swal.fire('Peringatan', 'Nama Dokumen dan Nama Produk harus diisi.', 'warning');
-                }
+    const docName = document.getElementById('document-name').value;
+    const prodName = document.getElementById('product-name').value;
 
-                try {
-                    const checkResponse = await fetch("{{ route('routing.checkName') }}", {
-                        method: 'POST',
-                        body: JSON.stringify({ document_name: docName }),
-                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
-                    });
-                    const checkResult = await checkResponse.json();
+    if (!docName || !prodName) {
+        return Swal.fire('Peringatan', 'Nama Dokumen dan Nama Produk harus diisi.', 'warning');
+    }
 
-                    if (checkResult.exists) {
-                        Swal.fire({
-                            title: 'Peringatan!',
-                            text: "Nama Dokumen '" + docName + "' sudah ada. Apakah Anda yakin ingin melanjutkan dan membuat dokumen baru dengan nama yang sama?",
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonColor: '#3085d6',
-                            cancelButtonColor: '#d33',
-                            confirmButtonText: 'Ya, Lanjutkan!',
-                            cancelButtonText: 'Batal'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                saveModal.hide();
-                                performSave(docName, prodName);
-                            }
-                        });
-                    } else {
-                        saveModal.hide();
-                        performSave(docName, prodName);
-                    }
+    const allItems = getFlatData();
+    const selectedMaterials = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+                                   .map(cb => allItems[cb.getAttribute('data-global-index')].header.IV_MATERIAL);
 
-                } catch (error) {
-                    Swal.fire('Error!', 'Gagal memeriksa nama dokumen: ' + error.message, 'error');
-                }
+    if (selectedMaterials.length === 0) {
+        return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
+    }
+
+    try {
+        const materialCheckResponse = await fetch("{{ route('routing.checkMaterials') }}", {
+            method: 'POST',
+            body: JSON.stringify({ materials: selectedMaterials }),
+            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+        });
+        const materialCheckResult = await materialCheckResponse.json();
+
+        if (materialCheckResult.exists) {
+            // [MODIFIKASI] Ubah teks peringatan menjadi "replace"
+            const materialConfirmation = await Swal.fire({
+                title: 'Peringatan Material Duplikat!',
+                html: `Material <b>${materialCheckResult.material}</b> sudah ada di dokumen lain:<br><b>${materialCheckResult.document_name} (${materialCheckResult.document_number})</b>.<br><br>Melanjutkan akan <b style='color:red;'>MENGHAPUS</b> data lama tersebut dan menggantikannya dengan yang baru di dokumen ini. Lanjutkan?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus & Ganti!',
+                cancelButtonText: 'Batal'
             });
+
+            if (!materialConfirmation.isConfirmed) {
+                return; // Hentikan proses jika pengguna membatalkan
+            }
+        }
+
+        // Pengecekan nama dokumen tetap berjalan seperti biasa
+        const nameCheckResponse = await fetch("{{ route('routing.checkName') }}", {
+            method: 'POST',
+            body: JSON.stringify({ document_name: docName }),
+            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+        });
+        const nameCheckResult = await nameCheckResponse.json();
+
+        if (nameCheckResult.exists) {
+            const nameConfirmation = await Swal.fire({
+                title: 'Peringatan!',
+                text: `Nama Dokumen '${docName}' sudah ada. Apakah Anda yakin ingin melanjutkan dan membuat dokumen baru dengan nama yang sama?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, Lanjutkan!',
+                cancelButtonText: 'Batal'
+            });
+
+            if (!nameConfirmation.isConfirmed) {
+                return;
+            }
+        }
+
+        saveModal.hide();
+        performSave(docName, prodName);
+
+    } catch (error) {
+        Swal.fire('Error!', 'Terjadi kesalahan saat validasi: ' . error.message, 'error');
+    }
+});
 
             confirmUploadBtn.addEventListener('click', async function() {
                 const username = document.getElementById('sap-username').value;

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BomController;
 use App\Http\Controllers\RoutingController;
 
+
 // Mengarahkan URL utama ('/') ke halaman Material Converter sebagai halaman default.
 Route::get('/', function () {
     return redirect()->route('converter.index');
@@ -54,6 +55,7 @@ Route::post('/routing/save', [RoutingController::class, 'saveRoutings'])->name('
 Route::post('/routing/mark-as-uploaded', [RoutingController::class, 'markAsUploaded'])->name('routing.markAsUploaded');
 Route::post('/routing/delete', [RoutingController::class, 'deleteRoutings'])->name('routing.delete');
 Route::post('/routing/check-name', [RoutingController::class, 'checkDocumentNameExists'])->name('routing.checkName');
+Route::post('/routing/check-materials', [RoutingController::class, 'checkMaterialsInExistingDocument'])->name('routing.checkMaterials');
 
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');
