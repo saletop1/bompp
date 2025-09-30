@@ -154,6 +154,34 @@ class RoutingController extends Controller
         });
     }
 
+    public function deleteRoutingRows(Request $request)
+{
+    $request->validate([
+        'rows_to_delete' => 'required|array',
+        'rows_to_delete.*.material' => 'required|string',
+        'rows_to_delete.*.doc_number' => 'required|string',
+    ]);
+
+    try {
+        $rowsToDelete = $request->input('rows_to_delete');
+
+        foreach ($rowsToDelete as $row) {
+            Routing::where('document_number', $row['doc_number'])
+                   ->where('material', $row['material'])
+                   ->delete();
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Baris yang dipilih berhasil dihapus dari database.'
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json(['status' => 'error', 'message' => 'Gagal menghapus baris dari database: ' . $e->getMessage()], 500);
+    }
+}
+
+
     public function deleteRoutings(Request $request)
     {
         $request->validate([

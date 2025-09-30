@@ -57,20 +57,6 @@
             color: #ffffff !important;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
-        .swal2-icon.swal2-success .swal2-success-ring {
-            border-color: rgba(40, 167, 69, 0.5) !important;
-        }
-        .swal2-icon.swal2-error {
-            border-color: #dc3545 !important;
-        }
-        .swal2-icon.swal2-warning {
-            border-color: #ffc107 !important;
-            color: #ffc107 !important;
-        }
-        .swal2-icon.swal2-info {
-            border-color: #0dcaf0 !important;
-            color: #0dcaf0 !important;
-        }
 
         #sap-credential-modal .modal-content,
         #save-details-modal .modal-content {
@@ -94,14 +80,11 @@
             background-color: rgba(255, 255, 255, 0.9);
             color: #212529;
         }
-        #sap-credential-modal .form-control::placeholder,
-        #save-details-modal .form-control::placeholder {
-            color: #6c757d;
-        }
     </style>
 </head>
 <body>
     <div class="container converter-container">
+        <!-- Header and Nav Pills -->
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
                 <h1 class="h3 main-title">SAP Routing Data Center</h1>
@@ -123,20 +106,12 @@
                         <form id="upload-form" class="m-0">
                             <div class="input-group">
                                 <input type="file" class="form-control" name="routing_file" id="routing_file" required accept=".xlsx, .xls, .csv">
-                                <button class="btn btn-primary" type="submit" id="process-btn">
-                                    <i class="bi bi-gear-fill"></i>
-                                </button>
+                                <button class="btn btn-primary" type="submit" id="process-btn"><i class="bi bi-gear-fill"></i></button>
                             </div>
                         </form>
-                        <button class="btn btn-danger" id="delete-selected-btn" disabled>
-                            <i class="bi bi-trash-fill me-2"></i>Hapus
-                        </button>
-                        <button class="btn btn-warning" id="save-selected-btn" disabled>
-                            <i class="bi bi-save-fill me-2"></i>Save
-                        </button>
-                        <button class="btn btn-success" id="upload-selected-btn" disabled>
-                            <i class="bi bi-cloud-upload-fill me-2"></i>Release
-                        </button>
+                        <button class="btn btn-danger" id="delete-selected-btn" disabled><i class="bi bi-trash-fill me-2"></i>Hapus</button>
+                        <button class="btn btn-warning" id="save-selected-btn" disabled><i class="bi bi-save-fill me-2"></i>Save</button>
+                        <button class="btn btn-success" id="upload-selected-btn" disabled><i class="bi bi-cloud-upload-fill me-2"></i>Release</button>
                     </div>
                 </div>
                 <div id="results-container" class="mt-2" style="display: none;">
@@ -145,10 +120,7 @@
                             <thead>
                                 <tr>
                                     <th><input class="form-check-input" type="checkbox" id="select-all-checkbox"></th>
-                                    <th>#</th>
-                                    <th>Material</th><th>Plant</th><th>Description</th>
-                                    <th>Jml Operasi</th><th>Status</th>
-                                    <th>Aksi</th>
+                                    <th>#</th><th>Material</th><th>Plant</th><th>Description</th><th>Jml Operasi</th><th>Status</th><th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody id="results-tbody"></tbody>
@@ -157,50 +129,13 @@
                 </div>
             </div>
         </div>
-        <footer class="text-center text-white mt-4">
-            <small style="text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">© PT. Kayu Mebel Indonesia, 2025</small>
-        </footer>
+        <footer class="text-center text-white mt-4"><small>© PT. Kayu Mebel Indonesia, 2025</small></footer>
     </div>
 
-    <div class="modal fade" id="sap-credential-modal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header"><h5 class="modal-title">Masukkan Kredensial SAP untuk Upload</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <div class="mb-3"><label for="sap-username" class="form-label">SAP Username</label><input type="text" class="form-control" id="sap-username"></div>
-                    <div class="mb-3"><label for="sap-password" class="form-label">SAP Password</label><input type="password" class="form-control" id="sap-password"></div>
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-upload-btn">Konfirmasi & Mulai Upload</button></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="save-details-modal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <div class="mb-3"><label for="document-name" class="form-label">Nama Dokumen</label><input type="text" class="form-control" id="document-name" placeholder="Contoh: Routing Pintu Depan" required></div>
-                    <div class="mb-3"><label for="product-name" class="form-label">Nama Produk</label><input type="text" class="form-control" id="product-name" placeholder="Contoh: Pintu Jati Model A" required></div>
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-save-btn">Konfirmasi & Simpan</button></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content text-dark">
-                <div class="modal-header"><h5 class="modal-title">Mengunggah Routing ke SAP...</h5></div>
-                <div class="modal-body">
-                    <p id="progress-status-text" class="text-center mb-2">Menunggu...</p>
-                    <div class="progress" role="progressbar" style="height: 25px;">
-                        <div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Modals -->
+    <div class="modal fade" id="sap-credential-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Masukkan Kredensial SAP</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="sap-username" class="form-label">SAP Username</label><input type="text" class="form-control" id="sap-username"></div><div class="mb-3"><label for="sap-password" class="form-label">SAP Password</label><input type="password" class="form-control" id="sap-password"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-upload-btn">Konfirmasi & Mulai Upload</button></div></div></div></div>
+    <div class="modal fade" id="save-details-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="document-name" class="form-label">Nama Dokumen</label><input type="text" class="form-control" id="document-name" placeholder="Contoh: Routing Pintu Depan" required></div><div class="mb-3"><label for="product-name" class="form-label">Nama Produk</label><input type="text" class="form-control" id="product-name" placeholder="Contoh: Pintu Jati Model A" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-save-btn">Konfirmasi & Simpan</button></div></div></div></div>
+    <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark"><div class="modal-header"><h5 class="modal-title">Mengunggah Routing ke SAP...</h5></div><div class="modal-body"><p id="progress-status-text" class="text-center mb-2">Menunggu...</p><div class="progress" role="progressbar" style="height: 25px;"><div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div></div></div></div></div></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -209,6 +144,7 @@
         let processedDataByFile = savedRoutings;
         let uploadModal, saveModal, progressModal;
 
+        // --- RENDER & HELPER FUNCTIONS ---
         function renderTable(checkedIndices = new Set()) {
             const tbody = document.getElementById('results-tbody');
             tbody.innerHTML = '';
@@ -239,12 +175,17 @@
                             <td class="status-cell">${statusHtml}</td>
                             <td><i class="bi bi-trash-fill delete-row-icon" data-global-index="${globalIndex}" title="Hapus baris ini"></i></td>
                         </tr>`;
-                    let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
+                    let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>UoM</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
                     group.operations.forEach(op => {
-                        operationsHtml += `<tr class="${(hasDuplicateZP01 && op.CONTROL_KEY === 'ZP01') ? 'table-danger' : ''}">
-                            <td>${op.WORK_CNTR}</td><td>${op.CONTROL_KEY}</td>
-                            <td>${op.DESCRIPTION}</td><td>${op.BASE_QTY}</td>
-                            <td>${op.STD_VALUE_01}</td><td>${op.STD_UNIT_01}</td></tr>`;
+                        operationsHtml += `<tr>
+                            <td>${op.WORK_CNTR || ''}</td>
+                            <td>${op.CONTROL_KEY || ''}</td>
+                            <td>${op.DESCRIPTION || ''}</td>
+                            <td>${op.BASE_QTY || ''}</td>
+                            <td>${op.UOM || ''}</td>
+                            <td>${op.STD_VALUE_01 || ''}</td>
+                            <td>${op.STD_UNIT_01 || ''}</td>
+                        </tr>`;
                     });
                     operationsHtml += `</tbody></table>`;
                     const detailsRow = `<tr class="collapse-row"><td colspan="8"><div class="collapse" id="${detailsId}"><div class="p-3 details-card">${operationsHtml}</div></div></td></tr>`;
@@ -256,37 +197,14 @@
         }
 
         function getFlatData() { return processedDataByFile.flatMap(group => group.data); }
-
         function handleCheckboxChange() {
-            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
-            const enabledCount = document.querySelectorAll('.row-checkbox:not(:disabled)').length;
-            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            const checkedRowCount = document.querySelectorAll('.row-checkbox:checked').length;
+            const checkedDocCount = document.querySelectorAll('.document-group-checkbox:checked').length;
+            const checkedCount = checkedRowCount + checkedDocCount;
             document.getElementById('delete-selected-btn').disabled = checkedCount === 0;
-            document.getElementById('upload-selected-btn').disabled = checkedCount === 0;
-            document.getElementById('save-selected-btn').disabled = checkedCount === 0;
-            if (selectAllCheckbox) {
-                selectAllCheckbox.checked = enabledCount > 0 && checkedCount === enabledCount;
-                selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < enabledCount;
-            }
-            document.querySelectorAll('.document-group-checkbox').forEach(groupCheckbox => {
-                const fileIndex = groupCheckbox.dataset.fileIndex;
-                const rowsInGroup = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:not(:disabled)`);
-                const checkedInGroup = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:checked`);
-                if (rowsInGroup.length > 0) {
-                    if (checkedInGroup.length === 0) {
-                        groupCheckbox.checked = false;
-                        groupCheckbox.indeterminate = false;
-                    } else if (checkedInGroup.length === rowsInGroup.length) {
-                        groupCheckbox.checked = true;
-                        groupCheckbox.indeterminate = false;
-                    } else {
-                        groupCheckbox.checked = false;
-                        groupCheckbox.indeterminate = true;
-                    }
-                }
-            });
+            document.getElementById('upload-selected-btn').disabled = checkedRowCount === 0;
+            document.getElementById('save-selected-btn').disabled = checkedRowCount === 0;
         }
-
         function deleteItemsByGlobalIndices(indicesToDeleteSet) {
             if (indicesToDeleteSet.size === 0) return;
             let globalIndexCounter = 0;
@@ -302,80 +220,102 @@
             renderTable();
         }
 
-        async function deleteSavedDocuments(docNumbers) {
-            try {
-                const response = await fetch("{{ route('routing.delete') }}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
-                    body: JSON.stringify({ document_numbers: docNumbers })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Gagal menghubungi server.');
-                return { success: true, message: result.message };
-            } catch (error) {
-                Swal.fire('Error!', error.message, 'error');
-                return { success: false, message: error.message };
-            }
-        }
+        async function performDeletion() {
+            const allItems = getFlatData();
+            const checkedRowBoxes = document.querySelectorAll('.row-checkbox:checked');
+            const checkedDocBoxes = document.querySelectorAll('.document-group-checkbox:checked');
 
-        function performDeletion(itemsToDelete) {
-            const savedDocsToDelete = new Set();
-            const unsavedIndicesToDelete = new Set();
-            itemsToDelete.forEach(index => {
-                const row = document.querySelector(`tr[data-global-index="${index}"]`);
-                if (!row) return;
-                const fileIndex = row.dataset.fileIndex;
+            if (checkedRowBoxes.length === 0 && checkedDocBoxes.length === 0) {
+                return Swal.fire('Info', 'Tidak ada item yang dipilih untuk dihapus.', 'info');
+            }
+
+            const docsToDelete = new Set();
+            const rowsToDeleteFromDb = [];
+            const allIndicesToUpdateView = new Set();
+
+            checkedDocBoxes.forEach(docBox => {
+                const fileIndex = docBox.dataset.fileIndex;
                 const headerRow = document.querySelector(`.file-header-row[data-file-index="${fileIndex}"]`);
-                if (!headerRow) { return; }
-                const isSaved = headerRow.dataset.isSaved === 'true';
-                if (isSaved) {
+                if (headerRow.dataset.isSaved === 'true') {
+                    docsToDelete.add(headerRow.dataset.docNumber);
+                }
+                document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox`).forEach(rowBox => {
+                    allIndicesToUpdateView.add(parseInt(rowBox.dataset.globalIndex));
+                });
+            });
+
+            checkedRowBoxes.forEach(rowBox => {
+                const globalIndex = parseInt(rowBox.dataset.globalIndex);
+                if (allIndicesToUpdateView.has(globalIndex)) return;
+
+                allIndicesToUpdateView.add(globalIndex);
+                const fileIndex = rowBox.closest('tr').dataset.fileIndex;
+                const headerRow = document.querySelector(`.file-header-row[data-file-index="${fileIndex}"]`);
+
+                if (headerRow.dataset.isSaved === 'true') {
                     const docNumber = headerRow.dataset.docNumber;
-                    if (docNumber) savedDocsToDelete.add(docNumber);
-                } else {
-                    unsavedIndicesToDelete.add(index);
+                    const material = allItems[globalIndex].header.IV_MATERIAL;
+                    rowsToDeleteFromDb.push({ doc_number: docNumber, material: material });
                 }
             });
 
-            if (savedDocsToDelete.size === 0 && unsavedIndicesToDelete.size > 0) {
-                Swal.fire({
-                    title: 'Hapus dari Preview?', text: `Anda akan menghapus ${unsavedIndicesToDelete.size} baris dari tampilan.`,
-                    icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6', confirmButtonText: 'Ya, hapus!'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        deleteItemsByGlobalIndices(unsavedIndicesToDelete);
-                        Swal.fire('Dihapus!', 'Baris yang dipilih telah dihapus dari preview.', 'success');
-                    }
-                });
-                return;
+            let confirmText = 'Apakah Anda yakin ingin menghapus item yang dipilih dari tampilan?';
+            if (docsToDelete.size > 0 || rowsToDeleteFromDb.length > 0) {
+                confirmText = 'Item yang dipilih akan dihapus permanen dari database. Lanjutkan?';
             }
 
-            if (savedDocsToDelete.size > 0) {
-                let confirmText = `Anda akan menghapus ${savedDocsToDelete.size} dokumen tersimpan. Data ini akan dihapus permanen dari database. Lanjutkan?`;
-                Swal.fire({
-                    title: 'Konfirmasi Penghapusan Permanen', text: confirmText, icon: 'warning',
-                    showCancelButton: true, confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6', confirmButtonText: 'Ya, Hapus Permanen!'
-                }).then(async (result) => {
-                    if (result.isConfirmed) {
-                        const dbDeleteResult = await deleteSavedDocuments(Array.from(savedDocsToDelete));
-                        if (dbDeleteResult.success) {
-                            const allIndicesToDelete = new Set(unsavedIndicesToDelete);
-                            savedDocsToDelete.forEach(docNumber => {
-                                const header = document.querySelector(`.file-header-row[data-doc-number="${docNumber}"]`);
-                                if (header) {
-                                    const fileIndex = header.dataset.fileIndex;
-                                    document.querySelectorAll(`tr[data-file-index="${fileIndex}"]`).forEach(row => {
-                                        if (row.dataset.globalIndex) allIndicesToDelete.add(parseInt(row.dataset.globalIndex));
-                                    });
-                                }
+            Swal.fire({
+                title: 'Konfirmasi Penghapusan',
+                text: confirmText,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    let allSuccess = true;
+                    let errorMessages = [];
+
+                    if (docsToDelete.size > 0) {
+                         try {
+                            const response = await fetch("{{ route('routing.delete') }}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                                body: JSON.stringify({ document_numbers: Array.from(docsToDelete) })
                             });
-                            deleteItemsByGlobalIndices(allIndicesToDelete);
-                            Swal.fire('Dihapus!', 'Data yang dipilih telah dihapus.', 'success');
+                            const result = await response.json();
+                            if (!response.ok) throw new Error(result.message);
+                        } catch(error) {
+                            allSuccess = false;
+                            errorMessages.push(`Gagal hapus dokumen: ${error.message}`);
                         }
                     }
-                });
-            }
+
+                    if (rowsToDeleteFromDb.length > 0) {
+                        try {
+                            const response = await fetch("{{ route('routing.deleteRows') }}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                                body: JSON.stringify({ rows_to_delete: rowsToDeleteFromDb })
+                            });
+                            const result = await response.json();
+                            if (!response.ok) throw new Error(result.message);
+                        } catch (error) {
+                            allSuccess = false;
+                            errorMessages.push(`Gagal hapus baris: ${error.message}`);
+                        }
+                    }
+
+                    if (allSuccess) {
+                        deleteItemsByGlobalIndices(allIndicesToUpdateView);
+                        Swal.fire('Dihapus!', 'Item yang dipilih telah dihapus.', 'success');
+                    } else {
+                        Swal.fire('Error!', errorMessages.join('\n'), 'error');
+                    }
+                }
+            });
         }
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -428,7 +368,10 @@
 
             async function performSave(docName, prodName) {
                 const allItems = getFlatData();
-                const selectedItems = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
+                const selectedCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
+                const selectedItems = selectedCheckboxes.map(cb => allItems[cb.getAttribute('data-global-index')]);
+                const selectedIndices = new Set(selectedCheckboxes.map(cb => parseInt(cb.getAttribute('data-global-index'))));
+
                 if (selectedItems.length === 0) return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
 
                 saveSelectedBtn.disabled = true;
@@ -443,7 +386,12 @@
                     const result = await response.json();
                     if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Gagal menyimpan data.');
 
-                    Swal.fire('Sukses!', result.message, 'success').then(() => window.location.reload());
+                    deleteItemsByGlobalIndices(selectedIndices);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sukses!',
+                        text: result.message + ". Data akan dimuat ulang saat me-refresh halaman.",
+                    });
                 } catch (error) {
                     Swal.fire('Error!', error.message, 'error');
                 } finally {
@@ -455,79 +403,73 @@
             }
 
             confirmSaveBtn.addEventListener('click', async () => {
-    const docName = document.getElementById('document-name').value;
-    const prodName = document.getElementById('product-name').value;
+                const docName = document.getElementById('document-name').value;
+                const prodName = document.getElementById('product-name').value;
 
-    if (!docName || !prodName) {
-        return Swal.fire('Peringatan', 'Nama Dokumen dan Nama Produk harus diisi.', 'warning');
-    }
+                if (!docName || !prodName) {
+                    return Swal.fire('Peringatan', 'Nama Dokumen dan Nama Produk harus diisi.', 'warning');
+                }
 
-    const allItems = getFlatData();
-    const selectedMaterials = Array.from(document.querySelectorAll('.row-checkbox:checked'))
-                                   .map(cb => allItems[cb.getAttribute('data-global-index')].header.IV_MATERIAL);
+                const allItems = getFlatData();
+                const selectedMaterials = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+                                               .map(cb => allItems[cb.getAttribute('data-global-index')].header.IV_MATERIAL);
 
-    if (selectedMaterials.length === 0) {
-        return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
-    }
+                if (selectedMaterials.length === 0) {
+                    return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
+                }
 
-    try {
-        const materialCheckResponse = await fetch("{{ route('routing.checkMaterials') }}", {
-            method: 'POST',
-            body: JSON.stringify({ materials: selectedMaterials }),
-            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
-        });
-        const materialCheckResult = await materialCheckResponse.json();
+                try {
+                    const materialCheckResponse = await fetch("{{ route('routing.checkMaterials') }}", {
+                        method: 'POST',
+                        body: JSON.stringify({ materials: selectedMaterials }),
+                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                    });
+                    const materialCheckResult = await materialCheckResponse.json();
 
-        if (materialCheckResult.exists) {
-            // [MODIFIKASI] Ubah teks peringatan menjadi "replace"
-            const materialConfirmation = await Swal.fire({
-                title: 'Peringatan Material Duplikat!',
-                html: `Material <b>${materialCheckResult.material}</b> sudah ada di dokumen lain:<br><b>${materialCheckResult.document_name} (${materialCheckResult.document_number})</b>.<br><br>Melanjutkan akan <b style='color:red;'>MENGHAPUS</b> data lama tersebut dan menggantikannya dengan yang baru di dokumen ini. Lanjutkan?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Ya, Hapus & Ganti!',
-                cancelButtonText: 'Batal'
+                    if (materialCheckResult.exists) {
+                        const materialConfirmation = await Swal.fire({
+                            title: 'Peringatan Material Duplikat!',
+                            html: `Material <b>${materialCheckResult.material}</b> sudah ada di dokumen lain:<br><b>${materialCheckResult.document_name} (${materialCheckResult.document_number})</b>.<br><br>Melanjutkan akan <b style='color:red;'>MENGHAPUS</b> data lama tersebut dan menggantikannya dengan yang baru di dokumen ini. Lanjutkan?`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#d33',
+                            cancelButtonColor: '#3085d6',
+                            confirmButtonText: 'Ya, Hapus & Ganti!',
+                            cancelButtonText: 'Batal'
+                        });
+
+                        if (!materialConfirmation.isConfirmed) return;
+                    }
+
+                    const nameCheckResponse = await fetch("{{ route('routing.checkName') }}", {
+                        method: 'POST',
+                        body: JSON.stringify({ document_name: docName }),
+                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                    });
+                    const nameCheckResult = await nameCheckResponse.json();
+
+                    if (nameCheckResult.exists) {
+                        const nameConfirmation = await Swal.fire({
+                            title: 'Peringatan!',
+                            text: `Nama Dokumen '${docName}' sudah ada. Apakah Anda yakin ingin melanjutkan?`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#3085d6',
+                            cancelButtonColor: '#d33',
+                            confirmButtonText: 'Ya, Lanjutkan!',
+                            cancelButtonText: 'Batal'
+                        });
+
+                        if (!nameConfirmation.isConfirmed) return;
+                    }
+
+                    saveModal.hide();
+                    performSave(docName, prodName);
+
+                } catch (error) {
+                    Swal.fire('Error!', 'Terjadi kesalahan saat validasi: ' + error.message, 'error');
+                }
             });
-
-            if (!materialConfirmation.isConfirmed) {
-                return; // Hentikan proses jika pengguna membatalkan
-            }
-        }
-
-        // Pengecekan nama dokumen tetap berjalan seperti biasa
-        const nameCheckResponse = await fetch("{{ route('routing.checkName') }}", {
-            method: 'POST',
-            body: JSON.stringify({ document_name: docName }),
-            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
-        });
-        const nameCheckResult = await nameCheckResponse.json();
-
-        if (nameCheckResult.exists) {
-            const nameConfirmation = await Swal.fire({
-                title: 'Peringatan!',
-                text: `Nama Dokumen '${docName}' sudah ada. Apakah Anda yakin ingin melanjutkan dan membuat dokumen baru dengan nama yang sama?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Ya, Lanjutkan!',
-                cancelButtonText: 'Batal'
-            });
-
-            if (!nameConfirmation.isConfirmed) {
-                return;
-            }
-        }
-
-        saveModal.hide();
-        performSave(docName, prodName);
-
-    } catch (error) {
-        Swal.fire('Error!', 'Terjadi kesalahan saat validasi: ' . error.message, 'error');
-    }
-});
 
             confirmUploadBtn.addEventListener('click', async function() {
                 const username = document.getElementById('sap-username').value;
@@ -682,39 +624,32 @@
                 }
             });
 
-            selectAllCheckbox.addEventListener('change', () => {
-                document.querySelectorAll('.row-checkbox:not(:disabled)').forEach(cb => cb.checked = selectAllCheckbox.checked);
+            deleteSelectedBtn.addEventListener('click', () => {
+                performDeletion();
+            });
+
+            selectAllCheckbox.addEventListener('change', (e) => {
+                document.querySelectorAll('.document-group-checkbox, .row-checkbox:not(:disabled)').forEach(cb => cb.checked = e.target.checked);
                 handleCheckboxChange();
             });
+            resultsTbody.addEventListener('change', (e) => {
+                if (e.target.classList.contains('row-checkbox') || e.target.classList.contains('document-group-checkbox')) {
+                    handleCheckboxChange();
+                }
+            });
 
-            resultsTbody.addEventListener('click', e => {
+             resultsTbody.addEventListener('click', e => {
                 if (e.target.classList.contains('delete-row-icon')) {
-                    const indexToDelete = parseInt(e.target.getAttribute('data-global-index'), 10);
-                    performDeletion(new Set([indexToDelete]));
-                }
-                if (e.target.classList.contains('document-group-checkbox')) {
-                    const fileIndex = e.target.dataset.fileIndex;
-                    const isChecked = e.target.checked;
-                    document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:not(:disabled)`).forEach(rowCheckbox => {
-                        rowCheckbox.checked = isChecked;
+                    const globalIndex = parseInt(e.target.dataset.globalIndex);
+                    // Tandai hanya satu checkbox ini untuk dihapus
+                    document.querySelectorAll('.row-checkbox').forEach(cb => {
+                        cb.checked = parseInt(cb.dataset.globalIndex) === globalIndex;
                     });
-                    handleCheckboxChange();
+                    performDeletion();
                 }
-            });
-
-            resultsTbody.addEventListener('change', e => {
-                if (e.target.classList.contains('row-checkbox')) {
-                    handleCheckboxChange();
-                }
-            });
-
-            deleteSelectedBtn.addEventListener('click', () => {
-                const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-                if (checkedBoxes.length === 0) return;
-                const indicesToDelete = new Set(Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-global-index'))));
-                performDeletion(indicesToDelete);
             });
         });
     </script>
 </body>
 </html>
+

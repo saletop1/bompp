@@ -56,6 +56,7 @@ Route::post('/routing/mark-as-uploaded', [RoutingController::class, 'markAsUploa
 Route::post('/routing/delete', [RoutingController::class, 'deleteRoutings'])->name('routing.delete');
 Route::post('/routing/check-name', [RoutingController::class, 'checkDocumentNameExists'])->name('routing.checkName');
 Route::post('/routing/check-materials', [RoutingController::class, 'checkMaterialsInExistingDocument'])->name('routing.checkMaterials');
+Route::post('/routing/delete-rows', [RoutingController::class, 'deleteRoutingRows'])->name('routing.deleteRows');
 
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');
