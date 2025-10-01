@@ -406,9 +406,15 @@ class BomController extends Controller
                 foreach ($validComponents as $key => $comp) {
                     $itemNumber = ($key + 1) * 10;
                     $quantity = (float)str_replace(',', '.', $comp['qty'] ?? '0');
+
+                    // === PERUBAHAN LOGIKA PADDING UNTUK KOMPONEN ===
+                    $componentCodeForSap = is_numeric($comp['code'])
+                                           ? str_pad($comp['code'], 18, '0', STR_PAD_LEFT)
+                                           : $comp['code'];
+
                     $componentsPayload[] = [
                         'ITEM_CATEG'    => 'L', 'POSNR' => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
-                        'COMPONENT'     => str_pad($comp['code'], 18, '0', STR_PAD_LEFT),
+                        'COMPONENT'     => $componentCodeForSap,
                         'COMP_QTY'      => $quantity, 'COMP_UNIT' => $comp['uom'] ?? 'PC',
                         'PROD_STOR_LOC' => $comp['sloc'] ?? '', 'SCRAP' => '0',
                         'ITEM_TEXT'     => '', 'ITEM_TEXT2' => '',
@@ -418,8 +424,13 @@ class BomController extends Controller
                 $baseQuantity = (float)str_replace(',', '.', $bom['parent']['qty'] ?? '1');
                 if ($baseQuantity == floor($baseQuantity)) $baseQuantity = (int)$baseQuantity;
 
+                // === PERUBAHAN LOGIKA PADDING UNTUK MATERIAL HEADER ===
+                $parentCodeForSap = is_numeric($parentCode)
+                                    ? str_pad($parentCode, 18, '0', STR_PAD_LEFT)
+                                    : $parentCode;
+
                 $bomsForUpload[] = [
-                    'IV_MATNR'      => str_pad($parentCode, 18, '0', STR_PAD_LEFT),
+                    'IV_MATNR'      => $parentCodeForSap,
                     'IV_WERKS'      => $plant, 'IV_STLAN' => '1', 'IV_STLAL' => '01',
                     'IV_DATUV'      => date('dmY'), 'IV_BMENG' => $baseQuantity,
                     'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC', 'IV_STKTX' => $bom['parent']['description'] ?? 'BOM Upload',
