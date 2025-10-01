@@ -50,13 +50,15 @@ Route::post('/api/bom/upload-sap', [BomController::class, 'uploadProcessedBom'])
 // --- Routing API ---
 Route::post('/routing/process-file', [RoutingController::class, 'processFile'])->name('routing.processFile');
 Route::post('/routing/upload-to-sap', [RoutingController::class, 'uploadToSap'])->name('api.routing.uploadToSap');
-Route::post('/routing/get-workcenter-desc', [RoutingController::class, 'getWorkCenterDescription'])->name('routing.getWorkCenterDesc');
+// Route::post('/routing/get-workcenter-desc', [RoutingController::class, 'getWorkCenterDescription'])->name('routing.getWorkCenterDesc');
 Route::post('/routing/save', [RoutingController::class, 'saveRoutings'])->name('routing.save');
 Route::post('/routing/mark-as-uploaded', [RoutingController::class, 'markAsUploaded'])->name('routing.markAsUploaded');
 Route::post('/routing/delete', [RoutingController::class, 'deleteRoutings'])->name('routing.delete');
 Route::post('/routing/check-name', [RoutingController::class, 'checkDocumentNameExists'])->name('routing.checkName');
 Route::post('/routing/check-materials', [RoutingController::class, 'checkMaterialsInExistingDocument'])->name('routing.checkMaterials');
 Route::post('/routing/delete-rows', [RoutingController::class, 'deleteRoutingRows'])->name('routing.deleteRows');
+Route::get('/routing', [RoutingController::class, 'index'])->name('routing.index');
+Route::post('/routing/update-status', [RoutingController::class, 'updateStatus'])->name('routing.updateStatus');
 
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');

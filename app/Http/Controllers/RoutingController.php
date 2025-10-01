@@ -6,29 +6,40 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Client\ConnectionException;
-use App\Models\Routing; // <-- Kemungkinan besar baris ini yang hilang
+use App\Models\Routing;
 use App\Models\DocumentSequence;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class RoutingController extends Controller
 {
+    /**
+     * Menampilkan halaman utama routing dengan data yang sudah dikelompokkan dari database.
+     */
     public function index()
     {
+        // Variabel ini akan diteruskan ke view, meskipun mungkin tidak digunakan langsung di JavaScript
         $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002');
+
+        // Mengambil semua data routing yang belum di-upload, diurutkan untuk konsistensi grup
         $savedData = Routing::whereNull('uploaded_to_sap_at')
-                            ->orderBy('created_at', 'desc')
+                            ->orderBy('document_number')
+                            ->orderBy('id')
                             ->get();
 
+        // Mengelompokkan data berdasarkan nomor dokumen
         $groupedByDocument = $savedData->groupBy('document_number');
 
         $formattedRoutings = [];
         foreach ($groupedByDocument as $docNumber => $routings) {
-            $groupData = [];
             $firstRouting = $routings->first();
-            $docName = $firstRouting->document_name;
-            $prodName = $firstRouting->product_name;
+            if (!$firstRouting) continue; // Lewati jika grup kosong
 
+            $groupData = [];
             foreach ($routings as $routing) {
+                // Pastikan 'operations' adalah array
+                $operations = is_string($routing->operations) ? json_decode($routing->operations, true) : $routing->operations;
+
                 $groupData[] = [
                     'header' => [
                         'IV_MATERIAL' => $routing->material,
@@ -39,27 +50,48 @@ class RoutingController extends Controller
                         'IV_GROUP_COUNTER' => '1',
                         'IV_TASK_MEASURE_UNIT' => 'PC',
                     ],
-                    'operations' => $routing->operations
+                    'operations' => $operations ?? []
                 ];
             }
 
-            $headerTitle = 'Dokumen Tersimpan: ' . $docNumber;
-            if ($docName) {
-                $headerTitle = 'Dokumen: ' . $docName . ' (' . $prodName . ') - ' . $docNumber;
-            }
+            $headerTitle = 'Dokumen: ' . $firstRouting->document_name . ' (' . $firstRouting->product_name . ') - ' . $docNumber;
 
             $formattedRoutings[] = [
                 'fileName' => $headerTitle,
                 'data' => $groupData,
                 'is_saved' => true,
-                'document_number' => $docNumber
+                'document_number' => $docNumber,
+                'status' => $firstRouting->status, // Mengambil status dari database
             ];
         }
 
+        // Mengirim data yang sudah diformat ke view
         return view('routing', [
-        'savedRoutings' => $formattedRoutings,
-        'pythonApiUrl' => $pythonApiUrl
-    ]);
+            'savedRoutings' => $formattedRoutings,
+            'pythonApiUrl' => $pythonApiUrl
+        ]);
+    }
+
+    /**
+     * Menerima permintaan AJAX untuk memperbarui status dokumen di database.
+     */
+    public function updateStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'document_number' => 'required|string|exists:routings,document_number',
+            'status' => 'nullable|string|in:Urgent,High,Medium,Low,',
+        ]);
+
+        try {
+            // Update status untuk SEMUA baris yang memiliki document_number yang sama
+            Routing::where('document_number', $validated['document_number'])
+                   ->update(['status' => $validated['status']]);
+
+            return response()->json(['status' => 'success', 'message' => 'Status berhasil diperbarui.']);
+        } catch (\Exception $e) {
+            Log::error('Gagal update status routing: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Gagal memperbarui status di server.'], 500);
+        }
     }
 
     public function markAsUploaded(Request $request)
@@ -87,8 +119,8 @@ class RoutingController extends Controller
     {
         $request->validate([
             'routings' => 'required|array',
-            'document_name' => 'required|string|max:255',
-            'product_name' => 'required|string|max:255',
+            'document_name' => 'required|string|max:40',
+            'product_name' => 'required|string|max:20',
         ]);
 
         $routingsData = $request->input('routings');
@@ -155,31 +187,31 @@ class RoutingController extends Controller
     }
 
     public function deleteRoutingRows(Request $request)
-{
-    $request->validate([
-        'rows_to_delete' => 'required|array',
-        'rows_to_delete.*.material' => 'required|string',
-        'rows_to_delete.*.doc_number' => 'required|string',
-    ]);
-
-    try {
-        $rowsToDelete = $request->input('rows_to_delete');
-
-        foreach ($rowsToDelete as $row) {
-            Routing::where('document_number', $row['doc_number'])
-                   ->where('material', $row['material'])
-                   ->delete();
-        }
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Baris yang dipilih berhasil dihapus dari database.'
+    {
+        $request->validate([
+            'rows_to_delete' => 'required|array',
+            'rows_to_delete.*.material' => 'required|string',
+            'rows_to_delete.*.doc_number' => 'required|string',
         ]);
 
-    } catch (\Exception $e) {
-        return response()->json(['status' => 'error', 'message' => 'Gagal menghapus baris dari database: ' . $e->getMessage()], 500);
+        try {
+            $rowsToDelete = $request->input('rows_to_delete');
+
+            foreach ($rowsToDelete as $row) {
+                Routing::where('document_number', $row['doc_number'])
+                       ->where('material', $row['material'])
+                       ->delete();
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Baris yang dipilih berhasil dihapus dari database.'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Gagal menghapus baris dari database: ' . $e->getMessage()], 500);
+        }
     }
-}
 
 
     public function deleteRoutings(Request $request)
@@ -273,9 +305,10 @@ class RoutingController extends Controller
                 }
             }
             return response()->json([
-                'fileName' => $originalFileName,
+                'fileName' => 'Dari File: ' . $originalFileName,
                 'data' => array_values($groupedData),
-                'is_saved' => false
+                'is_saved' => false,
+                'status' => '' // Status default untuk data baru dari file
             ]);
         } catch (\Exception $e) {
             if (strpos($e->getMessage(), 'Undefined array key') !== false) {

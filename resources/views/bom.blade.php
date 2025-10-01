@@ -54,6 +54,14 @@
 
                 @if (session('processed_filename'))
                 <div id="result-area" class="text-center">
+
+                    @if (session('header_error'))
+                        <div class="alert alert-danger">
+                            <h4><i class="bi bi-exclamation-triangle-fill"></i> Header File Tidak Valid</h4>
+                            <p class="mb-0">{{ session('header_error') }}</p>
+                        </div>
+                    @endif
+
                     <div class="download-area-header">
                         <div class="ms-3">
                             <h4 class="download-area-title mb-0">File Processed!</h4>
@@ -101,7 +109,10 @@
                         </div>
                     </div>
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
-                        <button type="button" id="generate-codes-btn" class="btn btn-warning btn-lg px-4" data-filename="{{ session('processed_filename') }}">
+                        <button type="button" id="generate-codes-btn"
+                                class="btn btn-warning btn-lg px-4 @if(session('header_error')) disabled @endif"
+                                data-filename="{{ session('processed_filename') }}"
+                                @if(session('header_error')) disabled title="Tombol dinonaktifkan karena header file tidak valid." @endif>
                             <span class="spinner-border spinner-border-sm d-none me-2"></span>
                             <i class="bi bi-stars"></i> Generate Missing Codes
                         </button>
@@ -216,16 +227,11 @@
                         if (item.status !== undefined) {
                             const icon = item.status === 'Success' ? '✅' : '❌';
 
-                            // === PERUBAHAN DI SINI ===
-                            // Simpan pesan asli dari server
                             let originalMessage = item.message;
-
-                            // Jika pesan sukses, potong bagian "untuk material..."
                             if (item.status === 'Success' && originalMessage.includes('berhasil dibuat untuk material')) {
                                 originalMessage = originalMessage.split(' untuk material')[0];
                             }
 
-                            // Bersihkan pesan yang sudah dipotong (atau pesan error asli)
                             const cleanMessage = originalMessage.replace(/^✅\s*|^\s*/, '').replace(/0*(\d+)/g, "$1");
 
                             html += `<li>${icon} ${cleanMessage}</li>`;
@@ -302,6 +308,7 @@
                 const emailNotificationArea = document.getElementById('email-notification-area');
                 const sendEmailBtn = document.getElementById('send-email-btn-bom');
                 const emailResultDiv = document.getElementById('email-result');
+
                 generateBtn.addEventListener('click', async () => {
                     setLoadingState(generateBtn, true);
                     resultDiv.innerHTML = '';
@@ -312,6 +319,13 @@
                             headers: getHeaders(),
                             body: JSON.stringify({ filename: generateBtn.dataset.filename })
                         });
+
+                        if (response.status === 419) {
+                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                            window.location.reload();
+                            return;
+                        }
+
                         const result = await response.json();
                         showResult(resultDiv, response.ok, result.message, result.results);
                         if (response.ok && result.status === 'success') {
@@ -339,6 +353,7 @@
                         hideProgressBar();
                     }
                 });
+
                 uploadBomBtn.addEventListener('click', () => {
                     sapLoginModal.show();
                 });
@@ -347,6 +362,7 @@
                     handleBomUpload();
                 });
                 sendEmailBtn.addEventListener('click', handleSendBomEmail);
+
                 async function handleBomUpload() {
                     setLoadingState(uploadBomBtn, true);
                     resultDiv.innerHTML = '';
@@ -358,9 +374,17 @@
                             headers: getHeaders(),
                             body: getAuthBody({ filename: uploadBomBtn.dataset.filename })
                         });
+
+                        if (response.status === 419) {
+                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                            window.location.reload();
+                            return;
+                        }
+
                         const result = await response.json();
                         finalBomUploadResults = result.results;
                         showResult(resultDiv, response.ok && result.status === 'success', result.message, finalBomUploadResults);
+
                         if (response.ok && result.status === 'success') {
                             const successfulUploads = finalBomUploadResults.filter(r => r.status === 'Success');
                             if (successfulUploads.length > 0) {
@@ -371,6 +395,17 @@
                             if (!hasFailures) {
                                 uploadBomBtn.classList.add('d-none');
                             }
+
+                            // --- LOGIKA DOWNLOAD OTOMATIS ---
+                            if (downloadBtn) {
+                                downloadBtn.click();
+                            }
+                            setTimeout(() => {
+                                if (downloadRoutingBtn) {
+                                    downloadRoutingBtn.click();
+                                }
+                            }, 1000);
+                            // --- AKHIR LOGIKA DOWNLOAD OTOMATIS ---
                         }
                     } catch (error) {
                         showResult(resultDiv, false, 'Network Error during BOM upload.');
@@ -384,25 +419,26 @@
                     }
                 }
                 async function handleSendBomEmail() {
-                    const recipientInput = document.getElementById('email-recipient-bom');
-                    const recipientsString = recipientInput.value.trim();
-                    if (!recipientsString) {
-                        alert('Silakan masukkan setidaknya satu alamat email penerima.');
-                        return;
-                    }
-                    if (!finalBomUploadResults || finalBomUploadResults.length === 0) {
-                        alert('Tidak ada hasil untuk dikirim.');
-                        return;
-                    }
-                    const recipients = recipientsString.split(',').map(email => email.trim()).filter(email => email);
-                    if (recipients.length === 0) {
-                         alert('Format email tidak valid.');
-                        return;
-                    }
                     setLoadingState(sendEmailBtn, true);
                     emailResultDiv.innerHTML = '';
                     showProgressBar('Sending email notification...');
                     try {
+                        const recipientInput = document.getElementById('email-recipient-bom');
+                        const recipientsString = recipientInput.value.trim();
+                        if (!recipientsString) {
+                            alert('Silakan masukkan setidaknya satu alamat email penerima.');
+                            setLoadingState(sendEmailBtn, false); hideProgressBar(); return;
+                        }
+                        if (!finalBomUploadResults || finalBomUploadResults.length === 0) {
+                            alert('Tidak ada hasil untuk dikirim.');
+                            setLoadingState(sendEmailBtn, false); hideProgressBar(); return;
+                        }
+                        const recipients = recipientsString.split(',').map(email => email.trim()).filter(email => email);
+                        if (recipients.length === 0) {
+                            alert('Format email tidak valid.');
+                            setLoadingState(sendEmailBtn, false); hideProgressBar(); return;
+                        }
+
                         const response = await fetch("{{ route('api.notification.sendBom') }}", {
                             method: 'POST',
                             headers: getHeaders(),
@@ -412,6 +448,13 @@
                                 plant: processedPlant
                             })
                         });
+
+                        if (response.status === 419) {
+                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                            window.location.reload();
+                            return;
+                        }
+
                         const result = await response.json();
                         showResult(emailResultDiv, response.ok, result.message);
                         if (response.ok) {

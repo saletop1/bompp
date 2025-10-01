@@ -26,65 +26,65 @@
         .table-danger, .table-danger > th, .table-danger > td { --bs-table-bg: #dc354566; color: white; font-weight: bold; }
         .delete-row-icon { cursor: pointer; }
         .delete-row-icon:hover { color: #dc3545; }
-        .file-header-row > td { background-color: rgba(0, 0, 0, 0.3) !important; font-weight: bold; font-style: italic; color: #ccc; padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+        .document-header-row {
+            background-color: rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            font-weight: bold;
+            color: #FFFFF0; /* Ivory White */
+        }
+        .document-header-row > td { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; vertical-align: middle; font-style: normal !important; }
+
+        .status-flag { font-size: 1.2rem; margin-right: 8px; vertical-align: middle; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .status-urgent { color: #dc3545; }
+        .status-high { color: #fd7e14; }
+        .status-medium { color: #ffc107; }
+        .status-low { color: #0d6efd; }
+        .status-none, .status- { color: #6c757d; }
+
+        .status-dropdown .btn {
+            background-color: transparent !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            display: flex;
+            align-items: center;
+            width: 160px;
+            justify-content: space-between;
+        }
+        .status-dropdown .btn:focus { box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
+
+        /* === PERUBAHAN CSS UNTUK DROPDOWN === */
+        .status-dropdown .dropdown-menu {
+            background-color: #f1f1f1;
+            border-radius: .5rem;
+            padding: .5rem 0;
+            color: #212529; /* 1. Atur warna default untuk menu menjadi hitam */
+        }
+        .status-dropdown .dropdown-menu a.dropdown-item {
+            color: inherit !important; /* 2. Paksa item untuk mewarisi warna dari parent (menu) */
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+        }
+        .status-dropdown .dropdown-item:hover { background-color: #e2e6ea; }
+        .current-status-text { flex-grow: 1; text-align: left; }
+
         .progress-bar { transition: width 0.4s ease; }
-
-        .table-responsive {
-            max-height: 65vh;
-            overflow-y: auto;
-        }
-        thead th {
-            position: sticky;
-            top: 0;
-            background-color: #212529;
-            z-index: 10;
-        }
-
-        .swal2-container {
-            background-color: rgba(0, 0, 0, 0.5) !important;
-        }
-        .swal2-popup {
-            background: rgba(52, 58, 64, 0.5) !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 1rem !important;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15) !important;
-        }
-        .swal2-title,
-        .swal2-content,
-        .swal2-html-container {
-            color: #ffffff !important;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-        }
-
-        #sap-credential-modal .modal-content,
-        #save-details-modal .modal-content {
-            background: rgba(52, 58, 64, 0.5) !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 1rem !important;
-            color: #ffffff;
-        }
-        #sap-credential-modal .modal-header,
-        #save-details-modal .modal-header {
-            border-bottom-color: rgba(255, 255, 255, 0.2);
-        }
-        #sap-credential-modal .modal-footer,
-        #save-details-modal .modal-footer {
-            border-top-color: rgba(255, 255, 255, 0.2);
-        }
-        #sap-credential-modal .form-control,
-        #save-details-modal .form-control {
-            background-color: rgba(255, 255, 255, 0.9);
-            color: #212529;
-        }
+        .table-responsive { max-height: 65vh; overflow-y: auto; }
+        thead th { position: sticky; top: 0; background-color: #212529; z-index: 10; }
+        .swal2-container { background-color: rgba(0, 0, 0, 0.5) !important; }
+        .swal2-popup { background: rgba(52, 58, 64, 0.5) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; border-radius: 1rem !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15) !important; }
+        .swal2-title, .swal2-content, .swal2-html-container { color: #ffffff !important; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .swal2-toast { background: #f8f9fa !important; box-shadow: 0 4px 15px 0 rgba(0,0,0,0.25) !important; border: 1px solid #dee2e6 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        .swal2-toast .swal2-title { color: #212529 !important; text-shadow: none !important; }
+        #sap-credential-modal .modal-content, #save-details-modal .modal-content { background: rgba(52, 58, 64, 0.5) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; border-radius: 1rem !important; color: #ffffff; }
+        #sap-credential-modal .modal-header, #save-details-modal .modal-header { border-bottom-color: rgba(255, 255, 255, 0.2); }
+        #sap-credential-modal .modal-footer, #save-details-modal .modal-footer { border-top-color: rgba(255, 255, 255, 0.2); }
+        #sap-credential-modal .form-control, #save-details-modal .form-control { background-color: rgba(255, 255, 255, 0.9); color: #212529; }
     </style>
 </head>
 <body>
     <div class="container converter-container">
-        <!-- Header and Nav Pills -->
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
                 <h1 class="h3 main-title">SAP Routing Data Center</h1>
@@ -114,7 +114,7 @@
                         <button class="btn btn-success" id="upload-selected-btn" disabled><i class="bi bi-cloud-upload-fill me-2"></i>Release</button>
                     </div>
                 </div>
-                <div id="results-container" class="mt-2" style="display: none;">
+                <div id="results-container" class="mt-2" style="display: block;">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover">
                             <thead>
@@ -132,197 +132,16 @@
         <footer class="text-center text-white mt-4"><small>© PT. Kayu Mebel Indonesia, 2025</small></footer>
     </div>
 
-    <!-- Modals -->
     <div class="modal fade" id="sap-credential-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Masukkan Kredensial SAP</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="sap-username" class="form-label">SAP Username</label><input type="text" class="form-control" id="sap-username"></div><div class="mb-3"><label for="sap-password" class="form-label">SAP Password</label><input type="password" class="form-control" id="sap-password"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-upload-btn">Konfirmasi & Mulai Upload</button></div></div></div></div>
-    <div class="modal fade" id="save-details-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="document-name" class="form-label">Nama Dokumen</label><input type="text" class="form-control" id="document-name" placeholder="Contoh: Routing Pintu Depan" required></div><div class="mb-3"><label for="product-name" class="form-label">Nama Produk</label><input type="text" class="form-control" id="product-name" placeholder="Contoh: Pintu Jati Model A" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-save-btn">Konfirmasi & Simpan</button></div></div></div></div>
+    <div class="modal fade" id="save-details-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="document-name" class="form-label">Nama Dokumen</label><input type="text" class="form-control" id="document-name" placeholder="Contoh: Routing Pintu Depan" required maxlength="40"></div><div class="mb-3"><label for="product-name" class="form-label">Nama Produk</label><input type="text" class="form-control" id="product-name" placeholder="Contoh: Pintu Jati Model A" required maxlength="20"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-save-btn">Konfirmasi & Simpan</button></div></div></div></div>
     <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark"><div class="modal-header"><h5 class="modal-title">Mengunggah Routing ke SAP...</h5></div><div class="modal-body"><p id="progress-status-text" class="text-center mb-2">Menunggu...</p><div class="progress" role="progressbar" style="height: 25px;"><div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div></div></div></div></div></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const savedRoutings = @json($savedRoutings ?? []);
-        const pythonApiUrl = @json($pythonApiUrl ?? 'http://127.0.0.1:5002');
-        let processedDataByFile = savedRoutings;
-        let uploadModal, saveModal, progressModal;
-
-        // --- RENDER & HELPER FUNCTIONS ---
-        function renderTable(checkedIndices = new Set()) {
-            const tbody = document.getElementById('results-tbody');
-            tbody.innerHTML = '';
-            let globalIndex = 0;
-            processedDataByFile.forEach((fileGroup, fileIndex) => {
-                const isSaved = fileGroup.is_saved;
-                const docNumber = fileGroup.document_number || null;
-                const headerRow = `
-                    <tr class="file-header-row" data-file-index="${fileIndex}" data-is-saved="${isSaved}" data-doc-number="${docNumber || ''}">
-                        <td><input class="form-check-input document-group-checkbox" type="checkbox" data-file-index="${fileIndex}" title="Pilih semua di dokumen ini"></td>
-                        <td colspan="7">${fileGroup.fileName}</td>
-                    </tr>`;
-                tbody.innerHTML += headerRow;
-                fileGroup.data.forEach((group, itemIndex) => {
-                    const detailsId = `details-${globalIndex}`;
-                    const hasDuplicateZP01 = group.operations.filter(op => op.CONTROL_KEY === 'ZP01').length > 1;
-                    const rowClass = hasDuplicateZP01 ? 'table-danger' : '';
-                    const statusHtml = hasDuplicateZP01 ? `<span class="badge bg-danger">Error: Duplikat ZP01</span>` : `<span class="badge bg-secondary">Menunggu</span>`;
-                    const isChecked = checkedIndices.has(globalIndex) ? 'checked' : '';
-                    const mainRow = `
-                        <tr data-global-index="${globalIndex}" data-file-index="${fileIndex}" class="${rowClass}">
-                            <td><input class="form-check-input row-checkbox" type="checkbox" data-global-index="${globalIndex}" ${hasDuplicateZP01 ? 'disabled' : ''} ${isChecked}></td>
-                            <td>${itemIndex + 1}</td>
-                            <td>${group.header.IV_MATERIAL}</td>
-                            <td>${group.header.IV_PLANT}</td>
-                            <td>${group.header.IV_DESCRIPTION}</td>
-                            <td class="details-toggle" data-bs-toggle="collapse" data-bs-target="#${detailsId}">${group.operations.length} <i class="bi bi-chevron-down ms-1 small"></i></td>
-                            <td class="status-cell">${statusHtml}</td>
-                            <td><i class="bi bi-trash-fill delete-row-icon" data-global-index="${globalIndex}" title="Hapus baris ini"></i></td>
-                        </tr>`;
-                    let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>UoM</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
-                    group.operations.forEach(op => {
-                        operationsHtml += `<tr>
-                            <td>${op.WORK_CNTR || ''}</td>
-                            <td>${op.CONTROL_KEY || ''}</td>
-                            <td>${op.DESCRIPTION || ''}</td>
-                            <td>${op.BASE_QTY || ''}</td>
-                            <td>${op.UOM || ''}</td>
-                            <td>${op.STD_VALUE_01 || ''}</td>
-                            <td>${op.STD_UNIT_01 || ''}</td>
-                        </tr>`;
-                    });
-                    operationsHtml += `</tbody></table>`;
-                    const detailsRow = `<tr class="collapse-row"><td colspan="8"><div class="collapse" id="${detailsId}"><div class="p-3 details-card">${operationsHtml}</div></div></td></tr>`;
-                    tbody.innerHTML += mainRow + detailsRow;
-                    globalIndex++;
-                });
-            });
-            handleCheckboxChange();
-        }
-
-        function getFlatData() { return processedDataByFile.flatMap(group => group.data); }
-        function handleCheckboxChange() {
-            const checkedRowCount = document.querySelectorAll('.row-checkbox:checked').length;
-            const checkedDocCount = document.querySelectorAll('.document-group-checkbox:checked').length;
-            const checkedCount = checkedRowCount + checkedDocCount;
-            document.getElementById('delete-selected-btn').disabled = checkedCount === 0;
-            document.getElementById('upload-selected-btn').disabled = checkedRowCount === 0;
-            document.getElementById('save-selected-btn').disabled = checkedRowCount === 0;
-        }
-        function deleteItemsByGlobalIndices(indicesToDeleteSet) {
-            if (indicesToDeleteSet.size === 0) return;
-            let globalIndexCounter = 0;
-            const newProcessedDataByFile = processedDataByFile.map(fileGroup => {
-                const newData = fileGroup.data.filter(item => {
-                    const shouldKeep = !indicesToDeleteSet.has(globalIndexCounter);
-                    globalIndexCounter++;
-                    return shouldKeep;
-                });
-                return { ...fileGroup, data: newData };
-            }).filter(fileGroup => fileGroup.data.length > 0);
-            processedDataByFile = newProcessedDataByFile;
-            renderTable();
-        }
-
-        async function performDeletion() {
-            const allItems = getFlatData();
-            const checkedRowBoxes = document.querySelectorAll('.row-checkbox:checked');
-            const checkedDocBoxes = document.querySelectorAll('.document-group-checkbox:checked');
-
-            if (checkedRowBoxes.length === 0 && checkedDocBoxes.length === 0) {
-                return Swal.fire('Info', 'Tidak ada item yang dipilih untuk dihapus.', 'info');
-            }
-
-            const docsToDelete = new Set();
-            const rowsToDeleteFromDb = [];
-            const allIndicesToUpdateView = new Set();
-
-            checkedDocBoxes.forEach(docBox => {
-                const fileIndex = docBox.dataset.fileIndex;
-                const headerRow = document.querySelector(`.file-header-row[data-file-index="${fileIndex}"]`);
-                if (headerRow.dataset.isSaved === 'true') {
-                    docsToDelete.add(headerRow.dataset.docNumber);
-                }
-                document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox`).forEach(rowBox => {
-                    allIndicesToUpdateView.add(parseInt(rowBox.dataset.globalIndex));
-                });
-            });
-
-            checkedRowBoxes.forEach(rowBox => {
-                const globalIndex = parseInt(rowBox.dataset.globalIndex);
-                if (allIndicesToUpdateView.has(globalIndex)) return;
-
-                allIndicesToUpdateView.add(globalIndex);
-                const fileIndex = rowBox.closest('tr').dataset.fileIndex;
-                const headerRow = document.querySelector(`.file-header-row[data-file-index="${fileIndex}"]`);
-
-                if (headerRow.dataset.isSaved === 'true') {
-                    const docNumber = headerRow.dataset.docNumber;
-                    const material = allItems[globalIndex].header.IV_MATERIAL;
-                    rowsToDeleteFromDb.push({ doc_number: docNumber, material: material });
-                }
-            });
-
-            let confirmText = 'Apakah Anda yakin ingin menghapus item yang dipilih dari tampilan?';
-            if (docsToDelete.size > 0 || rowsToDeleteFromDb.length > 0) {
-                confirmText = 'Item yang dipilih akan dihapus permanen dari database. Lanjutkan?';
-            }
-
-            Swal.fire({
-                title: 'Konfirmasi Penghapusan',
-                text: confirmText,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Ya, Hapus!',
-                cancelButtonText: 'Batal'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    let allSuccess = true;
-                    let errorMessages = [];
-
-                    if (docsToDelete.size > 0) {
-                         try {
-                            const response = await fetch("{{ route('routing.delete') }}", {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
-                                body: JSON.stringify({ document_numbers: Array.from(docsToDelete) })
-                            });
-                            const result = await response.json();
-                            if (!response.ok) throw new Error(result.message);
-                        } catch(error) {
-                            allSuccess = false;
-                            errorMessages.push(`Gagal hapus dokumen: ${error.message}`);
-                        }
-                    }
-
-                    if (rowsToDeleteFromDb.length > 0) {
-                        try {
-                            const response = await fetch("{{ route('routing.deleteRows') }}", {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
-                                body: JSON.stringify({ rows_to_delete: rowsToDeleteFromDb })
-                            });
-                            const result = await response.json();
-                            if (!response.ok) throw new Error(result.message);
-                        } catch (error) {
-                            allSuccess = false;
-                            errorMessages.push(`Gagal hapus baris: ${error.message}`);
-                        }
-                    }
-
-                    if (allSuccess) {
-                        deleteItemsByGlobalIndices(allIndicesToUpdateView);
-                        Swal.fire('Dihapus!', 'Item yang dipilih telah dihapus.', 'success');
-                    } else {
-                        Swal.fire('Error!', errorMessages.join('\n'), 'error');
-                    }
-                }
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', function () {
-            uploadModal = new bootstrap.Modal(document.getElementById('sap-credential-modal'));
-            saveModal = new bootstrap.Modal(document.getElementById('save-details-modal'));
-            progressModal = new bootstrap.Modal(document.getElementById('upload-progress-modal'));
-
+            const savedRoutings = @json($savedRoutings ?? []);
+            let processedDataByFile = savedRoutings;
+            let uploadModal, saveModal, progressModal;
             const uploadForm = document.getElementById('upload-form');
             const processBtn = document.getElementById('process-btn');
             const resultsContainer = document.getElementById('results-container');
@@ -333,9 +152,279 @@
             const confirmSaveBtn = document.getElementById('confirm-save-btn');
             const resultsTbody = document.getElementById('results-tbody');
             const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            uploadModal = new bootstrap.Modal(document.getElementById('sap-credential-modal'));
+            saveModal = new bootstrap.Modal(document.getElementById('save-details-modal'));
+            progressModal = new bootstrap.Modal(document.getElementById('upload-progress-modal'));
+
+            function renderTable(checkedIndices = new Set()) {
+                const tbody = document.getElementById('results-tbody');
+                tbody.innerHTML = '';
+                let globalIndex = 0;
+                processedDataByFile.forEach((fileGroup, fileIndex) => {
+                    const isSaved = fileGroup.is_saved;
+                    const docNumber = fileGroup.document_number || null;
+                    const currentStatus = fileGroup.status || '';
+                    const statusDropdownHtml = `
+                        <div class="dropdown status-dropdown">
+                            <button class="btn btn-sm dropdown-toggle" type="button" id="dropdownMenuButton${fileIndex}" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="status-flag status-${currentStatus.toLowerCase() || 'none'}">▼</span>
+                                <span class="current-status-text">${currentStatus || 'Pilih Status'}</span>
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton${fileIndex}">
+                                <li><a class="dropdown-item status-option" href="#" data-status="Urgent" data-file-index="${fileIndex}"><span class="status-flag status-urgent">▼</span> Urgent</a></li>
+                                <li><a class="dropdown-item status-option" href="#" data-status="High" data-file-index="${fileIndex}"><span class="status-flag status-high">▼</span> High</a></li>
+                                <li><a class="dropdown-item status-option" href="#" data-status="Medium" data-file-index="${fileIndex}"><span class="status-flag status-medium">▼</span> Medium</a></li>
+                                <li><a class="dropdown-item status-option" href="#" data-status="Low" data-file-index="${fileIndex}"><span class="status-flag status-low">▼</span> Low</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item status-option" href="#" data-status="" data-file-index="${fileIndex}"><span class="status-flag status-none">▼</span> Hapus Status</a></li>
+                            </ul>
+                        </div>
+                    `;
+                    const headerRow = `
+                        <tr class="document-header-row" data-file-index="${fileIndex}" data-is-saved="${isSaved}" data-doc-number="${docNumber || ''}">
+                            <td><input class="form-check-input document-group-checkbox" type="checkbox" data-file-index="${fileIndex}" title="Pilih semua di dokumen ini"></td>
+                            <td colspan="2">${statusDropdownHtml}</td>
+                            <td colspan="5">${fileGroup.fileName}</td>
+                        </tr>`;
+                    tbody.innerHTML += headerRow;
+                    if(fileGroup.data && fileGroup.data.length > 0) {
+                        fileGroup.data.forEach((group, itemIndex) => {
+                            const detailsId = `details-${globalIndex}`;
+                            const hasDuplicateZP01 = (group.operations || []).filter(op => op.CONTROL_KEY === 'ZP01').length > 1;
+                            const rowClass = hasDuplicateZP01 ? 'table-danger' : '';
+                            const statusHtml = hasDuplicateZP01 ? `<span class="badge bg-danger">Error: Duplikat ZP01</span>` : `<span class="badge bg-secondary">Menunggu</span>`;
+                            const isChecked = checkedIndices.has(globalIndex) ? 'checked' : '';
+                            const mainRow = `
+                                <tr data-global-index="${globalIndex}" data-file-index="${fileIndex}" class="${rowClass}">
+                                    <td><input class="form-check-input row-checkbox" type="checkbox" data-global-index="${globalIndex}" ${hasDuplicateZP01 ? 'disabled' : ''} ${isChecked}></td>
+                                    <td>${itemIndex + 1}</td>
+                                    <td>${group.header.IV_MATERIAL}</td>
+                                    <td>${group.header.IV_PLANT}</td>
+                                    <td>${group.header.IV_DESCRIPTION}</td>
+                                    <td class="details-toggle" data-bs-toggle="collapse" data-bs-target="#${detailsId}">${(group.operations || []).length} <i class="bi bi-chevron-down ms-1 small"></i></td>
+                                    <td class="status-cell">${statusHtml}</td>
+                                    <td><i class="bi bi-trash-fill delete-row-icon" data-global-index="${globalIndex}" title="Hapus baris ini"></i></td>
+                                </tr>`;
+                            let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>UoM</th></tr></thead><tbody>`;
+                            (group.operations || []).forEach(op => {
+                                operationsHtml += `<tr>
+                                    <td>${op.WORK_CNTR || ''}</td><td>${op.CONTROL_KEY || ''}</td><td>${op.DESCRIPTION || ''}</td>
+                                    <td>${op.BASE_QTY || ''}</td><td>${op.UOM || ''}</td>
+                                </tr>`;
+                            });
+                            operationsHtml += `</tbody></table>`;
+                            const detailsRow = `<tr class="collapse-row"><td colspan="8"><div class="collapse" id="${detailsId}"><div class="p-3 details-card">${operationsHtml}</div></div></td></tr>`;
+                            tbody.innerHTML += mainRow + detailsRow;
+                            globalIndex++;
+                        });
+                    }
+                });
+                updateButtonStates();
+            }
+
+            function getFlatData() { return processedDataByFile.flatMap(group => group.data); }
+
+            function deleteItemsByGlobalIndices(indicesToDeleteSet) {
+                if (indicesToDeleteSet.size === 0) return;
+                let globalIndexCounter = 0;
+                const newProcessedDataByFile = processedDataByFile.map(fileGroup => {
+                    const newData = fileGroup.data.filter(item => {
+                        const shouldKeep = !indicesToDeleteSet.has(globalIndexCounter);
+                        globalIndexCounter++;
+                        return shouldKeep;
+                    });
+                    return { ...fileGroup, data: newData };
+                }).filter(fileGroup => fileGroup.data.length > 0);
+                processedDataByFile = newProcessedDataByFile;
+                renderTable();
+            }
+
+            async function updateDocumentStatusOnServer(document_number, status) {
+                const Toast = Swal.mixin({
+                    toast: true,
+                    position: 'top-start',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer);
+                        toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    }
+                });
+                try {
+                    const response = await fetch("{{ route('routing.updateStatus') }}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                        body: JSON.stringify({ document_number, status: status || null })
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.message);
+                    Toast.fire({ icon: 'success', title: 'Status diperbarui' });
+                } catch (error) {
+                    console.error('Gagal menyimpan status:', error);
+                    Toast.fire({ icon: 'error', title: 'Gagal menyimpan status' });
+                }
+            }
+
+            function updateButtonStates() {
+                const allRowCheckboxes = document.querySelectorAll('.row-checkbox:not(:disabled)');
+                const checkedRowCount = document.querySelectorAll('.row-checkbox:checked:not(:disabled)').length;
+                const checkedDocCount = document.querySelectorAll('.document-group-checkbox:checked').length;
+                const totalChecked = checkedRowCount + checkedDocCount;
+                deleteSelectedBtn.disabled = totalChecked === 0;
+                uploadSelectedBtn.disabled = checkedRowCount === 0;
+                saveSelectedBtn.disabled = checkedRowCount === 0;
+                if (allRowCheckboxes.length > 0 && checkedRowCount === allRowCheckboxes.length) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else if (checkedRowCount > 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                }
+            }
+
+            function handleDocumentGroupCheck(masterCheckbox) {
+                const fileIndex = masterCheckbox.dataset.fileIndex;
+                const isChecked = masterCheckbox.checked;
+                const childCheckboxes = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:not(:disabled)`);
+                childCheckboxes.forEach(child => child.checked = isChecked);
+            }
+
+            function handleRowCheck(rowCheckbox) {
+                const fileIndex = rowCheckbox.closest('tr').dataset.fileIndex;
+                const masterCheckbox = document.querySelector(`.document-group-checkbox[data-file-index="${fileIndex}"]`);
+                if (!masterCheckbox) return;
+                const allChildCheckboxes = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:not(:disabled)`);
+                const checkedChildCheckboxes = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:checked:not(:disabled)`);
+                if (allChildCheckboxes.length > 0 && checkedChildCheckboxes.length === allChildCheckboxes.length) {
+                    masterCheckbox.checked = true;
+                    masterCheckbox.indeterminate = false;
+                } else if (checkedChildCheckboxes.length > 0) {
+                    masterCheckbox.checked = false;
+                    masterCheckbox.indeterminate = true;
+                } else {
+                    masterCheckbox.checked = false;
+                    masterCheckbox.indeterminate = false;
+                }
+            }
+
+            async function performDeletion() {
+                const allItems = getFlatData();
+                const checkedRowBoxes = document.querySelectorAll('.row-checkbox:checked');
+                const checkedDocBoxes = document.querySelectorAll('.document-group-checkbox:checked');
+                if (checkedRowBoxes.length === 0 && checkedDocBoxes.length === 0) {
+                    return Swal.fire({title: 'Info', text: 'Tidak ada item yang dipilih untuk dihapus.', icon: 'info', width: '350px'});
+                }
+                const docsToDelete = new Set();
+                const rowsToDeleteFromDb = [];
+                const allIndicesToUpdateView = new Set();
+                checkedDocBoxes.forEach(docBox => {
+                    const fileIndex = docBox.dataset.fileIndex;
+                    const headerRow = document.querySelector(`.document-header-row[data-file-index="${fileIndex}"]`);
+                    if (headerRow.dataset.isSaved === 'true') {
+                        docsToDelete.add(headerRow.dataset.docNumber);
+                    }
+                    document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox`).forEach(rowBox => {
+                        allIndicesToUpdateView.add(parseInt(rowBox.dataset.globalIndex));
+                    });
+                });
+                checkedRowBoxes.forEach(rowBox => {
+                    const globalIndex = parseInt(rowBox.dataset.globalIndex);
+                    if (allIndicesToUpdateView.has(globalIndex)) return;
+                    allIndicesToUpdateView.add(globalIndex);
+                    const fileIndex = rowBox.closest('tr').dataset.fileIndex;
+                    const headerRow = document.querySelector(`.document-header-row[data-file-index="${fileIndex}"]`);
+                    if (headerRow.dataset.isSaved === 'true') {
+                        const docNumber = headerRow.dataset.docNumber;
+                        const material = allItems[globalIndex].header.IV_MATERIAL;
+                        rowsToDeleteFromDb.push({ doc_number: docNumber, material: material });
+                    }
+                });
+                let confirmText = 'Apakah Anda yakin ingin menghapus item yang dipilih dari tampilan?';
+                if (docsToDelete.size > 0 || rowsToDeleteFromDb.length > 0) {
+                    confirmText = 'Item yang dipilih akan dihapus permanen dari database. Lanjutkan?';
+                }
+                const result = await Swal.fire({
+                    title: 'Konfirmasi Penghapusan', text: confirmText, icon: 'warning', width: '450px',
+                    showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal'
+                });
+                if (result.isConfirmed) {
+                    let allSuccess = true;
+                    let errorMessages = [];
+                    if (docsToDelete.size > 0) {
+                         try {
+                            const response = await fetch("{{ route('routing.delete') }}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                                body: JSON.stringify({ document_numbers: Array.from(docsToDelete) })
+                            });
+                            const res = await response.json();
+                            if (!response.ok) throw new Error(res.message);
+                        } catch(error) {
+                            allSuccess = false;
+                            errorMessages.push(`Gagal hapus dokumen: ${error.message}`);
+                        }
+                    }
+                    if (rowsToDeleteFromDb.length > 0) {
+                        try {
+                            const response = await fetch("{{ route('routing.deleteRows') }}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                                body: JSON.stringify({ rows_to_delete: rowsToDeleteFromDb })
+                            });
+                            const res = await response.json();
+                            if (!response.ok) throw new Error(res.message);
+                        } catch (error) {
+                            allSuccess = false;
+                            errorMessages.push(`Gagal hapus baris: ${error.message}`);
+                        }
+                    }
+                    if (allSuccess) {
+                        deleteItemsByGlobalIndices(allIndicesToUpdateView);
+                        Swal.fire({title: 'Dihapus!', text: 'Item yang dipilih telah dihapus.', icon: 'success', width: '350px'});
+                    } else {
+                        Swal.fire({title: 'Error!', text: errorMessages.join('\n'), icon: 'error', width: '450px'});
+                    }
+                }
+            }
+
+            async function performSave(docName, prodName) {
+                const allItems = getFlatData();
+                const selectedCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
+                const selectedItems = selectedCheckboxes.map(cb => allItems[cb.getAttribute('data-global-index')]);
+                const selectedIndices = new Set(selectedCheckboxes.map(cb => parseInt(cb.getAttribute('data-global-index'))));
+                if (selectedItems.length === 0) return Swal.fire({title: 'Info', text: 'Tidak ada data yang dipilih untuk disimpan.', icon: 'info', width: '350px'});
+                saveSelectedBtn.disabled = true;
+                confirmSaveBtn.disabled = true;
+                try {
+                    const response = await fetch("{{ route('routing.save') }}", {
+                        method: 'POST',
+                        body: JSON.stringify({ routings: selectedItems, document_name: docName, product_name: prodName }),
+                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                    });
+                    const result = await response.json();
+                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Gagal menyimpan data.');
+                    deleteItemsByGlobalIndices(selectedIndices);
+                    await Swal.fire({
+                        icon: 'success', title: 'Sukses!', width: '450px',
+                        text: result.message + ". Data akan dimuat ulang.",
+                    });
+                    window.location.reload();
+                } catch (error) {
+                    Swal.fire({title: 'Error!', text: error.message, icon: 'error', width: '450px'});
+                } finally {
+                    saveSelectedBtn.disabled = false;
+                    confirmSaveBtn.disabled = false;
+                    document.getElementById('document-name').value = '';
+                    document.getElementById('product-name').value = '';
+                }
+            }
 
             if (processedDataByFile.length > 0) {
-                resultsContainer.style.display = 'block';
                 renderTable();
             }
 
@@ -355,7 +444,7 @@
                     resultsContainer.style.display = 'block';
                     renderTable();
                 } catch (error) {
-                    Swal.fire('Error!', error.message, 'error');
+                    Swal.fire({title: 'Error!', text: error.message, icon: 'error', width: '450px'});
                 } finally {
                     processBtn.innerHTML = `<i class="bi bi-gear-fill"></i>`;
                     processBtn.disabled = false;
@@ -366,58 +455,18 @@
             saveSelectedBtn.addEventListener('click', () => saveModal.show());
             uploadSelectedBtn.addEventListener('click', () => uploadModal.show());
 
-            async function performSave(docName, prodName) {
-                const allItems = getFlatData();
-                const selectedCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
-                const selectedItems = selectedCheckboxes.map(cb => allItems[cb.getAttribute('data-global-index')]);
-                const selectedIndices = new Set(selectedCheckboxes.map(cb => parseInt(cb.getAttribute('data-global-index'))));
-
-                if (selectedItems.length === 0) return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
-
-                saveSelectedBtn.disabled = true;
-                confirmSaveBtn.disabled = true;
-
-                try {
-                    const response = await fetch("{{ route('routing.save') }}", {
-                        method: 'POST',
-                        body: JSON.stringify({ routings: selectedItems, document_name: docName, product_name: prodName }),
-                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
-                    });
-                    const result = await response.json();
-                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Gagal menyimpan data.');
-
-                    deleteItemsByGlobalIndices(selectedIndices);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sukses!',
-                        text: result.message + ". Data akan dimuat ulang saat me-refresh halaman.",
-                    });
-                } catch (error) {
-                    Swal.fire('Error!', error.message, 'error');
-                } finally {
-                    saveSelectedBtn.disabled = false;
-                    confirmSaveBtn.disabled = false;
-                    document.getElementById('document-name').value = '';
-                    document.getElementById('product-name').value = '';
-                }
-            }
-
             confirmSaveBtn.addEventListener('click', async () => {
                 const docName = document.getElementById('document-name').value;
                 const prodName = document.getElementById('product-name').value;
-
                 if (!docName || !prodName) {
-                    return Swal.fire('Peringatan', 'Nama Dokumen dan Nama Produk harus diisi.', 'warning');
+                    return Swal.fire({title: 'Peringatan', text: 'Nama Dokumen dan Nama Produk harus diisi.', icon: 'warning', width: '400px'});
                 }
-
                 const allItems = getFlatData();
                 const selectedMaterials = Array.from(document.querySelectorAll('.row-checkbox:checked'))
                                                .map(cb => allItems[cb.getAttribute('data-global-index')].header.IV_MATERIAL);
-
                 if (selectedMaterials.length === 0) {
-                    return Swal.fire('Info', 'Tidak ada data yang dipilih untuk disimpan.', 'info');
+                    return Swal.fire({title: 'Info', text: 'Tidak ada data yang dipilih untuk disimpan.', icon: 'info', width: '350px'});
                 }
-
                 try {
                     const materialCheckResponse = await fetch("{{ route('routing.checkMaterials') }}", {
                         method: 'POST',
@@ -425,158 +474,84 @@
                         headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
                     });
                     const materialCheckResult = await materialCheckResponse.json();
-
                     if (materialCheckResult.exists) {
                         const materialConfirmation = await Swal.fire({
-                            title: 'Peringatan Material Duplikat!',
+                            title: 'Peringatan Material Duplikat!', width: '500px',
                             html: `Material <b>${materialCheckResult.material}</b> sudah ada di dokumen lain:<br><b>${materialCheckResult.document_name} (${materialCheckResult.document_number})</b>.<br><br>Melanjutkan akan <b style='color:red;'>MENGHAPUS</b> data lama tersebut dan menggantikannya dengan yang baru di dokumen ini. Lanjutkan?`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonColor: '#d33',
-                            cancelButtonColor: '#3085d6',
-                            confirmButtonText: 'Ya, Hapus & Ganti!',
-                            cancelButtonText: 'Batal'
+                            icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33',
+                            cancelButtonColor: '#3085d6', confirmButtonText: 'Ya, Hapus & Ganti!', cancelButtonText: 'Batal'
                         });
-
                         if (!materialConfirmation.isConfirmed) return;
                     }
-
                     const nameCheckResponse = await fetch("{{ route('routing.checkName') }}", {
                         method: 'POST',
                         body: JSON.stringify({ document_name: docName }),
                         headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
                     });
                     const nameCheckResult = await nameCheckResponse.json();
-
                     if (nameCheckResult.exists) {
                         const nameConfirmation = await Swal.fire({
-                            title: 'Peringatan!',
-                            text: `Nama Dokumen '${docName}' sudah ada. Apakah Anda yakin ingin melanjutkan?`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonColor: '#3085d6',
-                            cancelButtonColor: '#d33',
-                            confirmButtonText: 'Ya, Lanjutkan!',
-                            cancelButtonText: 'Batal'
+                            title: 'Peringatan!', text: `Nama Dokumen '${docName}' sudah ada. Apakah Anda yakin ingin melanjutkan?`,
+                            icon: 'warning', width: '450px', showCancelButton: true, confirmButtonColor: '#3085d6',
+                            cancelButtonColor: '#d33', confirmButtonText: 'Ya, Lanjutkan!', cancelButtonText: 'Batal'
                         });
-
                         if (!nameConfirmation.isConfirmed) return;
                     }
-
                     saveModal.hide();
-                    performSave(docName, prodName);
-
+                    await performSave(docName, prodName);
                 } catch (error) {
-                    Swal.fire('Error!', 'Terjadi kesalahan saat validasi: ' + error.message, 'error');
+                    Swal.fire({title: 'Error!', text: 'Terjadi kesalahan saat validasi: ' + error.message, icon: 'error', width: '450px'});
                 }
             });
 
             confirmUploadBtn.addEventListener('click', async function() {
                 const username = document.getElementById('sap-username').value;
                 const password = document.getElementById('sap-password').value;
-                if (!username || !password) return Swal.fire('Peringatan', 'Username dan Password SAP harus diisi.', 'warning');
-
+                if (!username || !password) return Swal.fire({title: 'Peringatan', text: 'Username dan Password SAP harus diisi.', icon: 'warning', width: '400px'});
                 uploadModal.hide();
                 const allItems = getFlatData();
                 const itemsToUpload = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
-
                 const totalItems = itemsToUpload.length;
                 let successCount = 0, failCount = 0, processedCount = 0;
                 const successfulUploads = [];
                 const successfulIndices = new Set();
-
                 const progressBar = document.getElementById('upload-progress-bar');
                 const statusText = document.getElementById('progress-status-text');
                 progressBar.style.width = '0%';
                 progressBar.textContent = '0%';
                 statusText.textContent = `Memulai... 0 / ${totalItems} berhasil`;
                 progressModal.show();
-
                 for (const routingData of itemsToUpload) {
                     processedCount++;
                     const globalIndex = allItems.findIndex(item => item === routingData);
                     const targetRow = document.querySelector(`tr[data-global-index="${globalIndex}"]`);
                     const statusCell = targetRow.querySelector('.status-cell');
-                    statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-warning"></span> Menciptakan Routing...`;
-
+                    statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-warning"></span> Menciptakan...`;
                     let overallSuccess = false;
-
                     try {
                         const createResponse = await fetch("{{ route('api.routing.uploadToSap') }}", {
                             method: 'POST', body: JSON.stringify({ username, password, routing_data: routingData }),
                             headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
                         });
-
                         if (createResponse.status === 403) {
                             const errorResult = await createResponse.json();
                             progressModal.hide();
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Otorisasi Gagal',
-                                text: errorResult.message,
-                            }).then(() => {
-                                document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
-                                    const idx = checkbox.dataset.globalIndex;
-                                    const rowToReset = document.querySelector(`tr[data-global-index="${idx}"]`);
-                                    if(rowToReset) {
-                                        const cellToReset = rowToReset.querySelector('.status-cell');
-                                        if(cellToReset) {
-                                            cellToReset.innerHTML = `<span class="badge bg-secondary">Menunggu</span>`;
-                                        }
-                                    }
-                                });
+                            Swal.fire({ icon: 'error', title: 'Otorisasi Gagal', text: errorResult.message, width: '450px' });
+                            document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
+                                const idx = checkbox.dataset.globalIndex;
+                                const rowToReset = document.querySelector(`tr[data-global-index="${idx}"]`);
+                                if(rowToReset) {
+                                    const cellToReset = rowToReset.querySelector('.status-cell');
+                                    if(cellToReset) cellToReset.innerHTML = `<span class="badge bg-secondary">Menunggu</span>`;
+                                }
                             });
                             return;
                         }
-
                         const createResult = await createResponse.json();
-                        const taskListGroup = createResult.task_list_group;
-
-                        if (createResponse.ok && createResult.status?.toLowerCase() === 'success' && taskListGroup) {
-                            statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-info"></span> Menambahkan Operasi...`;
-
-                            let allAddsSucceeded = true;
-
-                            for (const operation of routingData.operations) {
-                                await new Promise(resolve => setTimeout(resolve, 500));
-
-                                const addParams = {
-                                    IV_PLNAL: String(routingData.header.IV_GROUP_COUNTER),
-                                    IV_MATNR: String(routingData.header.IV_MATERIAL),
-                                    IV_WERKS: String(routingData.header.IV_PLANT),
-                                    IV_VORNR: String(operation.ACTIVITY),
-                                    IV_ARBPL: String(operation.WORK_CNTR),
-                                    IV_STEUS: String(operation.CONTROL_KEY),
-                                    IV_LTXA1: String(operation.DESCRIPTION),
-                                    IV_BMSCHX: String(operation.BASE_QTY),
-                                    IV_VGW01X: String(operation.STD_VALUE_01), IV_VGE01X: String(operation.STD_UNIT_01),
-                                    IV_VGW02X: String(operation.STD_VALUE_02), IV_VGE02X: String(operation.STD_UNIT_02),
-                                    IV_VGW03X: String(operation.STD_VALUE_03), IV_VGE03X: String(operation.STD_UNIT_03),
-                                    IV_VGW04X: String(operation.STD_VALUE_04), IV_VGE04X: String(operation.STD_UNIT_04),
-                                    IV_VGW05X: String(operation.STD_VALUE_05), IV_VGE05X: String(operation.STD_UNIT_05),
-                                    IV_VGW06X: String(operation.STD_VALUE_06), IV_VGE06X: String(operation.STD_UNIT_06)
-                                };
-
-                                const addResponse = await fetch(`${pythonApiUrl}/add_routing_operation`, {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({ username, password, params: addParams })
-                                });
-
-                                const addResult = await addResponse.json();
-                                if (!addResponse.ok || addResult.status?.toLowerCase() !== 'success') {
-                                    allAddsSucceeded = false;
-                                    statusCell.innerHTML = `<span class="badge bg-danger" title="${addResult.message || 'Error'}">Add Op. ${operation.ACTIVITY} Failed</span>`;
-                                    break;
-                                }
-                            }
-
-                            if (allAddsSucceeded) {
-                                overallSuccess = true;
-                            }
+                        if (createResponse.ok && createResult.status?.toLowerCase() === 'success') {
+                            overallSuccess = true;
                         } else {
                             let errorMessage = createResult.message || 'Gagal menciptakan routing awal.';
-                            if (!taskListGroup) { errorMessage += " (Tidak menerima Task List Group dari SAP.)"; }
                             statusCell.innerHTML = `<span class="badge bg-danger" title="${errorMessage}">Create Failed</span>`;
                         }
                     } catch (error) {
@@ -603,9 +578,7 @@
                         statusText.textContent = `${successCount} / ${totalItems} material berhasil diupload`;
                     }
                 }
-
                 progressModal.hide();
-
                 if (successfulUploads.length > 0) {
                     try {
                         await fetch("{{ route('routing.markAsUploaded') }}", {
@@ -618,38 +591,62 @@
                         console.error('Gagal menandai data sebagai ter-upload:', error);
                     }
                 }
-
                 if (processedCount > 0 && document.querySelectorAll('.swal2-container').length === 0) {
-                     Swal.fire('Proses Selesai', `Upload selesai: ${successCount} berhasil, ${failCount} gagal.`, 'info');
+                     Swal.fire({title: 'Proses Selesai', text: `Upload selesai: ${successCount} berhasil, ${failCount} gagal.`, icon: 'info', width: '400px'});
                 }
             });
 
-            deleteSelectedBtn.addEventListener('click', () => {
-                performDeletion();
-            });
+            deleteSelectedBtn.addEventListener('click', () => { performDeletion(); });
 
             selectAllCheckbox.addEventListener('change', (e) => {
-                document.querySelectorAll('.document-group-checkbox, .row-checkbox:not(:disabled)').forEach(cb => cb.checked = e.target.checked);
-                handleCheckboxChange();
-            });
-            resultsTbody.addEventListener('change', (e) => {
-                if (e.target.classList.contains('row-checkbox') || e.target.classList.contains('document-group-checkbox')) {
-                    handleCheckboxChange();
-                }
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.document-group-checkbox, .row-checkbox:not(:disabled)').forEach(cb => {
+                    cb.checked = isChecked;
+                    if(cb.classList.contains('document-group-checkbox')) cb.indeterminate = false;
+                });
+                updateButtonStates();
             });
 
-             resultsTbody.addEventListener('click', e => {
+            resultsTbody.addEventListener('change', (e) => {
+                const target = e.target;
+                if (target.classList.contains('document-group-checkbox')) {
+                    handleDocumentGroupCheck(target);
+                }
+                if (target.classList.contains('row-checkbox')) {
+                    handleRowCheck(target);
+                }
+                updateButtonStates();
+            });
+
+            resultsTbody.addEventListener('click', e => {
                 if (e.target.classList.contains('delete-row-icon')) {
                     const globalIndex = parseInt(e.target.dataset.globalIndex);
-                    // Tandai hanya satu checkbox ini untuk dihapus
-                    document.querySelectorAll('.row-checkbox').forEach(cb => {
-                        cb.checked = parseInt(cb.dataset.globalIndex) === globalIndex;
-                    });
+                    document.querySelectorAll('.row-checkbox, .document-group-checkbox').forEach(cb => cb.checked = false);
+                    const targetCheckbox = document.querySelector(`.row-checkbox[data-global-index="${globalIndex}"]`);
+                    if(targetCheckbox) targetCheckbox.checked = true;
                     performDeletion();
+                }
+
+                const statusOption = e.target.closest('.status-option');
+                if (statusOption) {
+                    e.preventDefault();
+                    const fileIndex = statusOption.dataset.fileIndex;
+                    const newStatus = statusOption.dataset.status;
+                    processedDataByFile[fileIndex].status = newStatus;
+                    const dropdownButton = document.getElementById(`dropdownMenuButton${fileIndex}`);
+                    const flag = dropdownButton.querySelector('.status-flag');
+                    const text = dropdownButton.querySelector('.current-status-text');
+                    flag.className = `status-flag status-${newStatus.toLowerCase() || 'none'}`;
+                    text.textContent = newStatus || 'Pilih Status';
+                    const headerRow = document.querySelector(`.document-header-row[data-file-index="${fileIndex}"]`);
+                    const isSaved = headerRow.dataset.isSaved === 'true';
+                    const docNumber = headerRow.dataset.docNumber;
+                    if (isSaved && docNumber) {
+                        updateDocumentStatusOnServer(docNumber, newStatus);
+                    }
                 }
             });
         });
     </script>
 </body>
 </html>
-
