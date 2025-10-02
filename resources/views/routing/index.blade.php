@@ -37,10 +37,27 @@
 
         .status-flag { font-size: 1.2rem; margin-right: 8px; vertical-align: middle; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .status-urgent { color: #dc3545; }
-        .status-high { color: #fd7e14; }
-        .status-medium { color: #ffc107; }
-        .status-low { color: #0d6efd; }
+        .status-priority { color: #fd7e14; } /* Diubah dari High */
+        .status-standart { color: #ffc107; } /* Diubah dari Medium */
         .status-none, .status- { color: #6c757d; }
+
+        /* CSS untuk badge status di header */
+        .status-badge {
+            display: inline-block;
+            padding: 0.3em 0.6em;
+            font-size: 75%;
+            font-weight: 700;
+            line-height: 1;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.375rem;
+            margin-right: 0.75rem;
+        }
+        .status-badge-urgent { background-color: #dc3545; }
+        .status-badge-priority { background-color: #fd7e14; } /* Diubah dari High */
+        .status-badge-standart { background-color: #ffc107; color: #212529; } /* Diubah dari Medium */
 
         .status-dropdown .btn {
             background-color: transparent !important;
@@ -53,15 +70,14 @@
         }
         .status-dropdown .btn:focus { box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
 
-        /* === PERUBAHAN CSS UNTUK DROPDOWN === */
         .status-dropdown .dropdown-menu {
             background-color: #f1f1f1;
             border-radius: .5rem;
             padding: .5rem 0;
-            color: #212529; /* 1. Atur warna default untuk menu menjadi hitam */
+            color: #212529;
         }
         .status-dropdown .dropdown-menu a.dropdown-item {
-            color: inherit !important; /* 2. Paksa item untuk mewarisi warna dari parent (menu) */
+            color: inherit !important;
             display: flex;
             align-items: center;
             font-weight: normal;
@@ -85,6 +101,7 @@
 </head>
 <body>
     <div class="container converter-container">
+        <!-- Header and Nav Pills -->
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
                 <h1 class="h3 main-title">SAP Routing Data Center</h1>
@@ -132,6 +149,7 @@
         <footer class="text-center text-white mt-4"><small>© PT. Kayu Mebel Indonesia, 2025</small></footer>
     </div>
 
+    <!-- Modals -->
     <div class="modal fade" id="sap-credential-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Masukkan Kredensial SAP</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="sap-username" class="form-label">SAP Username</label><input type="text" class="form-control" id="sap-username"></div><div class="mb-3"><label for="sap-password" class="form-label">SAP Password</label><input type="password" class="form-control" id="sap-password"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-upload-btn">Konfirmasi & Mulai Upload</button></div></div></div></div>
     <div class="modal fade" id="save-details-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="document-name" class="form-label">Nama Dokumen</label><input type="text" class="form-control" id="document-name" placeholder="Contoh: Routing Pintu Depan" required maxlength="40"></div><div class="mb-3"><label for="product-name" class="form-label">Nama Produk</label><input type="text" class="form-control" id="product-name" placeholder="Contoh: Pintu Jati Model A" required maxlength="20"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-save-btn">Konfirmasi & Simpan</button></div></div></div></div>
     <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark"><div class="modal-header"><h5 class="modal-title">Mengunggah Routing ke SAP...</h5></div><div class="modal-body"><p id="progress-status-text" class="text-center mb-2">Menunggu...</p><div class="progress" role="progressbar" style="height: 25px;"><div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div></div></div></div></div></div>
@@ -172,19 +190,24 @@
                             </button>
                             <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton${fileIndex}">
                                 <li><a class="dropdown-item status-option" href="#" data-status="Urgent" data-file-index="${fileIndex}"><span class="status-flag status-urgent">▼</span> Urgent</a></li>
-                                <li><a class="dropdown-item status-option" href="#" data-status="High" data-file-index="${fileIndex}"><span class="status-flag status-high">▼</span> High</a></li>
-                                <li><a class="dropdown-item status-option" href="#" data-status="Medium" data-file-index="${fileIndex}"><span class="status-flag status-medium">▼</span> Medium</a></li>
-                                <li><a class="dropdown-item status-option" href="#" data-status="Low" data-file-index="${fileIndex}"><span class="status-flag status-low">▼</span> Low</a></li>
+                                <li><a class="dropdown-item status-option" href="#" data-status="Priority" data-file-index="${fileIndex}"><span class="status-flag status-priority">▼</span> Priority</a></li>
+                                <li><a class="dropdown-item status-option" href="#" data-status="Standart" data-file-index="${fileIndex}"><span class="status-flag status-standart">▼</span> Standart</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item status-option" href="#" data-status="" data-file-index="${fileIndex}"><span class="status-flag status-none">▼</span> Hapus Status</a></li>
                             </ul>
                         </div>
                     `;
+
+                    let statusBadgeHtml = '';
+                    if (currentStatus) {
+                        statusBadgeHtml = `<span class="status-badge status-badge-${currentStatus.toLowerCase()}">${currentStatus.toUpperCase()}</span>`;
+                    }
+
                     const headerRow = `
                         <tr class="document-header-row" data-file-index="${fileIndex}" data-is-saved="${isSaved}" data-doc-number="${docNumber || ''}">
                             <td><input class="form-check-input document-group-checkbox" type="checkbox" data-file-index="${fileIndex}" title="Pilih semua di dokumen ini"></td>
                             <td colspan="2">${statusDropdownHtml}</td>
-                            <td colspan="5">${fileGroup.fileName}</td>
+                            <td colspan="5">${statusBadgeHtml}${fileGroup.fileName}</td>
                         </tr>`;
                     tbody.innerHTML += headerRow;
                     if(fileGroup.data && fileGroup.data.length > 0) {
@@ -205,11 +228,15 @@
                                     <td class="status-cell">${statusHtml}</td>
                                     <td><i class="bi bi-trash-fill delete-row-icon" data-global-index="${globalIndex}" title="Hapus baris ini"></i></td>
                                 </tr>`;
-                            let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>UoM</th></tr></thead><tbody>`;
+                            let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
                             (group.operations || []).forEach(op => {
                                 operationsHtml += `<tr>
-                                    <td>${op.WORK_CNTR || ''}</td><td>${op.CONTROL_KEY || ''}</td><td>${op.DESCRIPTION || ''}</td>
-                                    <td>${op.BASE_QTY || ''}</td><td>${op.UOM || ''}</td>
+                                    <td>${op.WORK_CNTR || ''}</td>
+                                    <td>${op.CONTROL_KEY || ''}</td>
+                                    <td>${op.DESCRIPTION || ''}</td>
+                                    <td>${op.BASE_QTY || ''}</td>
+                                    <td>${op.ACTIVITY_1 || ''}</td>
+                                    <td>${op.UOM_1 || ''}</td>
                                 </tr>`;
                             });
                             operationsHtml += `</tbody></table>`;
@@ -260,6 +287,7 @@
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.message);
                     Toast.fire({ icon: 'success', title: 'Status diperbarui' });
+                    renderTable();
                 } catch (error) {
                     console.error('Gagal menyimpan status:', error);
                     Toast.fire({ icon: 'error', title: 'Gagal menyimpan status' });
@@ -633,16 +661,15 @@
                     const fileIndex = statusOption.dataset.fileIndex;
                     const newStatus = statusOption.dataset.status;
                     processedDataByFile[fileIndex].status = newStatus;
-                    const dropdownButton = document.getElementById(`dropdownMenuButton${fileIndex}`);
-                    const flag = dropdownButton.querySelector('.status-flag');
-                    const text = dropdownButton.querySelector('.current-status-text');
-                    flag.className = `status-flag status-${newStatus.toLowerCase() || 'none'}`;
-                    text.textContent = newStatus || 'Pilih Status';
+
                     const headerRow = document.querySelector(`.document-header-row[data-file-index="${fileIndex}"]`);
                     const isSaved = headerRow.dataset.isSaved === 'true';
                     const docNumber = headerRow.dataset.docNumber;
                     if (isSaved && docNumber) {
                         updateDocumentStatusOnServer(docNumber, newStatus);
+                    } else {
+                        // Jika belum disimpan, cukup re-render tabel di frontend
+                        renderTable();
                     }
                 }
             });
@@ -650,3 +677,4 @@
     </script>
 </body>
 </html>
+

@@ -2,35 +2,29 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class DocumentSequence extends Model
 {
-    // Kita tidak perlu 'use HasFactory;' jika tidak menggunakannya
+    use HasFactory;
 
     /**
-     * 1. Primary Key adalah 'prefix'.
+     * Nama tabel yang terhubung dengan model ini.
+     *
+     * @var string
      */
-    protected $primaryKey = 'prefix';
+    protected $table = 'document_sequences';
 
-    /**
-     * 2. Tipe Primary Key-nya adalah string.
-     */
-    protected $keyType = 'string';
-
-    /**
-     * 3. Primary Key ini TIDAK auto-increment.
-     */
-    public $incrementing = false;
-
-    /**
-     * 4. NONAKTIFKAN TIMESTAMPS (created_at & updated_at).
-     * INI ADALAH SOLUSI UNTUK ERROR ANDA SAAT INI.
-     */
     public $timestamps = false;
-
     /**
-     * 5. Kolom yang boleh diisi massal.
+     * Atribut yang dapat diisi secara massal.
+     *
+     * @var array<int, string>
      */
-    protected $fillable = ['prefix', 'last_sequence'];
+    protected $fillable = [
+        'prefix', // Pastikan kolom ini ada di tabel dan sesuai
+        'last_sequence',
+    ];
 }
+
