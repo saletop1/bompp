@@ -37,11 +37,10 @@
 
         .status-flag { font-size: 1.2rem; margin-right: 8px; vertical-align: middle; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .status-urgent { color: #dc3545; }
-        .status-priority { color: #fd7e14; } /* Diubah dari High */
-        .status-standart { color: #ffc107; } /* Diubah dari Medium */
+        .status-priority { color: #fd7e14; }
+        .status-standart { color: #ffc107; }
         .status-none, .status- { color: #6c757d; }
 
-        /* CSS untuk badge status di header */
         .status-badge {
             display: inline-block;
             padding: 0.3em 0.6em;
@@ -56,8 +55,8 @@
             margin-right: 0.75rem;
         }
         .status-badge-urgent { background-color: #dc3545; }
-        .status-badge-priority { background-color: #fd7e14; } /* Diubah dari High */
-        .status-badge-standart { background-color: #ffc107; color: #212529; } /* Diubah dari Medium */
+        .status-badge-priority { background-color: #fd7e14; }
+        .status-badge-standart { background-color: #ffc107; color: #212529; }
 
         .status-dropdown .btn {
             background-color: transparent !important;
@@ -97,6 +96,27 @@
         #sap-credential-modal .modal-header, #save-details-modal .modal-header { border-bottom-color: rgba(255, 255, 255, 0.2); }
         #sap-credential-modal .modal-footer, #save-details-modal .modal-footer { border-top-color: rgba(255, 255, 255, 0.2); }
         #sap-credential-modal .form-control, #save-details-modal .form-control { background-color: rgba(255, 255, 255, 0.9); color: #212529; }
+
+        /* [DIPERBARUI] CSS untuk membuat checkbox lebih terlihat */
+        .form-check-input {
+            width: 1.25em;
+            height: 1.25em;
+            margin-top: 0.1em;
+            vertical-align: top;
+            background-color: rgba(255, 255, 255, 0.5); /* Lebih terlihat saat belum dicentang */
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .form-check-input:checked {
+            background-color: #198754; /* Hijau gelap saat dicentang */
+            border-color: #146c43;
+        }
+        .form-check-input:focus {
+            box-shadow: 0 0 0 .25rem rgba(25, 135, 84, 0.25);
+            border-color: #198754;
+        }
+
     </style>
 </head>
 <body>
