@@ -97,19 +97,18 @@
         #sap-credential-modal .modal-footer, #save-details-modal .modal-footer { border-top-color: rgba(255, 255, 255, 0.2); }
         #sap-credential-modal .form-control, #save-details-modal .form-control { background-color: rgba(255, 255, 255, 0.9); color: #212529; }
 
-        /* [DIPERBARUI] CSS untuk membuat checkbox lebih terlihat */
         .form-check-input {
             width: 1.25em;
             height: 1.25em;
             margin-top: 0.1em;
             vertical-align: top;
-            background-color: rgba(255, 255, 255, 0.5); /* Lebih terlihat saat belum dicentang */
+            background-color: rgba(255, 255, 255, 0.5);
             border: 1px solid rgba(255, 255, 255, 0.75);
             cursor: pointer;
             transition: background-color 0.2s ease-in-out;
         }
         .form-check-input:checked {
-            background-color: #198754; /* Hijau gelap saat dicentang */
+            background-color: #198754;
             border-color: #146c43;
         }
         .form-check-input:focus {
@@ -233,7 +232,7 @@
                     if(fileGroup.data && fileGroup.data.length > 0) {
                         fileGroup.data.forEach((group, itemIndex) => {
                             const detailsId = `details-${globalIndex}`;
-                            const hasDuplicateZP01 = (group.operations || []).filter(op => op.CONTROL_KEY === 'ZP01').length > 1;
+                            const hasDuplicateZP01 = (group.operations || []).filter(op => (op.IV_STEUS === 'ZP01' || op.CONTROL_KEY === 'ZP01')).length > 1;
                             const rowClass = hasDuplicateZP01 ? 'table-danger' : '';
                             const statusHtml = hasDuplicateZP01 ? `<span class="badge bg-danger">Error: Duplikat ZP01</span>` : `<span class="badge bg-secondary">Menunggu</span>`;
                             const isChecked = checkedIndices.has(globalIndex) ? 'checked' : '';
@@ -251,12 +250,12 @@
                             let operationsHtml = `<table class="table table-dark table-sm mb-0"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
                             (group.operations || []).forEach(op => {
                                 operationsHtml += `<tr>
-                                    <td>${op.WORK_CNTR || ''}</td>
-                                    <td>${op.CONTROL_KEY || ''}</td>
-                                    <td>${op.DESCRIPTION || ''}</td>
-                                    <td>${op.BASE_QTY || ''}</td>
-                                    <td>${op.ACTIVITY_1 || ''}</td>
-                                    <td>${op.UOM_1 || ''}</td>
+                                    <td>${op.IV_ARBPL || op.WORK_CNTR || ''}</td>
+                                    <td>${op.IV_STEUS || op.CONTROL_KEY || ''}</td>
+                                    <td>${op.IV_LTXA1 || op.DESCRIPTION || ''}</td>
+                                    <td>${op.IV_BMSCHX || op.BASE_QTY || ''}</td>
+                                    <td>${op.IV_VGW01X || op.ACTIVITY_1 || ''}</td>
+                                    <td>${op.IV_VGE01X || op.UOM_1 || ''}</td>
                                 </tr>`;
                             });
                             operationsHtml += `</tbody></table>`;
@@ -364,7 +363,7 @@
                 const checkedRowBoxes = document.querySelectorAll('.row-checkbox:checked');
                 const checkedDocBoxes = document.querySelectorAll('.document-group-checkbox:checked');
                 if (checkedRowBoxes.length === 0 && checkedDocBoxes.length === 0) {
-                    return Swal.fire({title: 'Info', text: 'Tidak ada item yang dipilih untuk dihapus.', icon: 'info', width: '350px'});
+                    return Swal.fire({title: 'Info', text: 'Tidak ada item yang dipilih untuk dihapus.', icon: 'info'});
                 }
                 const docsToDelete = new Set();
                 const rowsToDeleteFromDb = [];
@@ -391,12 +390,12 @@
                         rowsToDeleteFromDb.push({ doc_number: docNumber, material: material });
                     }
                 });
-                let confirmText = 'Apakah Anda yakin ingin menghapus item yang dipilih dari tampilan?';
+                let confirmText = 'Hapus item yang dipilih dari tampilan?';
                 if (docsToDelete.size > 0 || rowsToDeleteFromDb.length > 0) {
                     confirmText = 'Item yang dipilih akan dihapus permanen dari database. Lanjutkan?';
                 }
                 const result = await Swal.fire({
-                    title: 'Konfirmasi Penghapusan', text: confirmText, icon: 'warning', width: '450px',
+                    title: 'Konfirmasi Penghapusan', text: confirmText, icon: 'warning',
                     showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6',
                     confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal'
                 });
@@ -410,8 +409,7 @@
                                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
                                 body: JSON.stringify({ document_numbers: Array.from(docsToDelete) })
                             });
-                            const res = await response.json();
-                            if (!response.ok) throw new Error(res.message);
+                            if (!response.ok) throw new Error((await response.json()).message || 'Gagal menghapus dokumen.');
                         } catch(error) {
                             allSuccess = false;
                             errorMessages.push(`Gagal hapus dokumen: ${error.message}`);
@@ -424,8 +422,7 @@
                                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
                                 body: JSON.stringify({ rows_to_delete: rowsToDeleteFromDb })
                             });
-                            const res = await response.json();
-                            if (!response.ok) throw new Error(res.message);
+                            if (!response.ok) throw new Error((await response.json()).message || 'Gagal menghapus baris.');
                         } catch (error) {
                             allSuccess = false;
                             errorMessages.push(`Gagal hapus baris: ${error.message}`);
@@ -433,9 +430,9 @@
                     }
                     if (allSuccess) {
                         deleteItemsByGlobalIndices(allIndicesToUpdateView);
-                        Swal.fire({title: 'Dihapus!', text: 'Item yang dipilih telah dihapus.', icon: 'success', width: '350px'});
+                        Swal.fire({title: 'Dihapus!', text: 'Item yang dipilih telah dihapus.', icon: 'success'});
                     } else {
-                        Swal.fire({title: 'Error!', text: errorMessages.join('\n'), icon: 'error', width: '450px'});
+                        Swal.fire({title: 'Error!', text: errorMessages.join('\n'), icon: 'error'});
                     }
                 }
             }
@@ -444,26 +441,24 @@
                 const allItems = getFlatData();
                 const selectedCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:checked'));
                 const selectedItems = selectedCheckboxes.map(cb => allItems[cb.getAttribute('data-global-index')]);
-                const selectedIndices = new Set(selectedCheckboxes.map(cb => parseInt(cb.getAttribute('data-global-index'))));
-                if (selectedItems.length === 0) return Swal.fire({title: 'Info', text: 'Tidak ada data yang dipilih untuk disimpan.', icon: 'info', width: '350px'});
+                if (selectedItems.length === 0) return Swal.fire({title: 'Info', text: 'Tidak ada data yang dipilih.', icon: 'info'});
+
                 saveSelectedBtn.disabled = true;
                 confirmSaveBtn.disabled = true;
                 try {
                     const response = await fetch("{{ route('routing.save') }}", {
                         method: 'POST',
                         body: JSON.stringify({ routings: selectedItems, document_name: docName, product_name: prodName }),
-                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json'}
                     });
                     const result = await response.json();
-                    if (!response.ok || result.status !== 'success') throw new Error(result.message || 'Gagal menyimpan data.');
-                    deleteItemsByGlobalIndices(selectedIndices);
-                    await Swal.fire({
-                        icon: 'success', title: 'Sukses!', width: '450px',
-                        text: result.message + ". Data akan dimuat ulang.",
-                    });
+                    if (!response.ok) throw new Error(result.message || 'Gagal menyimpan data.');
+
+                    await Swal.fire({ icon: 'success', title: 'Sukses!', text: result.message + ". Memuat ulang data."});
                     window.location.reload();
                 } catch (error) {
-                    Swal.fire({title: 'Error!', text: error.message, icon: 'error', width: '450px'});
+                    console.error("Save error:", error);
+                    Swal.fire({title: 'Error!', text: error.message, icon: 'error'});
                 } finally {
                     saveSelectedBtn.disabled = false;
                     confirmSaveBtn.disabled = false;
@@ -485,14 +480,14 @@
                         method: 'POST', body: new FormData(this),
                         headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'}
                     });
-                    if (!response.ok) throw new Error((await response.json()).error || 'Gagal memproses file.');
                     const result = await response.json();
-                    if (result.error) throw new Error(result.error);
+                    if (!response.ok) throw new Error(result.error || 'Gagal memproses file.');
+
                     processedDataByFile.push(result);
-                    resultsContainer.style.display = 'block';
                     renderTable();
                 } catch (error) {
-                    Swal.fire({title: 'Error!', text: error.message, icon: 'error', width: '450px'});
+                    console.error("Upload error:", error);
+                    Swal.fire({title: 'Error!', text: error.message, icon: 'error'});
                 } finally {
                     processBtn.innerHTML = `<i class="bi bi-gear-fill"></i>`;
                     processBtn.disabled = false;
@@ -507,55 +502,16 @@
                 const docName = document.getElementById('document-name').value;
                 const prodName = document.getElementById('product-name').value;
                 if (!docName || !prodName) {
-                    return Swal.fire({title: 'Peringatan', text: 'Nama Dokumen dan Nama Produk harus diisi.', icon: 'warning', width: '400px'});
+                    return Swal.fire({title: 'Peringatan', text: 'Nama Dokumen dan Nama Produk harus diisi.', icon: 'warning'});
                 }
-                const allItems = getFlatData();
-                const selectedMaterials = Array.from(document.querySelectorAll('.row-checkbox:checked'))
-                                               .map(cb => allItems[cb.getAttribute('data-global-index')].header.IV_MATERIAL);
-                if (selectedMaterials.length === 0) {
-                    return Swal.fire({title: 'Info', text: 'Tidak ada data yang dipilih untuk disimpan.', icon: 'info', width: '350px'});
-                }
-                try {
-                    const materialCheckResponse = await fetch("{{ route('routing.checkMaterials') }}", {
-                        method: 'POST',
-                        body: JSON.stringify({ materials: selectedMaterials }),
-                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
-                    });
-                    const materialCheckResult = await materialCheckResponse.json();
-                    if (materialCheckResult.exists) {
-                        const materialConfirmation = await Swal.fire({
-                            title: 'Peringatan Material Duplikat!', width: '500px',
-                            html: `Material <b>${materialCheckResult.material}</b> sudah ada di dokumen lain:<br><b>${materialCheckResult.document_name} (${materialCheckResult.document_number})</b>.<br><br>Melanjutkan akan <b style='color:red;'>MENGHAPUS</b> data lama tersebut dan menggantikannya dengan yang baru di dokumen ini. Lanjutkan?`,
-                            icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33',
-                            cancelButtonColor: '#3085d6', confirmButtonText: 'Ya, Hapus & Ganti!', cancelButtonText: 'Batal'
-                        });
-                        if (!materialConfirmation.isConfirmed) return;
-                    }
-                    const nameCheckResponse = await fetch("{{ route('routing.checkName') }}", {
-                        method: 'POST',
-                        body: JSON.stringify({ document_name: docName }),
-                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
-                    });
-                    const nameCheckResult = await nameCheckResponse.json();
-                    if (nameCheckResult.exists) {
-                        const nameConfirmation = await Swal.fire({
-                            title: 'Peringatan!', text: `Nama Dokumen '${docName}' sudah ada. Apakah Anda yakin ingin melanjutkan?`,
-                            icon: 'warning', width: '450px', showCancelButton: true, confirmButtonColor: '#3085d6',
-                            cancelButtonColor: '#d33', confirmButtonText: 'Ya, Lanjutkan!', cancelButtonText: 'Batal'
-                        });
-                        if (!nameConfirmation.isConfirmed) return;
-                    }
-                    saveModal.hide();
-                    await performSave(docName, prodName);
-                } catch (error) {
-                    Swal.fire({title: 'Error!', text: 'Terjadi kesalahan saat validasi: ' + error.message, icon: 'error', width: '450px'});
-                }
+                saveModal.hide();
+                await performSave(docName, prodName);
             });
 
             confirmUploadBtn.addEventListener('click', async function() {
                 const username = document.getElementById('sap-username').value;
                 const password = document.getElementById('sap-password').value;
-                if (!username || !password) return Swal.fire({title: 'Peringatan', text: 'Username dan Password SAP harus diisi.', icon: 'warning', width: '400px'});
+                if (!username || !password) return Swal.fire({title: 'Peringatan', text: 'Username dan Password SAP harus diisi.', icon: 'warning'});
                 uploadModal.hide();
                 const allItems = getFlatData();
                 const itemsToUpload = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
@@ -569,101 +525,68 @@
                 progressBar.textContent = '0%';
                 statusText.textContent = `Memulai... 0 / ${totalItems} berhasil`;
                 progressModal.show();
+
                 for (const routingData of itemsToUpload) {
                     processedCount++;
                     const globalIndex = allItems.findIndex(item => item === routingData);
                     const targetRow = document.querySelector(`tr[data-global-index="${globalIndex}"]`);
                     const statusCell = targetRow.querySelector('.status-cell');
                     statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-warning"></span> Menciptakan...`;
-                    let overallSuccess = false;
+
                     try {
                         const createResponse = await fetch("{{ route('api.routing.uploadToSap') }}", {
                             method: 'POST', body: JSON.stringify({ username, password, routing_data: routingData }),
-                            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json'}
                         });
-                        if (createResponse.status === 403) {
-                            const errorResult = await createResponse.json();
-                            progressModal.hide();
-                            Swal.fire({ icon: 'error', title: 'Otorisasi Gagal', text: errorResult.message, width: '450px' });
-                            document.querySelectorAll('.row-checkbox:checked').forEach(checkbox => {
-                                const idx = checkbox.dataset.globalIndex;
-                                const rowToReset = document.querySelector(`tr[data-global-index="${idx}"]`);
-                                if(rowToReset) {
-                                    const cellToReset = rowToReset.querySelector('.status-cell');
-                                    if(cellToReset) cellToReset.innerHTML = `<span class="badge bg-secondary">Menunggu</span>`;
-                                }
-                            });
-                            return;
-                        }
+
                         const createResult = await createResponse.json();
                         if (createResponse.ok && createResult.status?.toLowerCase() === 'success') {
-                            overallSuccess = true;
-                        } else {
-                            let errorMessage = createResult.message || 'Gagal menciptakan routing awal.';
-                            statusCell.innerHTML = `<span class="badge bg-danger" title="${errorMessage}">Create Failed</span>`;
-                        }
-                    } catch (error) {
-                        statusCell.innerHTML = `<span class="badge bg-danger" title="${error.message}">Error</span>`;
-                    } finally {
-                        if(overallSuccess) {
                             statusCell.innerHTML = `<span class="badge bg-success">Success</span>`;
                             successCount++;
                             successfulIndices.add(globalIndex);
-                            const fileIndex = targetRow.dataset.fileIndex;
+                             const fileIndex = targetRow.dataset.fileIndex;
                             const fileGroup = processedDataByFile[fileIndex];
                             if (fileGroup.is_saved) {
-                                const docNumber = fileGroup.document_number;
-                                if (docNumber) {
-                                    successfulUploads.push({ material: routingData.header.IV_MATERIAL, doc_number: docNumber });
-                                }
+                                successfulUploads.push({ material: routingData.header.IV_MATERIAL, doc_number: fileGroup.document_number });
                             }
                         } else {
                             failCount++;
+                            let errorMessage = createResult.message || createResult.error || 'Gagal menciptakan routing awal.';
+                            if (typeof createResult.details === 'object' && createResult.details !== null) {
+                                errorMessage += ' Detail: ' + JSON.stringify(createResult.details);
+                            } else if (createResult.details) {
+                                errorMessage += ' Detail: ' + createResult.details;
+                            }
+                            statusCell.innerHTML = `<span class="badge bg-danger" title="${errorMessage}">Create Failed</span>`;
                         }
+                    } catch (error) {
+                        failCount++;
+                        console.error("Release error:", error);
+                        statusCell.innerHTML = `<span class="badge bg-danger" title="${error.message}">Error</span>`;
+                    } finally {
                         const percentage = Math.round((processedCount / totalItems) * 100);
                         progressBar.style.width = percentage + '%';
                         progressBar.textContent = percentage + '%';
                         statusText.textContent = `${successCount} / ${totalItems} material berhasil diupload`;
                     }
                 }
+
                 progressModal.hide();
                 if (successfulUploads.length > 0) {
                     try {
                         await fetch("{{ route('routing.markAsUploaded') }}", {
                             method: 'POST',
                             body: JSON.stringify({ successful_uploads: successfulUploads }),
-                            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json', 'Accept': 'application/json'}
+                            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Content-Type': 'application/json'}
                         });
                         deleteItemsByGlobalIndices(successfulIndices);
                     } catch (error) {
                         console.error('Gagal menandai data sebagai ter-upload:', error);
                     }
                 }
-                if (processedCount > 0 && document.querySelectorAll('.swal2-container').length === 0) {
-                     Swal.fire({title: 'Proses Selesai', text: `Upload selesai: ${successCount} berhasil, ${failCount} gagal.`, icon: 'info', width: '400px'});
+                if (processedCount > 0) {
+                     Swal.fire({title: 'Proses Selesai', text: `Upload selesai: ${successCount} berhasil, ${failCount} gagal.`, icon: 'info'});
                 }
-            });
-
-            deleteSelectedBtn.addEventListener('click', () => { performDeletion(); });
-
-            selectAllCheckbox.addEventListener('change', (e) => {
-                const isChecked = e.target.checked;
-                document.querySelectorAll('.document-group-checkbox, .row-checkbox:not(:disabled)').forEach(cb => {
-                    cb.checked = isChecked;
-                    if(cb.classList.contains('document-group-checkbox')) cb.indeterminate = false;
-                });
-                updateButtonStates();
-            });
-
-            resultsTbody.addEventListener('change', (e) => {
-                const target = e.target;
-                if (target.classList.contains('document-group-checkbox')) {
-                    handleDocumentGroupCheck(target);
-                }
-                if (target.classList.contains('row-checkbox')) {
-                    handleRowCheck(target);
-                }
-                updateButtonStates();
             });
 
             resultsTbody.addEventListener('click', e => {
@@ -688,10 +611,32 @@
                     if (isSaved && docNumber) {
                         updateDocumentStatusOnServer(docNumber, newStatus);
                     } else {
-                        // Jika belum disimpan, cukup re-render tabel di frontend
                         renderTable();
                     }
                 }
+            });
+
+            // [DIKEMBALIKAN] Event listener untuk semua tombol utama
+            deleteSelectedBtn.addEventListener('click', () => performDeletion());
+
+            selectAllCheckbox.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.document-group-checkbox, .row-checkbox:not(:disabled)').forEach(cb => {
+                    cb.checked = isChecked;
+                    if(cb.classList.contains('document-group-checkbox')) cb.indeterminate = false;
+                });
+                updateButtonStates();
+            });
+
+            resultsTbody.addEventListener('change', (e) => {
+                const target = e.target;
+                if (target.classList.contains('document-group-checkbox')) {
+                    handleDocumentGroupCheck(target);
+                }
+                if (target.classList.contains('row-checkbox')) {
+                    handleRowCheck(target);
+                }
+                updateButtonStates();
             });
         });
     </script>
