@@ -671,7 +671,7 @@ class BomController extends Controller
                 }
             }
 
-            $profitCenterMap = [ '3000' => '300301', '2000' => '200301', '1000' => '100301' ];
+            $profitCenterMap = [ '3000' => '300301', '2000' => '200301', '1000' => '100301', '1001' => '100301' ];
             $tempSapRow["Material"] = $currentMaterialCode;
             $currentMaterialCode = $this->incrementMaterialCode($currentMaterialCode);
             $tempSapRow["Material Type"] = $selectedMaterialType; $tempSapRow["Plant"] = $selectedPlant;
