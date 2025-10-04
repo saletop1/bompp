@@ -10,23 +10,46 @@ use App\Models\Routing;
 use App\Models\DocumentSequence;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class RoutingController extends Controller
 {
     /**
-     * Menampilkan halaman utama routing dengan data yang sudah dikelompokkan dari database.
+     * Menampilkan halaman utama routing dengan data yang belum dan sudah diunggah.
      */
     public function index()
     {
-        $pythonApiUrl = env('PYTHON_ROUTING_API_URL', 'http://127.0.0.1:5002');
-        $savedData = Routing::whereNull('uploaded_to_sap_at')
+        // --- 1. Ambil Data yang Belum Diunggah (Pending) ---
+        $pendingData = Routing::whereNull('uploaded_to_sap_at')
                             ->orderBy('document_number')
                             ->orderBy('id')
                             ->get();
+        $formattedPendingRoutings = $this->formatRoutingsForView($pendingData);
 
-        $groupedByDocument = $savedData->groupBy('document_number');
+        // --- 2. Ambil Data Histori (Sudah Diunggah) ---
+        $historyData = Routing::whereNotNull('uploaded_to_sap_at')
+                            ->orderBy('uploaded_to_sap_at', 'desc')
+                            ->get();
+        $formattedHistoryRoutings = $this->formatRoutingsForView($historyData, true);
 
+
+        return view('routing.index', [
+            'savedRoutings' => $formattedPendingRoutings,
+            'historyRoutings' => $formattedHistoryRoutings
+        ]);
+    }
+
+    /**
+     * Helper function untuk memformat data routing untuk ditampilkan di view.
+     * @param \Illuminate\Database\Eloquent\Collection $data
+     * @param bool $isHistory
+     * @return array
+     */
+    private function formatRoutingsForView($data, $isHistory = false)
+    {
+        $groupedByDocument = $data->groupBy('document_number');
         $formattedRoutings = [];
+
         foreach ($groupedByDocument as $docNumber => $routings) {
             $firstRouting = $routings->first();
             if (!$firstRouting) continue;
@@ -34,18 +57,11 @@ class RoutingController extends Controller
             $groupData = [];
             foreach ($routings as $routing) {
                 $operations = is_string($routing->operations) ? json_decode($routing->operations, true) : [];
-
-                // [FIX] Memeriksa apakah kolom 'header' ada dan valid sebelum di-decode
-                $header_data = $routing->header ? json_decode($routing->header, true) : null;
-                if (!$header_data) {
-                    Log::warning('Data routing di database (ID: ' . $routing->id . ') tidak memiliki informasi header yang valid.');
-                    // Jika data lama tidak punya header, kita coba buat dari data yang ada
-                    $header_data = [
-                        'IV_MATERIAL' => $routing->material,
-                        'IV_PLANT' => $routing->plant,
-                        'IV_DESCRIPTION' => $routing->description,
-                    ];
-                }
+                $header_data = $routing->header ? json_decode($routing->header, true) : [
+                    'IV_MATERIAL' => $routing->material,
+                    'IV_PLANT' => $routing->plant,
+                    'IV_DESCRIPTION' => $routing->description,
+                ];
 
                 $groupData[] = [
                     'header' => $header_data,
@@ -57,12 +73,14 @@ class RoutingController extends Controller
                 'fileName' => 'Dokumen: ' . $firstRouting->document_name . ' - ' . $firstRouting->product_name . ' (' . $docNumber . ')',
                 'document_number' => $docNumber,
                 'status' => $firstRouting->status,
+                'uploaded_at' => $isHistory && $firstRouting->uploaded_to_sap_at ? Carbon::parse($firstRouting->uploaded_to_sap_at)->format('d M Y, H:i') : null,
                 'data' => $groupData,
                 'is_saved' => true,
             ];
         }
-        return view('routing.index', ['savedRoutings' => $formattedRoutings]);
+        return $formattedRoutings;
     }
+
 
     /**
      * Memproses file Excel yang diunggah.
@@ -183,17 +201,11 @@ class RoutingController extends Controller
             return response()->json(['status' => 'success', 'message' => 'Data routing berhasil disimpan.']);
         } catch (\Exception $e) {
             Log::error('Gagal menyimpan routing: ' . $e->getMessage());
-            // [FIX] Memberikan pesan error yang lebih jelas jika kolom 'header' tidak ada
-            if (str_contains($e->getMessage(), "Unknown column 'header'")) {
-                $errorMessage = "Gagal menyimpan: Kolom 'header' tidak ditemukan di tabel 'routings'. Jalankan perintah SQL: ALTER TABLE routings ADD header TEXT NULL AFTER description;";
-            } else {
-                $errorMessage = 'Gagal menyimpan. Error dari server: ' . $e->getMessage();
-            }
+            $errorMessage = 'Gagal menyimpan. Error dari server: ' . $e->getMessage();
             return response()->json(['status' => 'error', 'message' => $errorMessage], 500);
         }
     }
 
-    // ... Sisa method lainnya tidak berubah ...
     public function markAsUploaded(Request $request)
     {
         $validated = $request->validate([
@@ -252,19 +264,11 @@ class RoutingController extends Controller
                 'password' => $request->password,
                 'routing_data' => $request->routing_data,
             ]);
-
-            if ($response->failed()) {
-                Log::error('SAP Upload Response Failed:', ['status' => $response->status(), 'body' => $response->json()]);
-            } else {
-                Log::info('SAP Upload Response Success:', ['status' => $response->status(), 'body' => $response->json()]);
-            }
             return response()->json($response->json(), $response->status());
         } catch (ConnectionException $e) {
-            Log::error('SAP Connection Error:', ['message' => $e->getMessage()]);
             $errorMessage = "Gagal terhubung ke Python: " . $e->getMessage();
             return response()->json(['error' => $errorMessage], 500);
         } catch (\Exception $e) {
-            Log::error('SAP Unexpected Error:', ['message' => $e->getMessage()]);
             return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
         }
     }
@@ -292,14 +296,21 @@ class RoutingController extends Controller
     {
         return DB::transaction(function () {
             $sequence = DocumentSequence::where('name', 'routing')->lockForUpdate()->first();
-            if (!$sequence) {
-                $sequence = new DocumentSequence();
-                $sequence->name = 'routing';
-                $sequence->last_number = 0;
-                $sequence->save();
+
+            if ($sequence) {
+                // Jika baris sudah ada, naikkan nomor urutnya
+                $sequence->increment('last_number');
+            } else {
+                // Jika belum ada, buat baris baru dengan nomor urut pertama (1)
+                $sequence = DocumentSequence::create([
+                    'name' => 'routing',
+                    'last_number' => 1
+                ]);
             }
-            $nextNumber = $sequence->last_number + 1;
-            DocumentSequence::where('name', 'routing')->update(['last_number' => $nextNumber]);
+
+            // Ambil nomor terbaru dari instance model
+            $nextNumber = $sequence->last_number;
+
             return 'RPP' . str_pad($nextNumber, 10, '0', STR_PAD_LEFT);
         });
     }
