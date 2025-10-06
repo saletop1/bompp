@@ -234,7 +234,7 @@
 
                     <div class="input-group themed-search">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control" id="search-input" placeholder="Cari berdasarkan Dokumen, Material, Deskripsi, atau Work Center..." autocomplete="new-password">
+                        <input type="text" class="form-control" id="search-input" placeholder="Cari berdasarkan Dokumen, Material, Deskripsi, atau Work Center..." autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" onpaste="return false;">
                     </div>
                 </div>
 
@@ -291,7 +291,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // PERUBAHAN: Menggunakan 'load' agar skrip berjalan setelah semua konten (termasuk gambar) dimuat.
+        // Menggunakan 'load' agar skrip berjalan setelah semua konten (termasuk gambar) dimuat.
         window.addEventListener('load', function () {
             let processedDataByFile = @json($savedRoutings ?? []);
             const historyRoutings = @json($historyRoutings ?? []);
@@ -311,12 +311,25 @@
             const saveModal = new bootstrap.Modal(document.getElementById('save-details-modal'));
             const progressModal = new bootstrap.Modal(document.getElementById('upload-progress-modal'));
 
-            // Solusi autofill yang lebih kuat
-            searchInput.readOnly = true;
-            setTimeout(() => {
-                searchInput.value = '';
-                searchInput.readOnly = false;
-            }, 100);
+            // === SCRIPT UNTUK MENGATASI MASALAH AUTOFILL (FAILSAFE) ===
+            const sapUsernameInput = document.getElementById('sap-username');
+            const sapPasswordInput = document.getElementById('sap-password');
+
+            // Kita tambahkan listener ke event 'focus' pada kolom password.
+            // Ini adalah momen di mana browser biasanya melakukan autofill.
+            sapPasswordInput.addEventListener('focus', () => {
+                // Setelah fokus, kita tunggu sesaat (misalnya 50 milidetik) untuk memberi waktu
+                // pada browser untuk melakukan autofill.
+                setTimeout(() => {
+                    // Kemudian kita cek apakah kolom pencarian (searchInput) nilainya
+                    // sama dengan username. Jika ya, berarti autofill salah sasaran.
+                    if (searchInput.value && searchInput.value === sapUsernameInput.value) {
+                        // Jika kondisi terpenuhi, kita kosongkan kolom pencarian.
+                        searchInput.value = '';
+                    }
+                }, 50);
+            });
+            // === AKHIR PERUBAHAN ===
 
             function getFlatData() { return processedDataByFile.flatMap(group => group.data); }
 
