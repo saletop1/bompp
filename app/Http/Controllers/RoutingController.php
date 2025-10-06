@@ -69,11 +69,22 @@ class RoutingController extends Controller
                 ];
             }
 
+            // PERUBAHAN: Tentukan waktu upload berdasarkan data terakhir jika ini adalah history
+            $uploadTimestamp = null;
+            if ($isHistory) {
+                // Ambil waktu upload terbaru dari grup dokumen ini
+                $latestRouting = $routings->sortByDesc('uploaded_to_sap_at')->first();
+                if ($latestRouting && $latestRouting->uploaded_to_sap_at) {
+                     $uploadTimestamp = Carbon::parse($latestRouting->uploaded_to_sap_at)->format('d M Y, H:i');
+                }
+            }
+
+
             $formattedRoutings[] = [
                 'fileName' => 'Dokumen: ' . $firstRouting->document_name . ' - ' . $firstRouting->product_name . ' (' . $docNumber . ')',
                 'document_number' => $docNumber,
                 'status' => $firstRouting->status,
-                'uploaded_at' => $isHistory && $firstRouting->uploaded_to_sap_at ? Carbon::parse($firstRouting->uploaded_to_sap_at)->format('d M Y, H:i') : null,
+                'uploaded_at' => $uploadTimestamp,
                 'data' => $groupData,
                 'is_saved' => true,
             ];
@@ -99,82 +110,72 @@ class RoutingController extends Controller
                 return response()->json(['error' => 'File Excel kosong atau hanya berisi header.'], 422);
             }
 
+             // Validasi Header
             $headers = $collection->first();
+            $fileHeaders = collect($headers)->map(fn($h) => trim(strtoupper($h)))->filter();
 
-            // --- START: VALIDASI HEADER ---
-            $fileHeaders = collect($headers)->map(function($cell) {
-                return $cell ? trim($cell) : null;
-            })->filter()->toArray();
+            $requiredHeaders = collect([
+                'MATERIAL', 'PLANT', 'DESCRIPTION', 'USAGE', 'STATUS', 'GRP CTR', 'OPERATION',
+                'WORK CNTR', 'CTRL KEY', 'DESCRIPTIONS', 'BASE QTY', 'UOM', 'ACTIVITY 1', 'UOM 1',
+                'ACTIVITY 2', 'UOM 2', 'ACTIVITY 3', 'UOM 3', 'ACTIVITY 4', 'UOM 4',
+                'ACTIVITY 5', 'UOM 5', 'ACTIVITY 6', 'UOM 6'
+            ])->map(fn($h) => strtoupper($h));
 
-            $requiredHeaders = [
-                'Material', 'Plant', 'Description', 'Usage', 'Status', 'Grp Ctr',
-                'Operation', 'Work Cntr', 'Ctrl Key', 'Descriptions', 'Base Qty', 'UoM',
-                'Activity 1', 'UoM 1', 'Activity 2', 'UoM 2', 'Activity 3', 'UoM 3',
-                'Activity 4', 'UoM 4', 'Activity 5', 'UoM 5', 'Activity 6', 'UoM 6'
-            ];
-            $missingHeaders = array_udiff($requiredHeaders, $fileHeaders, 'strcasecmp');
-            if (!empty($missingHeaders)) {
-                $errorMessage = 'Header tidak sesuai. Header yang hilang atau salah nama: ' . implode(', ', $missingHeaders);
-                return response()->json(['error' => $errorMessage], 422);
+            $missingHeaders = $requiredHeaders->diff($fileHeaders);
+
+            if ($missingHeaders->isNotEmpty()) {
+                return response()->json(['error' => 'Header tidak sesuai. Header yang hilang: ' . $missingHeaders->implode(', ')], 422);
             }
-            // --- END: VALIDASI HEADER ---
 
-            $cleanedHeaders = collect($headers)->map(function($cell) {
-                return $cell ? strtolower(str_replace([' ', '/'], '_', $cell)) : null;
-            })->filter()->toArray();
+            // Map header ke index untuk validasi data
+            $headerIndexMap = $fileHeaders->flip();
 
             $rows = $collection->slice(1);
-            $groupedByMaterial = [];
-            $rowNumber = 1; // Mulai dari baris 2 di Excel (indeks 0 adalah header)
-
-            foreach ($rows as $row) {
-                $rowNumber++;
-                $filteredRow = array_slice($row, 0, count($cleanedHeaders));
-                if (empty(array_filter($filteredRow, function($value) { return !is_null($value) && $value !== ''; }))) {
-                    continue; // Lewati baris yang sepenuhnya kosong
+             // Validasi Data
+            foreach ($rows as $index => $row) {
+                // Lewati baris kosong
+                if (empty(array_filter($row))) {
+                    continue;
                 }
 
-                // Pastikan jumlah sel cocok dengan header
-                if (count($cleanedHeaders) > count($filteredRow)) {
-                    // Pad a row with nulls if it's shorter than the header
-                    $filteredRow = array_pad($filteredRow, count($cleanedHeaders), null);
-                }
+                $rowNum = $index + 2;
+                $material = $row[$headerIndexMap['MATERIAL']] ?? 'N/A';
 
-                $rowData = array_combine($cleanedHeaders, $filteredRow);
-
-                // --- START: VALIDASI KOLOM WAJIB UNTUK OPERASI ---
-                $mandatoryOperationFields = ['operation', 'work_cntr', 'ctrl_key'];
-                foreach ($mandatoryOperationFields as $field) {
-                    if (!isset($rowData[$field]) || trim((string) $rowData[$field]) === '') {
-                        $materialForError = $rowData['material'] ?? 'N/A';
-                        $headerIndex = array_search($field, $cleanedHeaders);
-                        $originalHeader = ($headerIndex !== false && isset($headers[$headerIndex])) ? $headers[$headerIndex] : $field;
-                        throw new \Exception("Data tidak valid di baris {$rowNumber} untuk Material '{$materialForError}'. Kolom wajib '{$originalHeader}' tidak boleh kosong.");
+                // Kolom yang wajib diisi
+                $mandatoryCols = ['OPERATION', 'WORK CNTR', 'CTRL KEY'];
+                foreach ($mandatoryCols as $colName) {
+                    $value = $row[$headerIndexMap[$colName]] ?? null;
+                    if (is_null($value) || trim($value) === '') {
+                        return response()->json(['error' => "Data tidak valid pada baris {$rowNum} untuk Material '{$material}'. Kolom wajib '{$colName}' tidak boleh kosong."], 422);
                     }
                 }
-                // --- END: VALIDASI KOLOM WAJIB UNTUK OPERASI ---
 
-                // --- START: VALIDASI DAN SANITASI DATA NUMERIK ---
-                $numericFields = [
-                    'base_qty', 'activity_1', 'activity_2', 'activity_3',
-                    'activity_4', 'activity_5', 'activity_6'
-                ];
-
-                foreach ($numericFields as $field) {
-                    if (isset($rowData[$field])) {
-                        $value = trim((string) $rowData[$field]);
-                        if ($value === '' || is_null($value)) {
-                            $rowData[$field] = '0'; // Set default 0 untuk sel kosong
-                        } elseif (!is_numeric($value)) {
-                            $materialForError = $rowData['material'] ?? 'N/A';
-                            $headerIndex = array_search($field, $cleanedHeaders);
-                            $originalHeader = ($headerIndex !== false && isset($headers[$headerIndex])) ? $headers[$headerIndex] : $field;
-                            throw new \Exception("Data tidak valid di baris {$rowNumber} untuk Material '{$materialForError}'. Kolom '{$originalHeader}' berisi nilai '{$value}' yang bukan angka.");
+                // Kolom numerik
+                $numericCols = ['BASE QTY', 'ACTIVITY 1', 'ACTIVITY 2', 'ACTIVITY 3', 'ACTIVITY 4', 'ACTIVITY 5', 'ACTIVITY 6'];
+                foreach($numericCols as $colName) {
+                    if ($headerIndexMap->has($colName)) {
+                        $value = $row[$headerIndexMap[$colName]] ?? null;
+                         if (!is_null($value) && trim($value) !== '' && !is_numeric($value)) {
+                            return response()->json(['error' => "Data tidak valid pada baris {$rowNum} untuk Material '{$material}'. Kolom '{$colName}' berisi '{$value}', yang bukan angka."], 422);
                         }
                     }
                 }
-                // --- END: VALIDASI DAN SANITASI DATA NUMERIK ---
+            }
 
+
+            $cleanedHeaders = $fileHeaders->map(function($cell) {
+                return $cell ? strtolower(str_replace([' ', '/'], '_', $cell)) : null;
+            })->filter()->toArray();
+
+            $groupedByMaterial = [];
+
+            foreach ($rows as $row) {
+                $filteredRow = array_slice($row, 0, count($cleanedHeaders));
+                if (empty(array_filter($filteredRow))) {
+                    continue;
+                }
+
+                $rowData = array_combine($cleanedHeaders, $filteredRow);
                 $material = $rowData['material'] ?? null;
                 if (empty($material)) continue;
 
@@ -187,7 +188,7 @@ class RoutingController extends Controller
                             'IV_TASK_LIST_USAGE' => (string) ($rowData['usage'] ?? null),
                             'IV_TASK_LIST_STATUS' => (string) ($rowData['status'] ?? null),
                             'IV_GROUP_COUNTER' => '1',
-                            'IV_TASK_MEASURE_UNIT' => (string) ($rowData['uom'] ?? null),
+                            'IV_TASK_MEASURE_UNIT' => (string) $rowData['uom'] ?? null,
                         ],
                         'operations' => []
                     ];
@@ -201,18 +202,18 @@ class RoutingController extends Controller
                     'IV_ARBPL'   => (string) ($rowData['work_cntr'] ?? null),
                     'IV_STEUS'   => (string) ($rowData['ctrl_key'] ?? null),
                     'IV_LTXA1'   => (string) ($rowData['descriptions'] ?? null),
-                    'IV_BMSCHX'  => (string) ($rowData['base_qty'] ?? '0'),
-                    'IV_VGW01X'  => (string) ($rowData['activity_1'] ?? '0'),
+                    'IV_BMSCHX'  => (string) ($rowData['base_qty'] ?? null),
+                    'IV_VGW01X'  => (string) ($rowData['activity_1'] ?? null),
                     'IV_VGE01X'  => (string) ($rowData['uom_1'] ?? null),
-                    'IV_VGW02X'  => (string) ($rowData['activity_2'] ?? '0'),
+                    'IV_VGW02X'  => (string) ($rowData['activity_2'] ?? null),
                     'IV_VGE02X'  => (string) ($rowData['uom_2'] ?? null),
-                    'IV_VGW03X'  => (string) ($rowData['activity_3'] ?? '0'),
+                    'IV_VGW03X'  => (string) ($rowData['activity_3'] ?? null),
                     'IV_VGE03X'  => (string) ($rowData['uom_3'] ?? null),
-                    'IV_VGW04X'  => (string) ($rowData['activity_4'] ?? '0'),
+                    'IV_VGW04X'  => (string) ($rowData['activity_4'] ?? null),
                     'IV_VGE04X'  => (string) ($rowData['uom_4'] ?? null),
-                    'IV_VGW05X'  => (string) ($rowData['activity_5'] ?? '0'),
+                    'IV_VGW05X'  => (string) ($rowData['activity_5'] ?? null),
                     'IV_VGE05X'  => (string) ($rowData['uom_5'] ?? null),
-                    'IV_VGW06X'  => (string) ($rowData['activity_6'] ?? '0'),
+                    'IV_VGW06X'  => (string) ($rowData['activity_6'] ?? null),
                     'IV_VGE06X'  => (string) ($rowData['uom_6'] ?? null),
                 ];
                 $groupedByMaterial[$material]['operations'][] = $operation;
