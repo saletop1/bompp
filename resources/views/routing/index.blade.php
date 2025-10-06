@@ -234,7 +234,8 @@
 
                     <div class="input-group themed-search">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control" id="search-input" placeholder="Cari berdasarkan Dokumen, Material, Deskripsi, atau Work Center..." autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" onpaste="return false;">
+                        <!-- PERUBAHAN 1: Mengubah autocomplete ke "off" -->
+                        <input type="text" class="form-control" id="search-input" placeholder="Cari berdasarkan Dokumen, Material, Deskripsi, atau Work Center..." autocomplete="off">
                     </div>
                 </div>
 
@@ -311,7 +312,7 @@
             const saveModal = new bootstrap.Modal(document.getElementById('save-details-modal'));
             const progressModal = new bootstrap.Modal(document.getElementById('upload-progress-modal'));
 
-            // === SCRIPT UNTUK MENGATASI MASALAH AUTOFILL (FAILSAFE) ===
+            // === PERUBAHAN 2: SCRIPT UNTUK MENGATASI MASALAH AUTOFILL ===
             const sapUsernameInput = document.getElementById('sap-username');
             const sapPasswordInput = document.getElementById('sap-password');
 
@@ -330,6 +331,13 @@
                 }, 50);
             });
             // === AKHIR PERUBAHAN ===
+
+            // Solusi autofill yang sudah ada, kita biarkan karena membantu untuk kasus lain
+            searchInput.readOnly = true;
+            setTimeout(() => {
+                searchInput.value = '';
+                searchInput.readOnly = false;
+            }, 100);
 
             function getFlatData() { return processedDataByFile.flatMap(group => group.data); }
 
@@ -860,4 +868,3 @@
     </script>
 </body>
 </html>
-
