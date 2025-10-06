@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body { background-image: url("{{ asset('images/ainun.jpg') }}"); background-size: cover; background-position: center; background-attachment: fixed; min-height: 100vh; padding-top: 1rem; padding-bottom: 1rem; }
         .card { background: rgba(75, 74, 74, 0.33); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.3); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1); color: white; }
@@ -234,8 +235,7 @@
 
                     <div class="input-group themed-search">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <!-- PERUBAHAN 1: Mengubah autocomplete ke "off" -->
-                        <input type="text" class="form-control" id="search-input" placeholder="Cari berdasarkan Dokumen, Material, Deskripsi, atau Work Center..." autocomplete="off">
+                        <input type="text" class="form-control" id="search-input" placeholder="Cari berdasarkan Dokumen, Material, Deskripsi, atau Work Center..." autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" onpaste="return false;">
                     </div>
                 </div>
 
@@ -312,32 +312,18 @@
             const saveModal = new bootstrap.Modal(document.getElementById('save-details-modal'));
             const progressModal = new bootstrap.Modal(document.getElementById('upload-progress-modal'));
 
-            // === PERUBAHAN 2: SCRIPT UNTUK MENGATASI MASALAH AUTOFILL ===
+            // === SCRIPT UNTUK MENGATASI MASALAH AUTOFILL (FAILSAFE) ===
             const sapUsernameInput = document.getElementById('sap-username');
             const sapPasswordInput = document.getElementById('sap-password');
 
-            // Kita tambahkan listener ke event 'focus' pada kolom password.
-            // Ini adalah momen di mana browser biasanya melakukan autofill.
             sapPasswordInput.addEventListener('focus', () => {
-                // Setelah fokus, kita tunggu sesaat (misalnya 50 milidetik) untuk memberi waktu
-                // pada browser untuk melakukan autofill.
                 setTimeout(() => {
-                    // Kemudian kita cek apakah kolom pencarian (searchInput) nilainya
-                    // sama dengan username. Jika ya, berarti autofill salah sasaran.
                     if (searchInput.value && searchInput.value === sapUsernameInput.value) {
-                        // Jika kondisi terpenuhi, kita kosongkan kolom pencarian.
                         searchInput.value = '';
                     }
                 }, 50);
             });
             // === AKHIR PERUBAHAN ===
-
-            // Solusi autofill yang sudah ada, kita biarkan karena membantu untuk kasus lain
-            searchInput.readOnly = true;
-            setTimeout(() => {
-                searchInput.value = '';
-                searchInput.readOnly = false;
-            }, 100);
 
             function getFlatData() { return processedDataByFile.flatMap(group => group.data); }
 
@@ -766,24 +752,119 @@
 
             uploadForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
+                const fileInput = document.getElementById('routing_file');
+                const file = fileInput.files[0];
+
+                if (!file) {
+                    Swal.fire({title: 'Peringatan', text: 'Silakan pilih file terlebih dahulu.', icon: 'warning'});
+                    return;
+                }
+
                 processBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
                 processBtn.disabled = true;
-                try {
-                    const response = await fetch("{{ route('routing.processFile') }}", {
-                        method: 'POST', body: new FormData(this),
-                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'}
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.error || 'Gagal memproses file.');
-                    processedDataByFile.push(result);
-                    renderPendingTable();
-                } catch (error) {
-                    Swal.fire({title: 'Error!', text: error.message, icon: 'error'});
-                } finally {
+
+                const requiredHeaders = [
+                    'Material', 'Plant', 'Description', 'Usage', 'Status', 'Grp Ctr',
+                    'Operation', 'Work Cntr', 'Ctrl Key', 'Descriptions', 'Base Qty', 'UoM',
+                    'Activity 1', 'UoM 1', 'Activity 2', 'UoM 2', 'Activity 3', 'UoM 3',
+                    'Activity 4', 'UoM 4', 'Activity 5', 'UoM 5', 'Activity 6', 'UoM 6'
+                ];
+
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const data = event.target.result;
+                        const workbook = XLSX.read(data, { type: 'binary' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                        if(jsonData.length < 2){
+                            throw new Error('File Excel kosong atau hanya berisi header.');
+                        }
+
+                        const headerRow = jsonData[0] || [];
+
+                        const fileHeadersUpper = headerRow.map(h => typeof h === 'string' ? h.trim().toUpperCase() : '');
+                        const missingHeaders = requiredHeaders.filter(rh => !fileHeadersUpper.includes(rh.toUpperCase()));
+
+                        if (missingHeaders.length > 0) {
+                            throw new Error(`Header tidak sesuai. Header yang hilang atau salah nama: ${missingHeaders.join(', ')}`);
+                        }
+
+                        const dataRows = jsonData.slice(1);
+                        const headerNames = headerRow.map(h => typeof h === 'string' ? h.trim() : '');
+                        const colIndices = {};
+                        headerNames.forEach((h, i) => { colIndices[h.toUpperCase()] = i; });
+
+                        // --- START: VALIDASI DATA WAJIB & NUMERIK ---
+                        const numericColsForCheck = [
+                            'Base Qty', 'Activity 1', 'Activity 2', 'Activity 3',
+                            'Activity 4', 'Activity 5', 'Activity 6'
+                        ];
+                        const mandatoryOperationCols = ['Operation', 'Work Cntr', 'Ctrl Key'];
+
+                        for (let i = 0; i < dataRows.length; i++) {
+                            const row = dataRows[i];
+                            const rowNum = i + 2;
+
+                            // Lewati baris yang sepenuhnya kosong
+                            if (row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
+                                continue;
+                            }
+
+                            const material = row[colIndices['MATERIAL'.toUpperCase()]] || `Data di baris ${rowNum}`;
+
+                            // Cek kolom wajib untuk operasi
+                            for (const colName of mandatoryOperationCols) {
+                                const colIndex = colIndices[colName.toUpperCase()];
+                                const value = (colIndex !== undefined) ? row[colIndex] : undefined;
+                                if (value === null || value === undefined || String(value).trim() === '') {
+                                    throw new Error(`Data tidak valid pada baris ${rowNum} untuk Material '${material}'. Kolom wajib '${colName}' tidak boleh kosong.`);
+                                }
+                            }
+
+                            // Cek kolom numerik
+                            for (const colName of numericColsForCheck) {
+                                const colIndex = colIndices[colName.toUpperCase()];
+                                if (colIndex !== undefined) {
+                                    const value = row[colIndex];
+                                    if (value !== null && value !== undefined && String(value).trim() !== '' && isNaN(value)) {
+                                        throw new Error(`Data tidak valid pada baris ${rowNum} untuk Material '${material}'. Kolom '${colName}' berisi '${value}', yang bukan angka.`);
+                                    }
+                                }
+                            }
+                        }
+                        // --- END: VALIDASI DATA WAJIB & NUMERIK ---
+
+                        const formData = new FormData(uploadForm);
+                        const response = await fetch("{{ route('routing.processFile') }}", {
+                            method: 'POST', body: formData,
+                            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'}
+                        });
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error || 'Gagal memproses file di server.');
+
+                        processedDataByFile.push(result);
+                        renderPendingTable();
+
+                    } catch (error) {
+                        Swal.fire({title: 'Error Validasi File!', html: error.message, icon: 'error'});
+                    } finally {
+                        processBtn.innerHTML = `<i class="bi bi-gear-fill"></i>`;
+                        processBtn.disabled = false;
+                        uploadForm.reset();
+                    }
+                };
+
+                reader.onerror = (error) => {
+                    Swal.fire({title: 'Error!', text: 'Gagal membaca file.', icon: 'error'});
                     processBtn.innerHTML = `<i class="bi bi-gear-fill"></i>`;
                     processBtn.disabled = false;
                     uploadForm.reset();
-                }
+                };
+
+                reader.readAsBinaryString(file);
             });
 
             deleteSelectedBtn.addEventListener('click', performDeletion);
@@ -802,17 +883,13 @@
 
             selectAllCheckbox.addEventListener('change', (e) => {
                 const isChecked = e.target.checked;
-
-                // Memilih/membatalkan semua checkbox
                 document.querySelectorAll('.document-group-checkbox, .row-checkbox:not(:disabled)').forEach(cb => cb.checked = isChecked);
                 updateButtonStates();
 
-                // Membuka/menutup semua header dokumen
                 const allHeaders = document.querySelectorAll('#results-tbody .document-header-row');
                 const allMainCollapsibleRows = document.querySelectorAll('#results-tbody > tr.collapse');
 
                 if (isChecked) {
-                    // Buka semua
                     allHeaders.forEach(header => {
                         header.classList.remove('collapsed');
                         header.setAttribute('aria-expanded', 'true');
@@ -821,7 +898,6 @@
                         row.classList.add('show');
                     });
                 } else {
-                    // Tutup semua
                     allHeaders.forEach(header => {
                         header.classList.add('collapsed');
                         header.setAttribute('aria-expanded', 'false');
@@ -868,3 +944,4 @@
     </script>
 </body>
 </html>
+
