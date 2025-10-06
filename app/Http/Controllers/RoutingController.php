@@ -69,12 +69,11 @@ class RoutingController extends Controller
                 ];
             }
 
-            // PERUBAHAN: Tentukan waktu upload berdasarkan data terakhir jika ini adalah history
             $uploadTimestamp = null;
             if ($isHistory) {
-                // Ambil waktu upload terbaru dari grup dokumen ini
                 $latestRouting = $routings->sortByDesc('uploaded_to_sap_at')->first();
                 if ($latestRouting && $latestRouting->uploaded_to_sap_at) {
+                     // PERUBAHAN: Menggunakan format 24 jam (H:i)
                      $uploadTimestamp = Carbon::parse($latestRouting->uploaded_to_sap_at)->format('d M Y, H:i');
                 }
             }
