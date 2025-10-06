@@ -44,7 +44,7 @@
         thead th {
             position: sticky;
             top: 0;
-            z-index: 10;
+            z-index: 2; /* Header utama, lapisan paling atas */
             background-color: #343a40;
             border-bottom: 2px solid rgba(0, 0, 0, 0.2);
             font-size: 0.8rem;
@@ -60,11 +60,14 @@
         }
         .document-header-row {
             cursor: pointer;
-            background-color: #e9ecef !important;
             border-top: 1px solid rgba(0, 0, 0, 0.1);
             border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
-            position: relative; /* PERUBAHAN: Menetapkan stacking context */
-            z-index: 1;      /* PERUBAHAN: Memastikan di bawah header utama */
+        }
+        .document-header-row > td {
+            position: sticky;
+            top: 40px; /* Jarak dari atas, persis di bawah header utama */
+            background-color: #e9ecef; /* Latar belakang solid untuk menutupi konten */
+            z-index: 1; /* Lapisan di bawah header utama */
         }
         #results-tbody > .document-header-row:first-child {
             border-top: none;
@@ -199,6 +202,10 @@
             color: #004d00; /* Hijau lebih tua untuk header */
         }
 
+        .operation-details-table td, .operation-details-table th {
+            text-align: center;
+        }
+
     </style>
 </head>
 <body>
@@ -245,7 +252,16 @@
                             <thead>
                                 <tr>
                                     <th><input class="form-check-input" type="checkbox" id="select-all-checkbox"></th>
-                                    <th>#</th><th>Material</th><th>Plant</th><th>Description</th><th>Jml Operasi</th><th>Status</th><th>Aksi</th>
+                                    <th>#</th>
+                                    <th>Material</th>
+                                    <th>Plant</th>
+                                    <th>Description</th>
+                                    <th>
+                                        Jml Operasi
+                                        <input class="form-check-input ms-1" type="checkbox" id="toggle-all-details-checkbox" title="Buka/Tutup Semua Detail Operasi">
+                                    </th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody id="results-tbody">
@@ -338,7 +354,8 @@
                     const collapseId = `collapse-doc-${fileIndex}`;
                     const headerRow = document.createElement('tr');
                     headerRow.className = 'document-header-row collapsed';
-                    headerRow.setAttribute('data-bs-toggle', 'collapse');
+                    // PERUBAHAN: Hapus data-bs-toggle untuk mengambil alih kontrol
+                    // headerRow.setAttribute('data-bs-toggle', 'collapse');
                     headerRow.setAttribute('data-bs-target', `.${collapseId}`);
                     headerRow.setAttribute('aria-expanded', 'false');
                     headerRow.setAttribute('data-file-index', fileIndex);
@@ -493,10 +510,28 @@
                     });
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.message);
+
                     Toast.fire({ icon: 'success', title: 'Status diperbarui' });
+
+                    // Update data model di memory (tanpa render ulang)
                     const docGroup = processedDataByFile.find(g => g.document_number === document_number);
-                    if (docGroup) docGroup.status = status;
-                    renderPendingTable(processedDataByFile);
+                    if (docGroup) {
+                        docGroup.status = status;
+                    }
+
+                    // Cari tombol status yang sesuai di DOM
+                    const cycleBtn = document.querySelector(`.status-cycle-btn[data-doc-number="${document_number}"]`);
+                    if (cycleBtn) {
+                        // Hapus semua class status lama
+                        cycleBtn.classList.remove('status-urgent', 'status-priority', 'status-standart', 'status-none');
+
+                        // Tambahkan class baru dan update teks
+                        const newStatus = status || 'None';
+                        const newStatusClass = newStatus.toLowerCase();
+                        cycleBtn.classList.add(`status-${newStatusClass}`);
+                        cycleBtn.textContent = newStatus.replace('None', 'Set Status');
+                        cycleBtn.dataset.currentStatus = status; // Update data attribute
+                    }
                 } catch (error) {
                     console.error('Gagal menyimpan status:', error);
                     Toast.fire({ icon: 'error', title: 'Gagal menyimpan status' });
@@ -915,22 +950,15 @@
                 updateButtonStates();
             });
 
+            // PERUBAHAN: Listener klik baru yang lebih cerdas
             resultsTbody.addEventListener('click', e => {
-                if (e.target.classList.contains('delete-row-icon')) {
-                    const globalIndex = parseInt(e.target.dataset.globalIndex);
-                    document.querySelectorAll('.row-checkbox, .document-group-checkbox').forEach(cb => cb.checked = false);
-                    const targetCheckbox = document.querySelector(`.row-checkbox[data-global-index="${globalIndex}"]`);
-                    if(targetCheckbox) targetCheckbox.checked = true;
-                    performDeletion();
-                }
-
+                // 1. Cek apakah klik terjadi pada tombol ganti status
                 const cycleBtn = e.target.closest('.status-cycle-btn');
                 if (cycleBtn) {
-                    e.preventDefault();
+                    e.preventDefault(); // Mencegah aksi default
                     const statuses = ['', 'Urgent', 'Priority', 'Standart'];
                     const currentStatus = cycleBtn.dataset.currentStatus;
                     const docNumber = cycleBtn.dataset.docNumber;
-
                     const currentIndex = statuses.indexOf(currentStatus);
                     const nextIndex = (currentIndex + 1) % statuses.length;
                     const newStatus = statuses[nextIndex];
@@ -938,10 +966,57 @@
                     if (docNumber) {
                         updateDocumentStatusOnServer(docNumber, newStatus);
                     }
+                    return; // Hentikan eksekusi agar tidak menjalankan toggle baris
+                }
+
+                // 2. Cek apakah klik terjadi pada ikon hapus
+                const deleteBtn = e.target.closest('.delete-row-icon');
+                if (deleteBtn) {
+                    const globalIndex = parseInt(deleteBtn.dataset.globalIndex);
+                    document.querySelectorAll('.row-checkbox, .document-group-checkbox').forEach(cb => cb.checked = false);
+                    const targetCheckbox = document.querySelector(`.row-checkbox[data-global-index="${globalIndex}"]`);
+                    if(targetCheckbox) targetCheckbox.checked = true;
+                    performDeletion();
+                    return; // Hentikan eksekusi
+                }
+
+                // 3. Jika bukan keduanya, jalankan aksi toggle untuk baris header
+                const headerRow = e.target.closest('.document-header-row');
+                if (headerRow) {
+                    const targetSelector = headerRow.getAttribute('data-bs-target');
+                    if (targetSelector) {
+                        const collapsibleElements = document.querySelectorAll(targetSelector);
+                        collapsibleElements.forEach(element => {
+                            const collapseInstance = bootstrap.Collapse.getOrCreateInstance(element);
+                            collapseInstance.toggle();
+                        });
+                    }
+                    const isCollapsed = headerRow.classList.toggle('collapsed');
+                    headerRow.setAttribute('aria-expanded', !isCollapsed);
                 }
             });
+
+            // PENAMBAHAN: Event listener untuk checkbox "Buka Semua Detail"
+            const toggleAllDetailsCheckbox = document.getElementById('toggle-all-details-checkbox');
+            if(toggleAllDetailsCheckbox) {
+                toggleAllDetailsCheckbox.addEventListener('change', (e) => {
+                    const isChecked = e.target.checked;
+                    // Cari semua elemen collapse yang merupakan detail operasi di dalam tbody
+                    const allDetailElements = document.querySelectorAll('#results-tbody .collapse-row .collapse');
+
+                    allDetailElements.forEach(element => {
+                        const collapseInstance = bootstrap.Collapse.getOrCreateInstance(element);
+                        if (isChecked) {
+                            collapseInstance.show();
+                        } else {
+                            collapseInstance.hide();
+                        }
+                    });
+                });
+            }
         });
     </script>
 </body>
 </html>
+" and the user is asking about why the routing master is broken. I have selected the whole document for the user.
 
