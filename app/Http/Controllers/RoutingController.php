@@ -26,11 +26,12 @@ class RoutingController extends Controller
                             ->get();
         $formattedPendingRoutings = $this->formatRoutingsForView($pendingData);
 
-        // --- 2. Ambil Data Histori (Sudah Diunggah) ---
-        $historyData = Routing::whereNotNull('uploaded_to_sap_at')
-                            ->orderBy('uploaded_to_sap_at', 'desc')
-                            ->get();
-        $formattedHistoryRoutings = $this->formatRoutingsForView($historyData, true);
+        // --- 2. Ambil Data Histori (Termasuk yang belum diupload dari dokumen yang sama) ---
+        $historyDocs = Routing::whereIn('document_number', function($query){
+            $query->select('document_number')->from('routings')->whereNotNull('uploaded_to_sap_at');
+        })->orderBy('uploaded_to_sap_at', 'desc')->get();
+
+        $formattedHistoryRoutings = $this->formatRoutingsForView($historyDocs, true);
 
 
         return view('routing.index', [
@@ -63,18 +64,27 @@ class RoutingController extends Controller
                     'IV_DESCRIPTION' => $routing->description,
                 ];
 
-                $groupData[] = [
+                $itemData = [
                     'header' => $header_data,
                     'operations' => $operations
                 ];
+
+                if ($isHistory) {
+                    // PERUBAHAN: Konversi ke zona waktu Asia/Jakarta dan gunakan format 'H:i' (24 jam)
+                    $itemData['uploaded_at_item'] = $routing->uploaded_to_sap_at
+                        ? Carbon::parse($routing->uploaded_to_sap_at)->timezone('Asia/Jakarta')->format('d M Y, H:i')
+                        : 'Pending';
+                }
+
+                $groupData[] = $itemData;
             }
 
             $uploadTimestamp = null;
             if ($isHistory) {
-                $latestRouting = $routings->sortByDesc('uploaded_to_sap_at')->first();
+                $latestRouting = $routings->whereNotNull('uploaded_to_sap_at')->sortByDesc('uploaded_to_sap_at')->first();
                 if ($latestRouting && $latestRouting->uploaded_to_sap_at) {
-                     // PERUBAHAN: Menggunakan format 24 jam (H:i)
-                     $uploadTimestamp = Carbon::parse($latestRouting->uploaded_to_sap_at)->format('d M Y, H:i');
+                     // PERUBAHAN: Konversi ke zona waktu Asia/Jakarta dan gunakan format 'H:i' (24 jam)
+                     $uploadTimestamp = Carbon::parse($latestRouting->uploaded_to_sap_at)->timezone('Asia/Jakarta')->format('d M Y, H:i');
                 }
             }
 
@@ -189,15 +199,25 @@ class RoutingController extends Controller
                             'IV_GROUP_COUNTER' => '1',
                             'IV_TASK_MEASURE_UNIT' => (string) $rowData['uom'] ?? null,
                         ],
-                        'operations' => []
+                        'operations' => [],
+                        'last_vornr' => 0
                     ];
                 }
+
+                $next_vornr = 0;
+                if ($groupedByMaterial[$material]['last_vornr'] == 0) {
+                    $next_vornr = (int)($rowData['operation'] ?? 10);
+                } else {
+                    $next_vornr = $groupedByMaterial[$material]['last_vornr'] + 10;
+                }
+
+                $groupedByMaterial[$material]['last_vornr'] = $next_vornr;
 
                 $operation = [
                     'IV_MATNR'   => (string) ($material),
                     'IV_WERKS'   => (string) ($rowData['plant'] ?? null),
                     'IV_PLNAL'   => (string) ($rowData['grp_ctr'] ?? null),
-                    'IV_VORNR'   => (string) ($rowData['operation'] ?? null),
+                    'IV_VORNR'   => (string)$next_vornr,
                     'IV_ARBPL'   => (string) ($rowData['work_cntr'] ?? null),
                     'IV_STEUS'   => (string) ($rowData['ctrl_key'] ?? null),
                     'IV_LTXA1'   => (string) ($rowData['descriptions'] ?? null),
@@ -222,7 +242,13 @@ class RoutingController extends Controller
                 return response()->json(['error' => 'Tidak ada data valid yang ditemukan. Periksa nama kolom "Material".'], 422);
             }
 
-            return response()->json(['fileName' => $fileName, 'data' => array_values($groupedByMaterial), 'is_saved' => false]);
+            // Hapus 'last_vornr' sebelum mengirim ke response JSON
+            $finalData = array_map(function($group) {
+                unset($group['last_vornr']);
+                return $group;
+            }, array_values($groupedByMaterial));
+
+            return response()->json(['fileName' => $fileName, 'data' => $finalData, 'is_saved' => false]);
         } catch (\Exception $e) {
             Log::error('Error processing routing file: ' . $e->getMessage());
             return response()->json(['error' => 'Gagal memproses file. Pesan: ' . $e->getMessage()], 422);
@@ -376,3 +402,4 @@ class RoutingController extends Controller
         });
     }
 }
+

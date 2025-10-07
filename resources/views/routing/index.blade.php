@@ -311,7 +311,7 @@
         // Menggunakan 'load' agar skrip berjalan setelah semua konten (termasuk gambar) dimuat.
         window.addEventListener('load', function () {
             let processedDataByFile = @json($savedRoutings ?? []);
-            const historyRoutings = @json($historyRoutings ?? []);
+            let historyRoutings = @json($historyRoutings ?? []);
 
             const uploadForm = document.getElementById('upload-form');
             const processBtn = document.getElementById('process-btn');
@@ -354,8 +354,6 @@
                     const collapseId = `collapse-doc-${fileIndex}`;
                     const headerRow = document.createElement('tr');
                     headerRow.className = 'document-header-row collapsed';
-                    // PERUBAHAN: Hapus data-bs-toggle untuk mengambil alih kontrol
-                    // headerRow.setAttribute('data-bs-toggle', 'collapse');
                     headerRow.setAttribute('data-bs-target', `.${collapseId}`);
                     headerRow.setAttribute('aria-expanded', 'false');
                     headerRow.setAttribute('data-file-index', fileIndex);
@@ -460,7 +458,7 @@
                         </div>
                     </td>`;
 
-                    let innerHtml = '<table class="table table-sm table-borderless"><thead><tr><th>Material</th><th>Description</th><th>Jml Operasi</th></tr></thead><tbody>';
+                    let innerHtml = '<table class="table table-sm table-borderless"><thead><tr><th>Material</th><th>Description</th><th>Jml Operasi</th><th>Tgl Eksekusi</th></tr></thead><tbody>';
                     doc.data.forEach(item => {
                         const opCollapseId = `history-op-collapse-${historyGlobalIndex}`;
                         innerHtml += `
@@ -470,6 +468,7 @@
                                 <td class="details-toggle" data-bs-toggle="collapse" data-bs-target="#${opCollapseId}">
                                     ${(item.operations || []).length} <i class="bi bi-info-circle ms-1 small"></i>
                                 </td>
+                                <td>${item.uploaded_at_item || 'N/A'}</td>
                             </tr>`;
 
                         let operationsTable = `<table class="table table-sm mb-0 operation-details-table"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
@@ -487,7 +486,7 @@
 
                         innerHtml += `
                             <tr class="collapse-row">
-                                <td colspan="3" class="p-0">
+                                <td colspan="4" class="p-0">
                                     <div class="collapse" id="${opCollapseId}"><div class="p-2 details-card">${operationsTable}</div></div>
                                 </td>
                             </tr>`;
@@ -513,24 +512,20 @@
 
                     Toast.fire({ icon: 'success', title: 'Status diperbarui' });
 
-                    // Update data model di memory (tanpa render ulang)
                     const docGroup = processedDataByFile.find(g => g.document_number === document_number);
                     if (docGroup) {
                         docGroup.status = status;
                     }
 
-                    // Cari tombol status yang sesuai di DOM
                     const cycleBtn = document.querySelector(`.status-cycle-btn[data-doc-number="${document_number}"]`);
                     if (cycleBtn) {
-                        // Hapus semua class status lama
                         cycleBtn.classList.remove('status-urgent', 'status-priority', 'status-standart', 'status-none');
 
-                        // Tambahkan class baru dan update teks
                         const newStatus = status || 'None';
                         const newStatusClass = newStatus.toLowerCase();
                         cycleBtn.classList.add(`status-${newStatusClass}`);
                         cycleBtn.textContent = newStatus.replace('None', 'Set Status');
-                        cycleBtn.dataset.currentStatus = status; // Update data attribute
+                        cycleBtn.dataset.currentStatus = status;
                     }
                 } catch (error) {
                     console.error('Gagal menyimpan status:', error);
@@ -950,12 +945,10 @@
                 updateButtonStates();
             });
 
-            // PERUBAHAN: Listener klik baru yang lebih cerdas
             resultsTbody.addEventListener('click', e => {
-                // 1. Cek apakah klik terjadi pada tombol ganti status
                 const cycleBtn = e.target.closest('.status-cycle-btn');
                 if (cycleBtn) {
-                    e.preventDefault(); // Mencegah aksi default
+                    e.preventDefault();
                     const statuses = ['', 'Urgent', 'Priority', 'Standart'];
                     const currentStatus = cycleBtn.dataset.currentStatus;
                     const docNumber = cycleBtn.dataset.docNumber;
@@ -966,10 +959,9 @@
                     if (docNumber) {
                         updateDocumentStatusOnServer(docNumber, newStatus);
                     }
-                    return; // Hentikan eksekusi agar tidak menjalankan toggle baris
+                    return;
                 }
 
-                // 2. Cek apakah klik terjadi pada ikon hapus
                 const deleteBtn = e.target.closest('.delete-row-icon');
                 if (deleteBtn) {
                     const globalIndex = parseInt(deleteBtn.dataset.globalIndex);
@@ -977,10 +969,9 @@
                     const targetCheckbox = document.querySelector(`.row-checkbox[data-global-index="${globalIndex}"]`);
                     if(targetCheckbox) targetCheckbox.checked = true;
                     performDeletion();
-                    return; // Hentikan eksekusi
+                    return;
                 }
 
-                // 3. Jika bukan keduanya, jalankan aksi toggle untuk baris header
                 const headerRow = e.target.closest('.document-header-row');
                 if (headerRow) {
                     const targetSelector = headerRow.getAttribute('data-bs-target');
@@ -996,12 +987,10 @@
                 }
             });
 
-            // PENAMBAHAN: Event listener untuk checkbox "Buka Semua Detail"
             const toggleAllDetailsCheckbox = document.getElementById('toggle-all-details-checkbox');
             if(toggleAllDetailsCheckbox) {
                 toggleAllDetailsCheckbox.addEventListener('change', (e) => {
                     const isChecked = e.target.checked;
-                    // Cari semua elemen collapse yang merupakan detail operasi di dalam tbody
                     const allDetailElements = document.querySelectorAll('#results-tbody .collapse-row .collapse');
 
                     allDetailElements.forEach(element => {
@@ -1018,5 +1007,4 @@
     </script>
 </body>
 </html>
-" and the user is asking about why the routing master is broken. I have selected the whole document for the user.
 
