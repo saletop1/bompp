@@ -70,7 +70,6 @@ class RoutingController extends Controller
                 ];
 
                 if ($isHistory) {
-                    // PERUBAHAN: Konversi ke zona waktu Asia/Jakarta dan gunakan format 'H:i' (24 jam)
                     $itemData['uploaded_at_item'] = $routing->uploaded_to_sap_at
                         ? Carbon::parse($routing->uploaded_to_sap_at)->timezone('Asia/Jakarta')->format('d M Y, H:i')
                         : 'Pending';
@@ -83,7 +82,6 @@ class RoutingController extends Controller
             if ($isHistory) {
                 $latestRouting = $routings->whereNotNull('uploaded_to_sap_at')->sortByDesc('uploaded_to_sap_at')->first();
                 if ($latestRouting && $latestRouting->uploaded_to_sap_at) {
-                     // PERUBAHAN: Konversi ke zona waktu Asia/Jakarta dan gunakan format 'H:i' (24 jam)
                      $uploadTimestamp = Carbon::parse($latestRouting->uploaded_to_sap_at)->timezone('Asia/Jakarta')->format('d M Y, H:i');
                 }
             }
@@ -119,15 +117,12 @@ class RoutingController extends Controller
                 return response()->json(['error' => 'File Excel kosong atau hanya berisi header.'], 422);
             }
 
-             // Validasi Header
             $headers = $collection->first();
             $fileHeaders = collect($headers)->map(fn($h) => trim(strtoupper($h)))->filter();
 
             $requiredHeaders = collect([
                 'MATERIAL', 'PLANT', 'DESCRIPTION', 'USAGE', 'STATUS', 'GRP CTR', 'OPERATION',
-                'WORK CNTR', 'CTRL KEY', 'DESCRIPTIONS', 'BASE QTY', 'UOM', 'ACTIVITY 1', 'UOM 1',
-                'ACTIVITY 2', 'UOM 2', 'ACTIVITY 3', 'UOM 3', 'ACTIVITY 4', 'UOM 4',
-                'ACTIVITY 5', 'UOM 5', 'ACTIVITY 6', 'UOM 6'
+                'WORK CNTR', 'CTRL KEY', 'DESCRIPTIONS', 'BASE QTY', 'UOM', 'ACTIVITY 1', 'UOM 1'
             ])->map(fn($h) => strtoupper($h));
 
             $missingHeaders = $requiredHeaders->diff($fileHeaders);
@@ -136,21 +131,13 @@ class RoutingController extends Controller
                 return response()->json(['error' => 'Header tidak sesuai. Header yang hilang: ' . $missingHeaders->implode(', ')], 422);
             }
 
-            // Map header ke index untuk validasi data
             $headerIndexMap = $fileHeaders->flip();
-
             $rows = $collection->slice(1);
-             // Validasi Data
-            foreach ($rows as $index => $row) {
-                // Lewati baris kosong
-                if (empty(array_filter($row))) {
-                    continue;
-                }
 
+            foreach ($rows as $index => $row) {
+                if (empty(array_filter($row))) continue;
                 $rowNum = $index + 2;
                 $material = $row[$headerIndexMap['MATERIAL']] ?? 'N/A';
-
-                // Kolom yang wajib diisi
                 $mandatoryCols = ['OPERATION', 'WORK CNTR', 'CTRL KEY'];
                 foreach ($mandatoryCols as $colName) {
                     $value = $row[$headerIndexMap[$colName]] ?? null;
@@ -158,19 +145,7 @@ class RoutingController extends Controller
                         return response()->json(['error' => "Data tidak valid pada baris {$rowNum} untuk Material '{$material}'. Kolom wajib '{$colName}' tidak boleh kosong."], 422);
                     }
                 }
-
-                // Kolom numerik
-                $numericCols = ['BASE QTY', 'ACTIVITY 1', 'ACTIVITY 2', 'ACTIVITY 3', 'ACTIVITY 4', 'ACTIVITY 5', 'ACTIVITY 6'];
-                foreach($numericCols as $colName) {
-                    if ($headerIndexMap->has($colName)) {
-                        $value = $row[$headerIndexMap[$colName]] ?? null;
-                         if (!is_null($value) && trim($value) !== '' && !is_numeric($value)) {
-                            return response()->json(['error' => "Data tidak valid pada baris {$rowNum} untuk Material '{$material}'. Kolom '{$colName}' berisi '{$value}', yang bukan angka."], 422);
-                        }
-                    }
-                }
             }
-
 
             $cleanedHeaders = $fileHeaders->map(function($cell) {
                 return $cell ? strtolower(str_replace([' ', '/'], '_', $cell)) : null;
@@ -180,9 +155,7 @@ class RoutingController extends Controller
 
             foreach ($rows as $row) {
                 $filteredRow = array_slice($row, 0, count($cleanedHeaders));
-                if (empty(array_filter($filteredRow))) {
-                    continue;
-                }
+                if (empty(array_filter($filteredRow))) continue;
 
                 $rowData = array_combine($cleanedHeaders, $filteredRow);
                 $material = $rowData['material'] ?? null;
@@ -194,47 +167,40 @@ class RoutingController extends Controller
                             'IV_MATERIAL' => (string) ($rowData['material'] ?? null),
                             'IV_PLANT' => (string) ($rowData['plant'] ?? null),
                             'IV_DESCRIPTION' => (string) ($rowData['description'] ?? null),
-                            'IV_TASK_LIST_USAGE' => (string) ($rowData['usage'] ?? null),
-                            'IV_TASK_LIST_STATUS' => (string) ($rowData['status'] ?? null),
+                            'IV_TASK_LIST_USAGE' => (string) ($rowData['usage'] ?? '1'),
+                            'IV_TASK_LIST_STATUS' => (string) ($rowData['status'] ?? '4'),
                             'IV_GROUP_COUNTER' => '1',
-                            'IV_TASK_MEASURE_UNIT' => (string) $rowData['uom'] ?? null,
+                            'IV_TASK_MEASURE_UNIT' => (string) ($rowData['uom'] ?? 'PC'),
                         ],
                         'operations' => [],
-                        'last_vornr' => 0
                     ];
                 }
-
-                $next_vornr = 0;
-                if ($groupedByMaterial[$material]['last_vornr'] == 0) {
-                    $next_vornr = (int)($rowData['operation'] ?? 10);
-                } else {
-                    $next_vornr = $groupedByMaterial[$material]['last_vornr'] + 10;
-                }
-
-                $groupedByMaterial[$material]['last_vornr'] = $next_vornr;
 
                 $operation = [
                     'IV_MATNR'   => (string) ($material),
                     'IV_WERKS'   => (string) ($rowData['plant'] ?? null),
-                    'IV_PLNAL'   => (string) ($rowData['grp_ctr'] ?? null),
-                    'IV_VORNR'   => (string)$next_vornr,
+                    // [PERBAIKAN 1] Memastikan Group Counter selalu 2 digit (misal: '1' menjadi '01')
+                    'IV_PLNAL'   => str_pad((string)($rowData['grp_ctr'] ?? '1'), 2, '0', STR_PAD_LEFT),
+                    'IV_VORNR'   => (string) ($rowData['operation'] ?? null),
                     'IV_ARBPL'   => (string) ($rowData['work_cntr'] ?? null),
                     'IV_STEUS'   => (string) ($rowData['ctrl_key'] ?? null),
                     'IV_LTXA1'   => (string) ($rowData['descriptions'] ?? null),
-                    'IV_BMSCHX'  => (string) ($rowData['base_qty'] ?? null),
-                    'IV_VGW01X'  => (string) ($rowData['activity_1'] ?? null),
-                    'IV_VGE01X'  => (string) ($rowData['uom_1'] ?? null),
-                    'IV_VGW02X'  => (string) ($rowData['activity_2'] ?? null),
-                    'IV_VGE02X'  => (string) ($rowData['uom_2'] ?? null),
-                    'IV_VGW03X'  => (string) ($rowData['activity_3'] ?? null),
-                    'IV_VGE03X'  => (string) ($rowData['uom_3'] ?? null),
-                    'IV_VGW04X'  => (string) ($rowData['activity_4'] ?? null),
-                    'IV_VGE04X'  => (string) ($rowData['uom_4'] ?? null),
-                    'IV_VGW05X'  => (string) ($rowData['activity_5'] ?? null),
-                    'IV_VGE05X'  => (string) ($rowData['uom_5'] ?? null),
-                    'IV_VGW06X'  => (string) ($rowData['activity_6'] ?? null),
-                    'IV_VGE06X'  => (string) ($rowData['uom_6'] ?? null),
+                    'IV_BMSCHX'  => (string) ($rowData['base_qty'] ?? '1'),
                 ];
+
+                // [PERBAIKAN 2] Logika untuk mengisi VGE..X dengan 'S' jika VGW..X ada nilainya
+                for ($i = 1; $i <= 6; $i++) {
+                    $activity_key = 'activity_' . $i;
+                    $uom_key = 'uom_' . $i;
+
+                    $activity_val = (string) ($rowData[$activity_key] ?? null);
+
+                    if (!empty($activity_val)) {
+                        $operation['IV_VGW0' . $i . 'X'] = $activity_val;
+                        $operation['IV_VGE0' . $i . 'X'] = 'S'; // Hardcode 'S' jika ada aktivitas
+                    }
+                }
+
                 $groupedByMaterial[$material]['operations'][] = $operation;
             }
 
@@ -242,11 +208,7 @@ class RoutingController extends Controller
                 return response()->json(['error' => 'Tidak ada data valid yang ditemukan. Periksa nama kolom "Material".'], 422);
             }
 
-            // Hapus 'last_vornr' sebelum mengirim ke response JSON
-            $finalData = array_map(function($group) {
-                unset($group['last_vornr']);
-                return $group;
-            }, array_values($groupedByMaterial));
+            $finalData = array_values($groupedByMaterial);
 
             return response()->json(['fileName' => $fileName, 'data' => $finalData, 'is_saved' => false]);
         } catch (\Exception $e) {
@@ -346,6 +308,9 @@ class RoutingController extends Controller
             return response()->json(['error' => 'PYTHON_ROUTING_API_URL tidak disetel di file .env'], 500);
         }
         try {
+            // [LOGGING DITAMBAHKAN DI SINI]
+            Log::info('Data to be sent to Python API:', ['routing_data' => $request->routing_data]);
+
             $response = Http::timeout(300)->post($pythonApiUrl . '/create-routing', [
                 'username' => $request->username,
                 'password' => $request->password,
@@ -354,8 +319,10 @@ class RoutingController extends Controller
             return response()->json($response->json(), $response->status());
         } catch (ConnectionException $e) {
             $errorMessage = "Gagal terhubung ke Python: " . $e->getMessage();
+            Log::error($errorMessage);
             return response()->json(['error' => $errorMessage], 500);
         } catch (\Exception $e) {
+            Log::error('Unexpected error in uploadToSap: ' . $e->getMessage());
             return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
         }
     }
@@ -385,17 +352,14 @@ class RoutingController extends Controller
             $sequence = DocumentSequence::where('name', 'routing')->lockForUpdate()->first();
 
             if ($sequence) {
-                // Jika baris sudah ada, naikkan nomor urutnya
                 $sequence->increment('last_number');
             } else {
-                // Jika belum ada, buat baris baru dengan nomor urut pertama (1)
                 $sequence = DocumentSequence::create([
                     'name' => 'routing',
                     'last_number' => 1
                 ]);
             }
 
-            // Ambil nomor terbaru dari instance model
             $nextNumber = $sequence->last_number;
 
             return 'RPP' . str_pad($nextNumber, 10, '0', STR_PAD_LEFT);
