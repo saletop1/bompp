@@ -104,7 +104,7 @@ def create_routing():
                 'IV_ARBPL':  str(op.get('IV_ARBPL', '')),
                 'IV_STEUS':  str(op.get('IV_STEUS', '')),
                 'IV_LTXA1':  str(op.get('IV_LTXA1', '')),
-                'IV_BMSCHX': str(op.get('IV_BMSCHX', '1')),
+                'IV_BMSCHX': str(op.get('IV_BMSCHX', '')),
             }
             for i in range(1, 7):
                 vgw_key = f'IV_VGW0{i}X'

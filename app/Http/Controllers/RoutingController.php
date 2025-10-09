@@ -185,7 +185,7 @@ class RoutingController extends Controller
                     'IV_ARBPL'   => (string) ($rowData['work_cntr'] ?? null),
                     'IV_STEUS'   => (string) ($rowData['ctrl_key'] ?? null),
                     'IV_LTXA1'   => (string) ($rowData['descriptions'] ?? null),
-                    'IV_BMSCHX'  => (string) ($rowData['base_qty'] ?? '1'),
+                    'IV_BMSCHX'  => (string) ($rowData['base_qty']),
                 ];
 
                 // [PERBAIKAN 2] Logika untuk mengisi VGE..X dengan 'S' jika VGW..X ada nilainya
