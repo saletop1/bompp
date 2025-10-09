@@ -109,9 +109,11 @@ def create_routing():
                 vgw_key = f'IV_VGW0{i}X'
                 vge_key = f'IV_VGE0{i}X'
                 vgw_val = op.get(vgw_key)
+                vge_val = op.get(vge_key) # <-- Ambil juga nilai UOM
                 if vgw_val:
                     add_params[vgw_key] = str(vgw_val)
-                    add_params[vge_key] = 'S'
+                    if vge_val:
+                        add_params[vge_key] = str(vge_val)
 
             logging.info(f"Menambahkan operasi '{op_code}' untuk material '{material_for_log}'...")
             add_result = conn.call('Z_RFC_ROUTING_ADD', **add_params)

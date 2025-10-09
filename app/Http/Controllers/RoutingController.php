@@ -11,6 +11,8 @@ use App\Models\DocumentSequence;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\RoutingDocumentComplete;
 
 class RoutingController extends Controller
 {
@@ -57,7 +59,14 @@ class RoutingController extends Controller
 
             $groupData = [];
             foreach ($routings as $routing) {
-                $operations = is_string($routing->operations) ? json_decode($routing->operations, true) : [];
+                // --- PERBAIKAN DARI ERROR SEBELUMNYA ADA DI SINI ---
+                $operations = json_decode($routing->operations, true);
+                // Selalu pastikan hasilnya adalah array, bahkan jika hasil decode adalah null atau bukan array
+                if (!is_array($operations)) {
+                    $operations = [];
+                }
+                // --- AKHIR PERBAIKAN ---
+
                 $header_data = $routing->header ? json_decode($routing->header, true) : [
                     'IV_MATERIAL' => $routing->material,
                     'IV_PLANT' => $routing->plant,
@@ -170,7 +179,7 @@ class RoutingController extends Controller
                             'IV_TASK_LIST_USAGE' => (string) ($rowData['usage'] ?? '1'),
                             'IV_TASK_LIST_STATUS' => (string) ($rowData['status'] ?? '4'),
                             'IV_GROUP_COUNTER' => '1',
-                            'IV_TASK_MEASURE_UNIT' => (string) ($rowData['uom'] ?? 'PC'),
+                            'IV_TASK_MEASURE_UNIT' => (string) ($rowData['uom'] ?? ''),
                         ],
                         'operations' => [],
                     ];
@@ -190,14 +199,17 @@ class RoutingController extends Controller
 
                 // [PERBAIKAN 2] Logika untuk mengisi VGE..X dengan 'S' jika VGW..X ada nilainya
                 for ($i = 1; $i <= 6; $i++) {
-                    $activity_key = 'activity_' . $i;
-                    $uom_key = 'uom_' . $i;
+                $activity_key = 'activity_' . $i;
+                $uom_key = 'uom_' . $i;
 
-                    $activity_val = (string) ($rowData[$activity_key] ?? null);
+                $activity_val = (string) ($rowData[$activity_key] ?? null);
 
-                    if (!empty($activity_val)) {
-                        $operation['IV_VGW0' . $i . 'X'] = $activity_val;
-                        $operation['IV_VGE0' . $i . 'X'] = 'S'; // Hardcode 'S' jika ada aktivitas
+                if (!empty($activity_val)) {
+                    // Ambil nilai UOM dari Excel, jika kosong gunakan default 'PC' atau biarkan kosong sesuai kebutuhan
+                    $uom_val = (string) ($rowData[$uom_key] ?? '');
+
+                    $operation['IV_VGW0' . $i . 'X'] = $activity_val;
+                    $operation['IV_VGE0' . $i . 'X'] = $uom_val; // Hardcode 'S' jika ada aktivitas
                     }
                 }
 
@@ -221,39 +233,44 @@ class RoutingController extends Controller
      * Menyimpan data routing yang dipilih ke database.
      */
     public function saveRoutings(Request $request)
-    {
-        $validated = $request->validate([
-            'routings' => 'required|array',
-            'document_name' => 'required|string|max:40',
-            'product_name' => 'required|string|max:20',
-        ]);
+{
+    $validated = $request->validate([
+        'routings' => 'required|array',
+        'document_name' => 'required|string|max:40',
+        'product_name' => 'required|string|max:20',
+    ]);
 
-        try {
-            DB::transaction(function () use ($validated) {
-                $documentNumber = $this->getNextDocumentNumber();
-                $materials = collect($validated['routings'])->pluck('header.IV_MATERIAL');
-                Routing::whereIn('material', $materials)->delete();
+    try {
+        DB::transaction(function () use ($validated) {
+            $documentNumber = $this->getNextDocumentNumber();
 
-                foreach ($validated['routings'] as $routingData) {
-                    Routing::create([
-                        'document_number' => $documentNumber,
-                        'document_name' => $validated['document_name'],
-                        'product_name' => $validated['product_name'],
-                        'material' => $routingData['header']['IV_MATERIAL'],
-                        'plant' => $routingData['header']['IV_PLANT'],
-                        'description' => $routingData['header']['IV_DESCRIPTION'],
-                        'header' => json_encode($routingData['header']),
-                        'operations' => json_encode($routingData['operations']),
-                    ]);
-                }
-            });
-            return response()->json(['status' => 'success', 'message' => 'Data routing berhasil disimpan.']);
-        } catch (\Exception $e) {
-            Log::error('Gagal menyimpan routing: ' . $e->getMessage());
-            $errorMessage = 'Gagal menyimpan. Error dari server: ' . $e->getMessage();
-            return response()->json(['status' => 'error', 'message' => $errorMessage], 500);
-        }
+            // HAPUS BARIS-BARIS BERMASALAH INI:
+            // $materials = collect($validated['routings'])->pluck('header.IV_MATERIAL');
+            // Routing::whereIn('material', $materials)->delete();
+
+            // Lanjutkan dengan loop untuk membuat data baru
+            foreach ($validated['routings'] as $routingData) {
+                Routing::create([
+                    'document_number' => $documentNumber,
+                    'document_name' => $validated['document_name'],
+                    'product_name' => $validated['product_name'],
+                    'material' => $routingData['header']['IV_MATERIAL'],
+                    'plant' => $routingData['header']['IV_PLANT'],
+                    'description' => $routingData['header']['IV_DESCRIPTION'],
+                    'header' => json_encode($routingData['header']),
+                    'operations' => json_encode($routingData['operations']),
+                ]);
+            }
+        });
+        return response()->json(['status' => 'success', 'message' => 'Data routing berhasil disimpan.']);
+    } catch (\Exception $e) {
+        // Log error untuk debugging
+        Log::error('Gagal menyimpan routing: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
+
+        $errorMessage = 'Gagal menyimpan. Terjadi error di server. Silakan cek log.';
+        return response()->json(['status' => 'error', 'message' => $errorMessage], 500);
     }
+}
 
     public function markAsUploaded(Request $request)
     {
@@ -263,13 +280,78 @@ class RoutingController extends Controller
             'successful_uploads.*.doc_number' => 'required|string',
         ]);
 
-        foreach ($validated['successful_uploads'] as $upload) {
-            Routing::where('document_number', $upload['doc_number'])
-                   ->where('material', $upload['material'])
-                   ->update(['uploaded_to_sap_at' => now()]);
+        // Ambil daftar unik nomor dokumen dari request
+        $documentNumbers = collect($validated['successful_uploads'])->pluck('doc_number')->unique();
+
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['successful_uploads'] as $upload) {
+                Routing::where('document_number', $upload['doc_number'])
+                       ->where('material', $upload['material'])
+                       ->whereNull('uploaded_to_sap_at') // Hanya update yang belum ditandai
+                       ->update(['uploaded_to_sap_at' => now()]);
+            }
+        });
+
+        // Setelah transaksi selesai, periksa setiap dokumen untuk pengiriman notifikasi
+        foreach ($documentNumbers as $docNumber) {
+            $this->checkAndNotifyDocumentCompletion($docNumber);
         }
 
         return response()->json(['status' => 'success', 'message' => 'Data berhasil ditandai sebagai ter-upload.']);
+    }
+
+    /**
+     * Memeriksa apakah semua item dalam dokumen sudah diunggah,
+     * dan mengirim notifikasi jika sudah lengkap.
+     * @param string $docNumber
+     */
+    private function checkAndNotifyDocumentCompletion(string $docNumber)
+    {
+        try {
+            // Cek apakah notifikasi untuk dokumen ini sudah pernah dikirim
+            $notificationAlreadySent = Routing::where('document_number', $docNumber)
+                                              ->where('notification_sent', true)
+                                              ->exists();
+            if ($notificationAlreadySent) {
+                return; // Jika sudah pernah dikirim, hentikan proses
+            }
+
+            // Hitung total item dan item yang sudah diupload untuk dokumen ini
+            $totalItems = Routing::where('document_number', $docNumber)->count();
+            $uploadedItems = Routing::where('document_number', $docNumber)->whereNotNull('uploaded_to_sap_at')->count();
+
+            // Jika semua item sudah diupload
+            if ($totalItems > 0 && $totalItems === $uploadedItems) {
+
+                // Ambil semua data dari dokumen untuk dimasukkan ke email
+                $documentRoutings = Routing::where('document_number', $docNumber)->get();
+                $firstItem = $documentRoutings->first();
+
+                $documentDetails = [
+                    'document_name' => $firstItem->document_name,
+                    'product_name' => $firstItem->product_name,
+                    'document_number' => $firstItem->document_number,
+                    'completion_time' => Carbon::now('Asia/Jakarta')->format('d M Y, H:i:s'),
+                    'items' => $documentRoutings->map(function ($item) {
+                        return [
+                            'material' => $item->material,
+                            'description' => $item->description,
+                        ];
+                    })->all(),
+                ];
+
+                // Kirim email notifikasi
+                Mail::to('costing7.kmi@gmail.com')->send(new RoutingDocumentComplete($documentDetails));
+
+                // Tandai bahwa notifikasi untuk dokumen ini sudah dikirim
+                Routing::where('document_number', $docNumber)->update(['notification_sent' => true]);
+
+                Log::info('Notifikasi email berhasil dikirim untuk dokumen routing: ' . $docNumber);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Gagal mengirim notifikasi email untuk dokumen ' . $docNumber . ': ' . $e->getMessage());
+        }
     }
     public function deleteRoutings(Request $request)
     {

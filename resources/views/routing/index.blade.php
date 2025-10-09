@@ -472,17 +472,19 @@
                             </tr>`;
 
                         let operationsTable = `<table class="table table-sm mb-0 operation-details-table"><thead><tr><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
-                        (item.operations || []).forEach(op => {
-                            operationsTable += `<tr>
-                                <td>${op.IV_ARBPL || ''}</td>
-                                <td>${op.IV_STEUS || ''}</td>
-                                <td>${op.IV_LTXA1 || ''}</td>
-                                <td>${op.IV_BMSCHX || ''}</td>
-                                <td>${op.IV_VGW01X || ''}</td>
-                                <td>${op.IV_VGE01X || ''}</td>
-                            </tr>`;
-                        });
-                        operationsTable += `</tbody></table>`;
+                            if (Array.isArray(item.operations)) {
+                                item.operations.forEach(op => {
+                                    operationsTable += `<tr>
+                                        <td>${op.IV_ARBPL || ''}</td>
+                                        <td>${op.IV_STEUS || ''}</td>
+                                        <td>${op.IV_LTXA1 || ''}</td>
+                                        <td>${op.IV_BMSCHX || ''}</td>
+                                        <td>${op.IV_VGW01X || ''}</td>
+                                        <td>${op.IV_VGE01X || ''}</td>
+                                    </tr>`;
+                                });
+                            }
+                            operationsTable += `</tbody></table>`;
 
                         innerHtml += `
                             <tr class="collapse-row">
@@ -793,108 +795,36 @@
                 processBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
                 processBtn.disabled = true;
 
-                const requiredHeaders = [
-                    'Material', 'Plant', 'Description', 'Usage', 'Status', 'Grp Ctr',
-                    'Operation', 'Work Cntr', 'Ctrl Key', 'Descriptions', 'Base Qty', 'UoM',
-                    'Activity 1', 'UoM 1', 'Activity 2', 'UoM 2', 'Activity 3', 'UoM 3',
-                    'Activity 4', 'UoM 4', 'Activity 5', 'UoM 5', 'Activity 6', 'UoM 6'
-                ];
+                try {
+                    // Logika validasi yang rumit di frontend dihapus.
+                    // Kita langsung kirim file ke backend untuk divalidasi di sana.
+                    const formData = new FormData(uploadForm);
+                    const response = await fetch("{{ route('routing.processFile') }}", {
+                        method: 'POST', body: formData,
+                        headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'}
+                    });
 
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    try {
-                        const data = event.target.result;
-                        const workbook = XLSX.read(data, { type: 'binary' });
-                        const firstSheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[firstSheetName];
-                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    const result = await response.json();
 
-                        if(jsonData.length < 2){
-                            throw new Error('File Excel kosong atau hanya berisi header.');
-                        }
-
-                        const headerRow = jsonData[0] || [];
-
-                        const fileHeadersUpper = headerRow.map(h => typeof h === 'string' ? h.trim().toUpperCase() : '');
-                        const missingHeaders = requiredHeaders.filter(rh => !fileHeadersUpper.includes(rh.toUpperCase()));
-
-                        if (missingHeaders.length > 0) {
-                            throw new Error(`Header tidak sesuai. Header yang hilang atau salah nama: ${missingHeaders.join(', ')}`);
-                        }
-
-                        const dataRows = jsonData.slice(1);
-                        const headerNames = headerRow.map(h => typeof h === 'string' ? h.trim() : '');
-                        const colIndices = {};
-                        headerNames.forEach((h, i) => { colIndices[h.toUpperCase()] = i; });
-
-                        // --- START: VALIDASI DATA WAJIB & NUMERIK ---
-                        const numericColsForCheck = [
-                            'Base Qty', 'Activity 1', 'Activity 2', 'Activity 3',
-                            'Activity 4', 'Activity 5', 'Activity 6'
-                        ];
-                        const mandatoryOperationCols = ['Operation', 'Work Cntr', 'Ctrl Key'];
-
-                        for (let i = 0; i < dataRows.length; i++) {
-                            const row = dataRows[i];
-                            const rowNum = i + 2;
-
-                            // Lewati baris yang sepenuhnya kosong
-                            if (row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) {
-                                continue;
-                            }
-
-                            const material = row[colIndices['MATERIAL'.toUpperCase()]] || `Data di baris ${rowNum}`;
-
-                            // Cek kolom wajib untuk operasi
-                            for (const colName of mandatoryOperationCols) {
-                                const colIndex = colIndices[colName.toUpperCase()];
-                                const value = (colIndex !== undefined) ? row[colIndex] : undefined;
-                                if (value === null || value === undefined || String(value).trim() === '') {
-                                    throw new Error(`Data tidak valid pada baris ${rowNum} untuk Material '${material}'. Kolom wajib '${colName}' tidak boleh kosong.`);
-                                }
-                            }
-
-                            // Cek kolom numerik
-                            for (const colName of numericColsForCheck) {
-                                const colIndex = colIndices[colName.toUpperCase()];
-                                if (colIndex !== undefined) {
-                                    const value = row[colIndex];
-                                    if (value !== null && value !== undefined && String(value).trim() !== '' && isNaN(value)) {
-                                        throw new Error(`Data tidak valid pada baris ${rowNum} untuk Material '${material}'. Kolom '${colName}' berisi '${value}', yang bukan angka.`);
-                                    }
-                                }
-                            }
-                        }
-                        // --- END: VALIDASI DATA WAJIB & NUMERIK ---
-
-                        const formData = new FormData(uploadForm);
-                        const response = await fetch("{{ route('routing.processFile') }}", {
-                            method: 'POST', body: formData,
-                            headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json'}
-                        });
-                        const result = await response.json();
-                        if (!response.ok) throw new Error(result.error || 'Gagal memproses file di server.');
-
-                        processedDataByFile.push(result);
-                        renderPendingTable();
-
-                    } catch (error) {
-                        Swal.fire({title: 'Error Validasi File!', html: error.message, icon: 'error'});
-                    } finally {
-                        processBtn.innerHTML = `<i class="bi bi-gear-fill"></i>`;
-                        processBtn.disabled = false;
-                        uploadForm.reset();
+                    if (!response.ok) {
+                        // Backend akan memberikan pesan error yang jelas jika validasi gagal
+                        throw new Error(result.error || 'Gagal memproses file di server.');
                     }
-                };
 
-                reader.onerror = (error) => {
-                    Swal.fire({title: 'Error!', text: 'Gagal membaca file.', icon: 'error'});
+                    // Jika berhasil, tambahkan data ke tabel
+                    processedDataByFile.push(result);
+                    renderPendingTable();
+                    Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, title: 'File berhasil diproses!', icon: 'success' });
+
+                } catch (error) {
+                    // Menampilkan pesan error dari backend atau error koneksi
+                    Swal.fire({title: 'Error!', html: error.message, icon: 'error'});
+                } finally {
+                    // Mengembalikan tombol ke keadaan semula
                     processBtn.innerHTML = `<i class="bi bi-gear-fill"></i>`;
                     processBtn.disabled = false;
                     uploadForm.reset();
-                };
-
-                reader.readAsBinaryString(file);
+                }
             });
 
             deleteSelectedBtn.addEventListener('click', performDeletion);
