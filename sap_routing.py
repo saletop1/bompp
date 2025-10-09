@@ -9,10 +9,10 @@ from datetime import datetime
 import time
 import json
 
-# Konfigurasi logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - [%(funcName)s] - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 
 app = Flask(__name__)
@@ -35,9 +35,6 @@ def connect_sap(user, passwd):
 def create_routing():
     try:
         data = request.get_json()
-        logging.info("--- Payload Diterima dari PHP ---")
-        logging.info(json.dumps(data, indent=2))
-        logging.info("---------------------------------")
     except Exception as e:
         logging.error(f"Gagal membaca JSON dari request: {e}")
         return jsonify({"status": "failed", "message": "Request body bukan JSON yang valid."}), 400
@@ -51,7 +48,11 @@ def create_routing():
 
     header = routing_data.get('header', {})
     operations = routing_data.get('operations', [])
-    material_for_log = header.get('IV_MATERIAL', 'TIDAK DIKETAHUI')
+    material_for_log = header.get('IV_MATERIAL', 'N/A')
+
+    logging.info(f"Menerima permintaan pembuatan routing untuk material: '{material_for_log}'")
+    # Uncomment baris berikut jika butuh melihat detail payload lengkap untuk debugging
+    # logging.info(f"Payload Lengkap: {json.dumps(data, indent=2)}")
 
     if not operations:
         return jsonify({"status": "failed", "message": "Tidak ada data operasi."}), 400
@@ -75,7 +76,7 @@ def create_routing():
             'IV_MATERIAL': str(header.get('IV_MATERIAL')),
             'IV_SEQUENCE_NO': '0'
         }
-        logging.info(f"Memanggil Z_RFC_ROUTING_CREATE_PROD untuk material {material_for_log}...")
+        logging.info(f"Membuat header routing untuk material '{material_for_log}'...")
         create_result = conn.call('Z_RFC_ROUTING_CREATE_PROD', **create_params)
 
         create_return = create_result.get('ET_RETURN', [])
@@ -84,23 +85,21 @@ def create_routing():
         if not header_success:
             return jsonify({"status": "failed", "message": "Gagal saat membuat header routing."}), 500
 
-        # --- [PERUBAHAN PENTING] KEMBALI KE LOGIKA YANG TERBUKTI BERHASIL ---
-        # Lakukan COMMIT setelah header dibuat agar tersimpan di database sebelum operasi ditambahkan.
-        logging.info("Header berhasil dibuat. Melakukan COMMIT untuk header...")
+        logging.info("Header routing berhasil dibuat, melakukan COMMIT...")
         conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
-        logging.info("COMMIT untuk header selesai. Memberi jeda 1 detik untuk konsistensi database...")
-        time.sleep(1)
+        time.sleep(1) # Jeda untuk konsistensi database
 
         # --- LANGKAH 2: TAMBAHKAN SEMUA OPERASI ---
         final_return_messages = []
         overall_success = True
 
         for op in operations:
+            op_code = op.get('IV_VORNR', 'N/A')
             add_params = {
                 'IV_MATNR':  str(op.get('IV_MATNR')),
                 'IV_WERKS':  str(op.get('IV_WERKS', '')),
                 'IV_PLNAL':  str(op.get('IV_PLNAL', '')).zfill(2),
-                'IV_VORNR':  str(op.get('IV_VORNR', '')),
+                'IV_VORNR':  op_code,
                 'IV_ARBPL':  str(op.get('IV_ARBPL', '')),
                 'IV_STEUS':  str(op.get('IV_STEUS', '')),
                 'IV_LTXA1':  str(op.get('IV_LTXA1', '')),
@@ -114,7 +113,7 @@ def create_routing():
                     add_params[vgw_key] = str(vgw_val)
                     add_params[vge_key] = 'S'
 
-            logging.info(f"Memanggil Z_RFC_ROUTING_ADD untuk operasi {op.get('IV_VORNR')}...")
+            logging.info(f"Menambahkan operasi '{op_code}' untuk material '{material_for_log}'...")
             add_result = conn.call('Z_RFC_ROUTING_ADD', **add_params)
 
             add_messages = add_result.get('ET_MESSAGES', [])
@@ -153,4 +152,3 @@ def create_routing():
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5002, debug=True)
-
