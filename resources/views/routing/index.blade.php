@@ -280,7 +280,7 @@
                         <i class="bi bi-clock-history me-1"></i> Tampilkan/Sembunyikan
                     </button>
                 </div>
-                <div class="collapse show" id="history-table-container">
+                <div class="collapse" id="history-table-container">
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
