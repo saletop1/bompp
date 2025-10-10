@@ -18,7 +18,7 @@
         .page-title-container .subtitle { color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-size: 0.9rem; }
         .sap-logo-header { height: 80px; width: auto; margin-left: 20px; }
         .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.1); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; border-radius: 50px; }
-        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff; color: #000; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff1c; color: #02fff7ff; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
 
         .table {
             --bs-table-bg: transparent;
