@@ -341,7 +341,7 @@ class RoutingController extends Controller
                 ];
 
                 // Kirim email notifikasi
-                Mail::to('kmi3.60.smg@gmail.com')->send(new RoutingDocumentComplete($documentDetails));
+                Mail::to('costing7.kmi@gmail.com')->send(new RoutingDocumentComplete($documentDetails));
 
                 // Tandai bahwa notifikasi untuk dokumen ini sudah dikirim
                 Routing::where('document_number', $docNumber)->update(['notification_sent' => true]);
