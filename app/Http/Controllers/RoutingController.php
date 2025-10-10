@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\RoutingDocumentComplete;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class RoutingController extends Controller
 {
@@ -119,7 +120,30 @@ class RoutingController extends Controller
         $fileName = $file->getClientOriginalName();
 
         try {
-            $sheetsAsArray = Excel::toArray(new \stdClass(), $file);
+        // [VALIDASI FORMULA BARU DIMULAI DI SINI]
+        try {
+            $spreadsheet = IOFactory::load($file->getRealPath());
+            $worksheet = $spreadsheet->getActiveSheet();
+
+            foreach ($worksheet->getRowIterator() as $row) {
+                $cellIterator = $row->getCellIterator();
+                $cellIterator->setIterateOnlyExistingCells(FALSE); // Periksa semua sel, bukan hanya yang berisi data
+
+                foreach ($cellIterator as $cell) {
+                    if ($cell->isFormula()) {
+                        $cellCoordinate = $cell->getCoordinate();
+                        // Jika ditemukan formula, langsung hentikan proses dan kirim error
+                        return response()->json([
+                            'error' => "File ditolak. Ditemukan formula pada sel {$cellCoordinate}. Harap unggah file yang hanya berisi nilai (values)."
+                        ], 422);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Tangani jika ada error saat membaca file untuk validasi formula
+            Log::error('Gagal saat validasi formula Excel: ' . $e->getMessage());
+            return response()->json(['error' => 'Gagal memvalidasi file Excel. Pastikan file tidak rusak.'], 422);
+        } $sheetsAsArray = Excel::toArray(new \stdClass(), $file);
             $collection = collect($sheetsAsArray[0]);
 
             if ($collection->count() < 2) {
