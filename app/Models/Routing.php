@@ -14,6 +14,7 @@ class Routing extends Model {
         'description',
         'header',
         'operations',
+        'services',
         'uploaded_to_sap_at',
         'status',
         'notification_sent', // <-- Tambahkan ini

@@ -152,5 +152,89 @@ def create_routing():
             conn.close()
             logging.info(f"Koneksi SAP untuk user '{username}' ditutup.")
 
+@app.route('/create-routing-jasa', methods=['POST'])
+def create_routing_jasa():
+    try:
+        data = request.get_json()
+    except Exception as e:
+        logging.error(f"Gagal membaca JSON dari request: {e}")
+        return jsonify({"status": "failed", "message": "Request body bukan JSON yang valid."}), 400
+
+    username = data.get('username')
+    password = data.get('password')
+    routing_data = data.get('routing_data')
+
+    if not all([username, password, routing_data]):
+        return jsonify({"status": "failed", "message": "Permintaan tidak lengkap (username/password/routing_data)."}), 400
+
+    header = routing_data.get('header', {})
+    services = routing_data.get('services', [])
+    material_for_log = header.get('IV_MATERIAL', 'N/A')
+
+    logging.info(f"Menerima permintaan pembuatan routing JASA untuk material: '{material_for_log}'")
+
+    if not services:
+        return jsonify({"status": "failed", "message": "Tidak ada data jasa untuk diproses."}), 400
+
+    # Ambil data dari service pertama
+    service_item = services[0]
+
+    conn = None
+    try:
+        conn = connect_sap(username, password)
+        if not conn:
+            return jsonify({"status": "failed", "message": "Koneksi SAP gagal."}), 500
+
+        # Siapkan parameter untuk RFC Z_RFC_ROUTING_CREATE_JASA
+        params = {
+            'IV_VALID_FROM': datetime.now().strftime('%Y%m%d'),
+            'IV_TASK_LIST_USAGE': str(header.get('IV_TASK_LIST_USAGE') or '1'),
+            'IV_PLANT': str(header.get('IV_PLANT')),
+            'IV_TASK_LIST_STATUS': str(header.get('IV_TASK_LIST_STATUS') or '4'),
+            'IV_TASK_MEASURE_UNIT': str(header.get('IV_TASK_MEASURE_UNIT')),
+            'IV_LOT_SIZE_TO': '999999999',
+            'IV_DESCRIPTION': str(header.get('IV_DESCRIPTION')),
+            'IV_MATERIAL': str(header.get('IV_MATERIAL')),
+            # Asumsi UOM Operasi dan Base Qty untuk Jasa
+            'IV_OPERATION_UOM': str(header.get('IV_TASK_MEASURE_UNIT') or ''),
+            'IV_BASE_QUANTITY': '1',
+            # Parameter dari data service
+            'IV_PLND_DELRY': str(service_item.get('pln_deliv_time') or ''),
+            'IV_INFO_REC_NET_PRICE': str(service_item.get('net_price') or ''),
+            'IV_PRICE_UNIT': str(service_item.get('price_unit') or ''),
+            'IV_COST_ELEM': str(service_item.get('cost_element') or ''),
+            'IV_CURRENCY': str(service_item.get('currency') or ''),
+            'IV_PURCH_GROUP': str(service_item.get('purchasing_group') or ''),
+            'IV_MATL_GROUP': str(service_item.get('mat_grp') or '')
+        }
+
+        logging.info(f"Memanggil Z_RFC_ROUTING_CREATE_JASA untuk material '{material_for_log}'...")
+        result = conn.call('Z_RFC_ROUTING_CREATE_JASA', **params)
+
+        return_data = result.get('ES_RETURN', {})
+        message = return_data.get('MESSAGE', 'Tidak ada pesan return dari SAP.')
+
+        # Periksa tipe pesan dari SAP (S=Success, E=Error, A=Abort)
+        if return_data.get('MSGTY') in ('E', 'A'):
+            logging.error(f"RFC Z_RFC_ROUTING_CREATE_JASA gagal untuk material '{material_for_log}': {message}")
+            return jsonify({"status": "failed", "message": message})
+        else:
+            logging.info(f"RFC Z_RFC_ROUTING_CREATE_JASA berhasil untuk material '{material_for_log}': {message}")
+            conn.call('BAPI_TRANSACTION_COMMIT', WAIT='X')
+            return jsonify({"status": "success", "message": message})
+
+    except (ABAPApplicationError, ABAPRuntimeError) as e:
+        error_msg = f"ABAP Error: {e.message}"
+        logging.error(f"ABAP EXCEPTION: {error_msg}")
+        return jsonify({"status": "failed", "message": error_msg}), 500
+    except Exception as e:
+        error_msg = f"General Error: {str(e)}"
+        logging.error(f"GENERAL EXCEPTION: {error_msg}", exc_info=True)
+        return jsonify({"status": "failed", "message": error_msg}), 500
+    finally:
+        if conn:
+            conn.close()
+            logging.info(f"Koneksi SAP untuk user '{username}' ditutup.")
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5002, debug=True)

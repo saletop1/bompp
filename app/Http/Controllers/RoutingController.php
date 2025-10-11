@@ -60,13 +60,15 @@ class RoutingController extends Controller
 
             $groupData = [];
             foreach ($routings as $routing) {
-                // --- PERBAIKAN DARI ERROR SEBELUMNYA ADA DI SINI ---
                 $operations = json_decode($routing->operations, true);
-                // Selalu pastikan hasilnya adalah array, bahkan jika hasil decode adalah null atau bukan array
                 if (!is_array($operations)) {
                     $operations = [];
                 }
-                // --- AKHIR PERBAIKAN ---
+
+                $services = json_decode($routing->services, true);
+                if(!is_array($services)){
+                    $services = [];
+                }
 
                 $header_data = $routing->header ? json_decode($routing->header, true) : [
                     'IV_MATERIAL' => $routing->material,
@@ -76,7 +78,8 @@ class RoutingController extends Controller
 
                 $itemData = [
                     'header' => $header_data,
-                    'operations' => $operations
+                    'operations' => $operations,
+                    'services' => $services
                 ];
 
                 if ($isHistory) {
@@ -120,30 +123,25 @@ class RoutingController extends Controller
         $fileName = $file->getClientOriginalName();
 
         try {
-        // [VALIDASI FORMULA BARU DIMULAI DI SINI]
-        try {
-            $spreadsheet = IOFactory::load($file->getRealPath());
-            $worksheet = $spreadsheet->getActiveSheet();
-
-            foreach ($worksheet->getRowIterator() as $row) {
-                $cellIterator = $row->getCellIterator();
-                $cellIterator->setIterateOnlyExistingCells(FALSE); // Periksa semua sel, bukan hanya yang berisi data
-
-                foreach ($cellIterator as $cell) {
-                    if ($cell->isFormula()) {
-                        $cellCoordinate = $cell->getCoordinate();
-                        // Jika ditemukan formula, langsung hentikan proses dan kirim error
-                        return response()->json([
-                            'error' => "File ditolak. Ditemukan formula pada sel {$cellCoordinate}. Harap unggah file yang hanya berisi nilai (values)."
-                        ], 422);
+            try {
+                $spreadsheet = IOFactory::load($file->getRealPath());
+                $worksheet = $spreadsheet->getActiveSheet();
+                foreach ($worksheet->getRowIterator() as $row) {
+                    $cellIterator = $row->getCellIterator();
+                    $cellIterator->setIterateOnlyExistingCells(FALSE);
+                    foreach ($cellIterator as $cell) {
+                        if ($cell->isFormula()) {
+                            $cellCoordinate = $cell->getCoordinate();
+                            return response()->json(['error' => "File ditolak. Ditemukan formula pada sel {$cellCoordinate}. Harap unggah file yang hanya berisi nilai (values)."], 422);
+                        }
                     }
                 }
+            } catch (\Exception $e) {
+                Log::error('Gagal saat validasi formula Excel: ' . $e->getMessage());
+                return response()->json(['error' => 'Gagal memvalidasi file Excel. Pastikan file tidak rusak.'], 422);
             }
-        } catch (\Exception $e) {
-            // Tangani jika ada error saat membaca file untuk validasi formula
-            Log::error('Gagal saat validasi formula Excel: ' . $e->getMessage());
-            return response()->json(['error' => 'Gagal memvalidasi file Excel. Pastikan file tidak rusak.'], 422);
-        } $sheetsAsArray = Excel::toArray(new \stdClass(), $file);
+
+            $sheetsAsArray = Excel::toArray(new \stdClass(), $file);
             $collection = collect($sheetsAsArray[0]);
 
             if ($collection->count() < 2) {
@@ -153,40 +151,23 @@ class RoutingController extends Controller
             $headers = $collection->first();
             $fileHeaders = collect($headers)->map(fn($h) => trim(strtoupper($h)))->filter();
 
-            $requiredHeaders = collect([
-                'MATERIAL', 'PLANT', 'DESCRIPTION', 'USAGE', 'STATUS', 'GRP CTR', 'OPERATION',
-                'WORK CNTR', 'CTRL KEY', 'DESCRIPTIONS', 'BASE QTY', 'UOM', 'ACTIVITY 1', 'UOM 1'
-            ])->map(fn($h) => strtoupper($h));
-
+            $requiredHeaders = collect(['MATERIAL', 'PLANT', 'DESCRIPTION']);
             $missingHeaders = $requiredHeaders->diff($fileHeaders);
-
             if ($missingHeaders->isNotEmpty()) {
-                return response()->json(['error' => 'Header tidak sesuai. Header yang hilang: ' . $missingHeaders->implode(', ')], 422);
-            }
-
-            $headerIndexMap = $fileHeaders->flip();
-            $rows = $collection->slice(1);
-
-            foreach ($rows as $index => $row) {
-                if (empty(array_filter($row))) continue;
-                $rowNum = $index + 2;
-                $material = $row[$headerIndexMap['MATERIAL']] ?? 'N/A';
-                $mandatoryCols = ['OPERATION', 'WORK CNTR', 'CTRL KEY'];
-                foreach ($mandatoryCols as $colName) {
-                    $value = $row[$headerIndexMap[$colName]] ?? null;
-                    if (is_null($value) || trim($value) === '') {
-                        return response()->json(['error' => "Data tidak valid pada baris {$rowNum} untuk Material '{$material}'. Kolom wajib '{$colName}' tidak boleh kosong."], 422);
-                    }
-                }
+                return response()->json(['error' => 'Header tidak sesuai. Header wajib yang hilang: ' . $missingHeaders->implode(', ')], 422);
             }
 
             $cleanedHeaders = $fileHeaders->map(function($cell) {
-                return $cell ? strtolower(str_replace([' ', '/'], '_', $cell)) : null;
+                return $cell ? strtolower(str_replace([' ', '/', '.'], '_', $cell)) : null;
             })->filter()->toArray();
 
+            $rows = $collection->slice(1);
             $groupedByMaterial = [];
 
-            foreach ($rows as $row) {
+            $serviceHeaders = ['purchasing_group', 'pln_deliv_time', 'price_unit', 'net_price', 'currency', 'cost_element', 'mat_grp'];
+
+            foreach ($rows as $index => $row) {
+                $rowNum = $index + 2;
                 $filteredRow = array_slice($row, 0, count($cleanedHeaders));
                 if (empty(array_filter($filteredRow))) continue;
 
@@ -206,38 +187,86 @@ class RoutingController extends Controller
                             'IV_TASK_MEASURE_UNIT' => (string) ($rowData['uom'] ?? ''),
                         ],
                         'operations' => [],
+                        'services' => [],
                     ];
                 }
 
-                $operation = [
-                    'IV_MATNR'   => (string) ($material),
-                    'IV_WERKS'   => (string) ($rowData['plant'] ?? null),
-                    // [PERBAIKAN 1] Memastikan Group Counter selalu 2 digit (misal: '1' menjadi '01')
-                    'IV_PLNAL'   => str_pad((string)($rowData['grp_ctr'] ?? '1'), 2, '0', STR_PAD_LEFT),
-                    'IV_VORNR'   => (string) ($rowData['operation'] ?? null),
-                    'IV_ARBPL'   => (string) ($rowData['work_cntr'] ?? null),
-                    'IV_STEUS'   => (string) ($rowData['ctrl_key'] ?? null),
-                    'IV_LTXA1'   => (string) ($rowData['descriptions'] ?? null),
-                    'IV_BMSCHX'  => (string) ($rowData['base_qty']),
-                ];
+                $ctrlKey = strtoupper(trim($rowData['ctrl_key'] ?? ''));
 
-                // [PERBAIKAN 2] Logika untuk mengisi VGE..X dengan 'S' jika VGW..X ada nilainya
-                for ($i = 1; $i <= 6; $i++) {
-                $activity_key = 'activity_' . $i;
-                $uom_key = 'uom_' . $i;
+                if ($ctrlKey === 'ZP02') {
+                    $errors = [];
 
-                $activity_val = (string) ($rowData[$activity_key] ?? null);
-
-                if (!empty($activity_val)) {
-                    // Ambil nilai UOM dari Excel, jika kosong gunakan default 'PC' atau biarkan kosong sesuai kebutuhan
-                    $uom_val = (string) ($rowData[$uom_key] ?? '');
-
-                    $operation['IV_VGW0' . $i . 'X'] = $activity_val;
-                    $operation['IV_VGE0' . $i . 'X'] = $uom_val; // Hardcode 'S' jika ada aktivitas
+                    if (!empty($rowData['work_cntr'])) { $errors[] = "Work Cntr harus kosong"; }
+                    for ($i = 1; $i <= 6; $i++) {
+                        if (!empty($rowData['activity_' . $i] ?? null)) { $errors[] = "Activity {$i} harus kosong"; }
+                        if (!empty($rowData['uom_' . $i] ?? null)) { $errors[] = "UoM {$i} harus kosong"; }
                     }
-                }
 
-                $groupedByMaterial[$material]['operations'][] = $operation;
+                    $serviceValidations = [
+                        'purchasing_group' => 'K04',
+                        'cost_element' => '5203000001',
+                        'mat_grp' => 'DA01'
+                    ];
+
+                    foreach($serviceValidations as $key => $expectedValue) {
+                        $actualValue = strtoupper(trim($rowData[$key] ?? ''));
+                        if ($actualValue !== $expectedValue) {
+                            $errors[] = "Kolom '{$key}' harus '{$expectedValue}', tetapi ditemukan '{$actualValue}'";
+                        }
+                    }
+
+                    if (!empty($errors)) {
+                        $errorString = "Validasi gagal untuk baris Jasa (baris excel {$rowNum}): " . implode(', ', $errors) . ".";
+                        return response()->json(['error' => $errorString], 422);
+                    }
+
+                    $serviceData = [];
+                    foreach($serviceHeaders as $key) {
+                        $serviceData[$key] = $rowData[$key] ?? null;
+                    }
+                    $groupedByMaterial[$material]['services'][] = $serviceData;
+
+                } else {
+                    // [VALIDASI BARU UNTUK OPERASI STANDAR]
+                    $operationErrors = [];
+                    if (empty($rowData['operation'])) { $operationErrors[] = 'Operation'; }
+                    if (empty($rowData['work_cntr'])) { $operationErrors[] = 'Work Cntr'; }
+                    if (empty($ctrlKey)) { $operationErrors[] = 'Ctrl Key'; }
+
+                    // [VALIDASI BARU] Memeriksa semua kolom activity dan uom
+                    for ($i = 1; $i <= 6; $i++) {
+                        if (empty($rowData['activity_' . $i] ?? null)) { $operationErrors[] = 'Activity ' . $i; }
+                        if (empty($rowData['uom_' . $i] ?? null)) { $operationErrors[] = 'UoM ' . $i; }
+                    }
+
+                    if (!empty($operationErrors)) {
+                        $errorString = "Validasi gagal untuk baris Operasi (baris excel {$rowNum}): Kolom " . implode(', ', $operationErrors) . " tidak boleh kosong jika Ctrl Key bukan ZP02.";
+                        return response()->json(['error' => $errorString], 422);
+                    }
+
+                    // Jika validasi Operasi berhasil, proses sebagai data operasi
+                    $operation = [
+                        'IV_MATNR'   => (string) ($material),
+                        'IV_WERKS'   => (string) ($rowData['plant'] ?? null),
+                        'IV_PLNAL'   => str_pad((string)($rowData['grp_ctr'] ?? '1'), 2, '0', STR_PAD_LEFT),
+                        'IV_VORNR'   => (string) ($rowData['operation'] ?? null),
+                        'IV_ARBPL'   => (string) ($rowData['work_cntr'] ?? null),
+                        'IV_STEUS'   => (string) ($ctrlKey),
+                        'IV_LTXA1'   => (string) ($rowData['descriptions'] ?? null),
+                        'IV_BMSCHX'  => (string) ($rowData['base_qty'] ?? null),
+                    ];
+                    for ($i = 1; $i <= 6; $i++) {
+                        $activity_key = 'activity_' . $i;
+                        $uom_key = 'uom_' . $i;
+                        $activity_val = (string) ($rowData[$activity_key] ?? null);
+                        if (!empty($activity_val)) {
+                            $uom_val = (string) ($rowData[$uom_key] ?? '');
+                            $operation['IV_VGW0' . $i . 'X'] = $activity_val;
+                            $operation['IV_VGE0' . $i . 'X'] = $uom_val;
+                        }
+                    }
+                    $groupedByMaterial[$material]['operations'][] = $operation;
+                }
             }
 
             if (empty($groupedByMaterial)) {
@@ -245,8 +274,8 @@ class RoutingController extends Controller
             }
 
             $finalData = array_values($groupedByMaterial);
-
             return response()->json(['fileName' => $fileName, 'data' => $finalData, 'is_saved' => false]);
+
         } catch (\Exception $e) {
             Log::error('Error processing routing file: ' . $e->getMessage());
             return response()->json(['error' => 'Gagal memproses file. Pesan: ' . $e->getMessage()], 422);
@@ -257,44 +286,45 @@ class RoutingController extends Controller
      * Menyimpan data routing yang dipilih ke database.
      */
     public function saveRoutings(Request $request)
-{
-    $validated = $request->validate([
-        'routings' => 'required|array',
-        'document_name' => 'required|string|max:40',
-        'product_name' => 'required|string|max:20',
-    ]);
+    {
+        $validated = $request->validate([
+            'routings' => 'required|array',
+            'document_name' => 'required|string|max:40',
+            'product_name' => 'required|string|max:20',
+        ]);
 
-    try {
-        DB::transaction(function () use ($validated) {
-            $documentNumber = $this->getNextDocumentNumber();
+        $materialsToSave = collect($validated['routings'])->pluck('header.IV_MATERIAL');
+        $existingRouting = Routing::whereIn('material', $materialsToSave)->whereNull('uploaded_to_sap_at')->first();
 
-            // HAPUS BARIS-BARIS BERMASALAH INI:
-            // $materials = collect($validated['routings'])->pluck('header.IV_MATERIAL');
-            // Routing::whereIn('material', $materials)->delete();
+        if ($existingRouting) {
+            $errorMessage = "Gagal menyimpan. Material '{$existingRouting->material}' sudah ada di dokumen '{$existingRouting->document_name}' ({$existingRouting->document_number}) dengan status Menunggu.";
+            return response()->json(['message' => $errorMessage], 409);
+        }
 
-            // Lanjutkan dengan loop untuk membuat data baru
-            foreach ($validated['routings'] as $routingData) {
-                Routing::create([
-                    'document_number' => $documentNumber,
-                    'document_name' => $validated['document_name'],
-                    'product_name' => $validated['product_name'],
-                    'material' => $routingData['header']['IV_MATERIAL'],
-                    'plant' => $routingData['header']['IV_PLANT'],
-                    'description' => $routingData['header']['IV_DESCRIPTION'],
-                    'header' => json_encode($routingData['header']),
-                    'operations' => json_encode($routingData['operations']),
-                ]);
-            }
-        });
-        return response()->json(['status' => 'success', 'message' => 'Data routing berhasil disimpan.']);
-    } catch (\Exception $e) {
-        // Log error untuk debugging
-        Log::error('Gagal menyimpan routing: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
-
-        $errorMessage = 'Gagal menyimpan. Terjadi error di server. Silakan cek log.';
-        return response()->json(['status' => 'error', 'message' => $errorMessage], 500);
+        try {
+            DB::transaction(function () use ($validated) {
+                $documentNumber = $this->getNextDocumentNumber();
+                foreach ($validated['routings'] as $routingData) {
+                    Routing::create([
+                        'document_number' => $documentNumber,
+                        'document_name' => $validated['document_name'],
+                        'product_name' => $validated['product_name'],
+                        'material' => $routingData['header']['IV_MATERIAL'],
+                        'plant' => $routingData['header']['IV_PLANT'],
+                        'description' => $routingData['header']['IV_DESCRIPTION'],
+                        'header' => json_encode($routingData['header']),
+                        'operations' => json_encode($routingData['operations']),
+                        'services' => isset($routingData['services']) ? json_encode($routingData['services']) : json_encode([]),
+                    ]);
+                }
+            });
+            return response()->json(['status' => 'success', 'message' => 'Data routing berhasil disimpan.']);
+        } catch (\Exception $e) {
+            Log::error('Gagal menyimpan routing: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
+            $errorMessage = 'Gagal menyimpan. Terjadi error di server. Silakan cek log.';
+            return response()->json(['status' => 'error', 'message' => $errorMessage], 500);
+        }
     }
-}
 
     public function markAsUploaded(Request $request)
     {
@@ -304,19 +334,17 @@ class RoutingController extends Controller
             'successful_uploads.*.doc_number' => 'required|string',
         ]);
 
-        // Ambil daftar unik nomor dokumen dari request
         $documentNumbers = collect($validated['successful_uploads'])->pluck('doc_number')->unique();
 
         DB::transaction(function () use ($validated) {
             foreach ($validated['successful_uploads'] as $upload) {
                 Routing::where('document_number', $upload['doc_number'])
                        ->where('material', $upload['material'])
-                       ->whereNull('uploaded_to_sap_at') // Hanya update yang belum ditandai
+                       ->whereNull('uploaded_to_sap_at')
                        ->update(['uploaded_to_sap_at' => now()]);
             }
         });
 
-        // Setelah transaksi selesai, periksa setiap dokumen untuk pengiriman notifikasi
         foreach ($documentNumbers as $docNumber) {
             $this->checkAndNotifyDocumentCompletion($docNumber);
         }
@@ -324,30 +352,21 @@ class RoutingController extends Controller
         return response()->json(['status' => 'success', 'message' => 'Data berhasil ditandai sebagai ter-upload.']);
     }
 
-    /**
-     * Memeriksa apakah semua item dalam dokumen sudah diunggah,
-     * dan mengirim notifikasi jika sudah lengkap.
-     * @param string $docNumber
-     */
     private function checkAndNotifyDocumentCompletion(string $docNumber)
     {
         try {
-            // Cek apakah notifikasi untuk dokumen ini sudah pernah dikirim
             $notificationAlreadySent = Routing::where('document_number', $docNumber)
                                               ->where('notification_sent', true)
                                               ->exists();
             if ($notificationAlreadySent) {
-                return; // Jika sudah pernah dikirim, hentikan proses
+                return;
             }
 
-            // Hitung total item dan item yang sudah diupload untuk dokumen ini
             $totalItems = Routing::where('document_number', $docNumber)->count();
             $uploadedItems = Routing::where('document_number', $docNumber)->whereNotNull('uploaded_to_sap_at')->count();
 
-            // Jika semua item sudah diupload
             if ($totalItems > 0 && $totalItems === $uploadedItems) {
 
-                // Ambil semua data dari dokumen untuk dimasukkan ke email
                 $documentRoutings = Routing::where('document_number', $docNumber)->get();
                 $firstItem = $documentRoutings->first();
 
@@ -364,12 +383,9 @@ class RoutingController extends Controller
                     })->all(),
                 ];
 
-                // Kirim email notifikasi
                 Mail::to('costing7.kmi@gmail.com')->send(new RoutingDocumentComplete($documentDetails));
 
-                // Tandai bahwa notifikasi untuk dokumen ini sudah dikirim
                 Routing::where('document_number', $docNumber)->update(['notification_sent' => true]);
-
                 Log::info('Notifikasi email berhasil dikirim untuk dokumen routing: ' . $docNumber);
             }
 
@@ -407,21 +423,31 @@ class RoutingController extends Controller
                ->update(['status' => $validated['status']]);
         return response()->json(['status' => 'success', 'message' => 'Status dokumen berhasil diperbarui.']);
     }
+
     public function uploadToSap(Request $request)
     {
-        $pythonApiUrl = env('PYTHON_ROUTING_API_URL');
-        if (!$pythonApiUrl) {
+        $pythonApiUrlBase = env('PYTHON_ROUTING_API_URL');
+        if (!$pythonApiUrlBase) {
             return response()->json(['error' => 'PYTHON_ROUTING_API_URL tidak disetel di file .env'], 500);
         }
-        try {
-            // [LOGGING DITAMBAHKAN DI SINI]
-            Log::info('Data to be sent to Python API:', ['routing_data' => $request->routing_data]);
 
-            $response = Http::timeout(300)->post($pythonApiUrl . '/create-routing', [
+        $routingData = $request->input('routing_data', []);
+
+        // Tentukan endpoint berdasarkan isi data
+        $isServiceOnly = !empty($routingData['services']) && empty($routingData['operations']);
+
+        $endpoint = $isServiceOnly ? '/create-routing-jasa' : '/create-routing';
+        $fullApiUrl = $pythonApiUrlBase . $endpoint;
+
+        try {
+            Log::info("Mengirim data ke Python API endpoint: {$fullApiUrl}", ['routing_data' => $routingData]);
+
+            $response = Http::timeout(300)->post($fullApiUrl, [
                 'username' => $request->username,
                 'password' => $request->password,
-                'routing_data' => $request->routing_data,
+                'routing_data' => $routingData,
             ]);
+
             return response()->json($response->json(), $response->status());
         } catch (ConnectionException $e) {
             $errorMessage = "Gagal terhubung ke Python: " . $e->getMessage();
@@ -432,6 +458,7 @@ class RoutingController extends Controller
             return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
         }
     }
+
     public function checkDocumentNameExists(Request $request)
     {
         $request->validate(['document_name' => 'required|string']);
@@ -456,7 +483,6 @@ class RoutingController extends Controller
     {
         return DB::transaction(function () {
             $sequence = DocumentSequence::where('name', 'routing')->lockForUpdate()->first();
-
             if ($sequence) {
                 $sequence->increment('last_number');
             } else {
@@ -465,9 +491,7 @@ class RoutingController extends Controller
                     'last_number' => 1
                 ]);
             }
-
             $nextNumber = $sequence->last_number;
-
             return 'RPP' . str_pad($nextNumber, 10, '0', STR_PAD_LEFT);
         });
     }
