@@ -73,7 +73,7 @@
     </style>
 </head>
 <body>
-    <div class="container converter-container">
+        <div class="container converter-container">
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container"> <h1 class="h3 main-title">SAP Routing Data Center</h1> <p class="subtitle mb-0">Confirm & Release Routing Data</p> </div>
             <img src="{{ asset('images/saplogo.png') }}" alt="SAP Logo" class="sap-logo-header">
@@ -170,6 +170,12 @@
     <div class="modal fade" id="save-details-modal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Detail Dokumen</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="mb-3"><label for="document-name" class="form-label">Nama Dokumen</label><input type="text" class="form-control" id="document-name" placeholder="Contoh: Routing Pintu Depan" required maxlength="40"></div><div class="mb-3"><label for="product-name" class="form-label">Nama Produk</label><input type="text" class="form-control" id="product-name" placeholder="Contoh: Pintu Jati Model A" required maxlength="20"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary" id="confirm-save-btn">Konfirmasi & Simpan</button></div></div></div></div>
     <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark" style="background:rgba(255,255,255,0.8); backdrop-filter:blur(5px);"><div class="modal-header"><h5 class="modal-title">Mengunggah Routing ke SAP...</h5></div><div class="modal-body"><p id="progress-status-text" class="text-center mb-2">Menunggu...</p><div class="progress" role="progressbar" style="height: 25px;"><div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div></div></div></div></div></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+    <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark" style="background:rgba(255,255,255,0.8); backdrop-filter:blur(5px);"><div class="modal-header"><h5 class="modal-title">Mengunggah Routing ke SAP...</h5></div><div class="modal-body"><p id="progress-status-text" class="text-center mb-2">Menunggu...</p><div class="progress" role="progressbar" style="height: 25px;"><div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div></div></div></div></div></div>
+
+    <audio id="upload-sound" src="{{ asset('audio/Mozart_Allegro.mp3') }}" preload="auto"></audio>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
@@ -563,6 +569,11 @@
                 e.preventDefault();
                 const fileInput = document.getElementById('routing_file');
                 if (!fileInput.files[0]) return Swal.fire({title: 'Peringatan', text: 'Silakan pilih file terlebih dahulu.', icon: 'warning'});
+                const uploadSound = document.getElementById('upload-sound');
+                if (uploadSound) {
+                    uploadSound.currentTime = 0; // Putar dari awal
+                    uploadSound.play().catch(error => console.warn("Pemutaran audio diblokir oleh browser:", error));
+                }
                 processBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
                 processBtn.disabled = true;
                 try {

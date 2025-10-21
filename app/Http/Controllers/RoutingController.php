@@ -229,18 +229,34 @@ class RoutingController extends Controller
                 } else {
                     // [VALIDASI BARU UNTUK OPERASI STANDAR]
                     $operationErrors = [];
-                    if (empty($rowData['operation'])) { $operationErrors[] = 'Operation'; }
-                    if (empty($rowData['work_cntr'])) { $operationErrors[] = 'Work Cntr'; }
-                    if (empty($ctrlKey)) { $operationErrors[] = 'Ctrl Key'; }
+
+                    // Ambil nilai operation untuk divalidasi
+                    $operationValue = (string) ($rowData['operation'] ?? '');
+
+                    // --- Validasi Kolom Operation ---
+                    if (empty($operationValue)) {
+                        $operationErrors[] = 'Kolom Operation tidak boleh kosong';
+                    }
+                    // [VALIDASI BARU] Periksa apakah diawali dengan '0'
+                    elseif (substr($operationValue, 0, 1) !== '0') {
+                        $operationErrors[] = "Kolom Operation ('{$operationValue}') harus diawali dengan angka 0";
+                    }
+                    // --- Akhir Validasi Operation ---
+
+                    // Validasi kolom wajib lainnya untuk operasi standar
+                    if (empty($rowData['work_cntr'])) { $operationErrors[] = 'Kolom Work Cntr tidak boleh kosong'; }
+                    if (empty($ctrlKey)) { $operationErrors[] = 'Kolom Ctrl Key tidak boleh kosong'; }
 
                     // [VALIDASI BARU] Memeriksa semua kolom activity dan uom
                     for ($i = 1; $i <= 6; $i++) {
-                        if (empty($rowData['activity_' . $i] ?? null)) { $operationErrors[] = 'Activity ' . $i; }
-                        if (empty($rowData['uom_' . $i] ?? null)) { $operationErrors[] = 'UoM ' . $i; }
+                        if (empty($rowData['activity_' . $i] ?? null)) { $operationErrors[] = 'Kolom Activity ' . $i . ' tidak boleh kosong'; }
+                        if (empty($rowData['uom_' . $i] ?? null)) { $operationErrors[] = 'Kolom UoM ' . $i . ' tidak boleh kosong'; }
                     }
 
+                    // Jika ada error validasi, kumpulkan semua pesan dan reject filenya
                     if (!empty($operationErrors)) {
-                        $errorString = "Validasi gagal untuk baris Operasi (baris excel {$rowNum}): Kolom " . implode(', ', $operationErrors) . " tidak boleh kosong jika Ctrl Key bukan ZP02.";
+                        // Pesan error ini sekarang akan menampilkan semua masalah yang ditemukan di baris tersebut
+                        $errorString = "Validasi gagal untuk baris Operasi (baris excel {$rowNum}): " . implode(', ', $operationErrors) . ".";
                         return response()->json(['error' => $errorString], 422);
                     }
 
@@ -249,7 +265,7 @@ class RoutingController extends Controller
                         'IV_MATNR'   => (string) ($material),
                         'IV_WERKS'   => (string) ($rowData['plant'] ?? null),
                         'IV_PLNAL'   => str_pad((string)($rowData['grp_ctr'] ?? '1'), 2, '0', STR_PAD_LEFT),
-                        'IV_VORNR'   => (string) ($rowData['operation'] ?? null),
+                        'IV_VORNR'   => $operationValue, // Gunakan $operationValue yang sudah diambil
                         'IV_ARBPL'   => (string) ($rowData['work_cntr'] ?? null),
                         'IV_STEUS'   => (string) ($ctrlKey),
                         'IV_LTXA1'   => (string) ($rowData['descriptions'] ?? null),
@@ -496,4 +512,3 @@ class RoutingController extends Controller
         });
     }
 }
-
