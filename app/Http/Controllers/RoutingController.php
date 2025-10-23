@@ -237,7 +237,7 @@ class RoutingController extends Controller
                     if (empty($operationValue)) {
                         $operationErrors[] = 'Kolom Operation tidak boleh kosong';
                     }
-                    // [VALIDASI BARU] Periksa apakah diawali dengan '0'
+                    // [VALIDASI] Periksa apakah diawali dengan '0'
                     elseif (substr($operationValue, 0, 1) !== '0') {
                         $operationErrors[] = "Kolom Operation ('{$operationValue}') harus diawali dengan angka 0";
                     }
@@ -247,11 +247,30 @@ class RoutingController extends Controller
                     if (empty($rowData['work_cntr'])) { $operationErrors[] = 'Kolom Work Cntr tidak boleh kosong'; }
                     if (empty($ctrlKey)) { $operationErrors[] = 'Kolom Ctrl Key tidak boleh kosong'; }
 
-                    // [VALIDASI BARU] Memeriksa semua kolom activity dan uom
+                    // [VALIDASI] Memeriksa semua kolom activity dan uom
+                    $allowedUoms = ['S', 'MIN']; // Satuan yang diizinkan
+
                     for ($i = 1; $i <= 6; $i++) {
-                        if (empty($rowData['activity_' . $i] ?? null)) { $operationErrors[] = 'Kolom Activity ' . $i . ' tidak boleh kosong'; }
-                        if (empty($rowData['uom_' . $i] ?? null)) { $operationErrors[] = 'Kolom UoM ' . $i . ' tidak boleh kosong'; }
+                        $activityValue = $rowData['activity_' . $i] ?? null;
+                        $uomValue = $rowData['uom_' . $i] ?? null;
+
+                        // Validasi Activity (tidak boleh kosong)
+                        if (empty($activityValue)) {
+                            $operationErrors[] = 'Kolom Activity ' . $i . ' tidak boleh kosong';
+                        }
+
+                        // Validasi UoM (tidak boleh kosong DAN harus 'S' atau 'MIN')
+                        if (empty($uomValue)) {
+                            $operationErrors[] = 'Kolom UoM ' . $i . ' tidak boleh kosong';
+                        } else {
+                            // [VALIDASI BARU] Jika UoM tidak kosong, periksa nilainya
+                            $uomValueUpper = strtoupper(trim($uomValue));
+                            if (!in_array($uomValueUpper, $allowedUoms)) {
+                                $operationErrors[] = "Kolom UoM {$i} ('{$uomValue}') harus 'S' atau 'MIN'";
+                            }
+                        }
                     }
+
 
                     // Jika ada error validasi, kumpulkan semua pesan dan reject filenya
                     if (!empty($operationErrors)) {
@@ -276,7 +295,8 @@ class RoutingController extends Controller
                         $uom_key = 'uom_' . $i;
                         $activity_val = (string) ($rowData[$activity_key] ?? null);
                         if (!empty($activity_val)) {
-                            $uom_val = (string) ($rowData[$uom_key] ?? '');
+                            // Ambil UoM yang sudah divalidasi dan di-uppercase
+                            $uom_val = strtoupper(trim((string) ($rowData[$uom_key] ?? '')));
                             $operation['IV_VGW0' . $i . 'X'] = $activity_val;
                             $operation['IV_VGE0' . $i . 'X'] = $uom_val;
                         }
