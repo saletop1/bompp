@@ -77,6 +77,11 @@
         #results-tbody > .document-header-row:first-child { border-top: none; }
         .details-modal-trigger { cursor: pointer; user-select: none; }
         .details-modal-trigger:hover { color: #0d6efd; }
+         /* Kembalikan styling untuk collapse inline */
+        .details-toggle { cursor: pointer; user-select: none; }
+        .details-toggle:hover { color: #0d6efd; }
+        .collapse-row > td { padding: 0 !important; border: none !important; background-color: transparent !important; }
+        .details-card { background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 0.5rem; }
         .table-danger, .table-danger > th, .table-danger > td { --bs-table-bg: #dc3545; color: white; font-weight: bold; }
         .delete-row-icon { cursor: pointer; transition: color 0.2s ease; font-size: 1.1rem; }
         .delete-row-icon:hover { color: #dc3545; }
@@ -142,13 +147,34 @@
             background-color: #f8f9fa;
          }
 
-         /* [PERBAIKAN] Mengurangi padding vertikal untuk tabel detail di History (di dalam collapse) */
+         /* Mengurangi padding vertikal untuk tabel detail di History (di dalam collapse) */
         #history-card .details-card .table th,
         #history-card .details-card .table td {
-            padding-top: 0.2rem;  /* Kurangi padding atas */
-            padding-bottom: 0.2rem; /* Kurangi padding bawah */
+            padding-top: 0.2rem;
+            padding-bottom: 0.2rem;
         }
 
+        /* Styling untuk tabel detail inline di tabel Menunggu */
+         #results-container .details-card .table {
+             background-color: transparent; /* Ikuti background card */
+             color: #212529;
+             margin-bottom: 0;
+         }
+          #results-container .details-card .table th {
+              background-color: rgba(0,0,0,0.03); /* Header sedikit lebih gelap */
+              font-size: 0.8em;
+              padding-top: 0.3rem;
+              padding-bottom: 0.3rem;
+               vertical-align: middle; /* [PERBAIKAN] Tambahkan middle align di header */
+               text-align: center; /* [PERBAIKAN] Pastikan center align di header */
+          }
+          #results-container .details-card .table td {
+               font-size: 0.9em;
+               padding-top: 0.2rem;
+               padding-bottom: 0.2rem;
+               vertical-align: middle; /* Pastikan rata tengah vertikal */
+               text-align: center; /* Pastikan rata tengah horizontal */
+          }
 
     </style>
 </head>
@@ -253,12 +279,12 @@
     <!-- Modal Progress Upload -->
     <div class="modal fade" id="upload-progress-modal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content text-dark" style="background:rgba(255,255,255,0.8); backdrop-filter:blur(5px);"><div class="modal-header"><h5 class="modal-title">Mengunggah Routing ke SAP...</h5></div><div class="modal-body"><p id="progress-status-text" class="text-center mb-2">Menunggu...</p><div class="progress" role="progressbar" style="height: 25px;"><div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div></div></div></div></div></div>
 
-    <!-- Modal untuk Detail Routing -->
+    <!-- Modal untuk Detail Routing (Hanya untuk History) -->
     <div class="modal fade" id="routing-details-modal" tabindex="-1" aria-labelledby="routingDetailsModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="routingDetailsModalLabel">Detail Routing</h5>
+            <h5 class="modal-title" id="routingDetailsModalLabel">Detail Routing History</h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body" style="background-color: #f8f9fa;">
@@ -305,26 +331,24 @@
             const detailsModal = new bootstrap.Modal(detailsModalElement);
             const sapUsernameInput = document.getElementById('sap-username');
             const sapPasswordInput = document.getElementById('sap-password');
-            const uploadSound = document.getElementById('upload-sound'); // [PERUBAHAN] Ambil elemen audio
+            const uploadSound = document.getElementById('upload-sound');
 
             sapPasswordInput.addEventListener('focus', () => { setTimeout(() => { if (searchInput.value && searchInput.value === sapUsernameInput.value) { searchInput.value = ''; } }, 50); });
 
             function getFlatData() { return processedDataByFile.flatMap(group => group.data); }
 
-            // Fungsi untuk menampilkan modal detail
+            // Fungsi untuk menampilkan modal detail (Hanya untuk History)
             function showDetailsModal(dataItem) {
                  if (!dataItem) return;
 
-                 // Isi data header
                  document.getElementById('modal-material').textContent = dataItem.header.IV_MATERIAL || 'N/A';
                  document.getElementById('modal-plant').textContent = dataItem.header.IV_PLANT || 'N/A';
                  document.getElementById('modal-description').textContent = dataItem.header.IV_DESCRIPTION || 'N/A';
-                 document.getElementById('routingDetailsModalLabel').textContent = `Detail Routing: ${dataItem.header.IV_MATERIAL || ''}`;
+                 document.getElementById('routingDetailsModalLabel').textContent = `Detail Routing History: ${dataItem.header.IV_MATERIAL || ''}`;
 
                  const detailsContent = document.getElementById('modal-details-content');
-                 detailsContent.innerHTML = ''; // Kosongkan konten sebelumnya
+                 detailsContent.innerHTML = '';
 
-                 // Buat tabel detail (operasi atau jasa)
                  if (dataItem.services && dataItem.services.length > 0) {
                      let servicesHtml = `<h6 class="text-dark mt-3">Detail Jasa</h6><table class="table table-sm table-bordered table-striped"><thead><tr><th>Purch. Group</th><th>Deliv. Time</th><th>Price Unit</th><th>Net Price</th><th>Currency</th><th>Cost Element</th><th>Mat. Group</th></tr></thead><tbody>`;
                      dataItem.services.forEach(service => {
@@ -333,9 +357,7 @@
                      servicesHtml += '</tbody></table>';
                      detailsContent.innerHTML = servicesHtml;
                  } else if (dataItem.operations && dataItem.operations.length > 0) {
-
                     let operationsHtml = `<h6 class="text-dark mt-3">Detail Operasi</h6><div class="table-responsive"><table class="table table-sm table-bordered table-striped"><thead><tr><th>Op.</th><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
-
                     dataItem.operations.forEach(op => {
                         operationsHtml += `<tr>
                             <td>${op.IV_VORNR || op.OPERATION || ''}</td>
@@ -352,8 +374,38 @@
                  } else {
                      detailsContent.innerHTML = '<p class="text-muted">Tidak ada detail operasi atau jasa.</p>';
                  }
+                 detailsModal.show();
+            }
 
-                 detailsModal.show(); // Tampilkan modal
+            // Fungsi untuk membuat HTML tabel detail inline (untuk tabel Menunggu)
+            function createInlineDetailsHtml(group) {
+                 let detailContentHtml = '';
+                 if (group.services && group.services.length > 0) {
+                     let servicesHtml = `<div class="table-responsive"><table class="table table-sm table-bordered table-striped"><thead><tr><th>Purch. Group</th><th>Deliv. Time</th><th>Price Unit</th><th>Net Price</th><th>Currency</th><th>Cost Element</th><th>Mat. Group</th></tr></thead><tbody>`;
+                     group.services.forEach(service => {
+                         servicesHtml += `<tr><td>${service.purchasing_group || ''}</td><td>${service.pln_deliv_time || ''}</td><td>${service.price_unit || ''}</td><td>${service.net_price || ''}</td><td>${service.currency || ''}</td><td>${service.cost_element || ''}</td><td>${service.mat_grp || ''}</td></tr>`;
+                     });
+                     servicesHtml += '</tbody></table></div>';
+                     detailContentHtml = servicesHtml;
+                 } else if (group.operations && group.operations.length > 0) {
+                     let operationsHtml = `<div class="table-responsive"><table class="table table-sm table-bordered table-striped"><thead><tr><th>Op.</th><th>Work Center</th><th>Ctrl Key</th><th>Description</th><th>Base Qty</th><th>Activity 1</th><th>UoM 1</th></tr></thead><tbody>`;
+                     group.operations.forEach(op => {
+                         operationsHtml += `<tr>
+                             <td>${op.IV_VORNR || op.OPERATION || ''}</td>
+                             <td>${op.IV_ARBPL || op.WORK_CNTR || ''}</td>
+                             <td>${op.IV_STEUS || op.CONTROL_KEY || ''}</td>
+                             <td>${op.IV_LTXA1 || op.DESCRIPTION || ''}</td>
+                             <td>${op.IV_BMSCHX || op.BASE_QTY || ''}</td>
+                             <td>${op.IV_VGW01X || op.ACTIVITY_1 || ''}</td>
+                             <td>${op.IV_VGE01X || op.UOM_1 || ''}</td>
+                         </tr>`;
+                     });
+                     operationsHtml += '</tbody></table></div>';
+                     detailContentHtml = operationsHtml;
+                 } else {
+                      detailContentHtml = '<p class="text-muted m-2">Tidak ada detail operasi atau jasa.</p>';
+                 }
+                 return detailContentHtml;
             }
 
 
@@ -363,14 +415,13 @@
                     resultsTbody.innerHTML = `<tr><td colspan="8" class="text-center fst-italic py-4">Tidak ada data.</td></tr>`;
                     return;
                 }
-                let globalIndex = 0;
-                const flatOriginalData = getFlatData(); // Ambil data flat original sekali saja
+                const flatOriginalData = getFlatData();
 
                 data.forEach((fileGroup, fileIndex) => {
                     const collapseId = `collapse-doc-${fileIndex}`;
                     const headerRow = document.createElement('tr');
                     headerRow.className = 'document-header-row collapsed';
-                    headerRow.setAttribute('data-bs-target', `.${collapseId}`);
+                    headerRow.setAttribute('data-bs-target', `.${collapseId}`); // Target class untuk toggle multiple
                     headerRow.setAttribute('aria-expanded', 'false');
                     headerRow.setAttribute('data-file-index', fileIndex);
                     headerRow.setAttribute('data-is-saved', fileGroup.is_saved);
@@ -384,8 +435,8 @@
 
                     if(fileGroup.data && fileGroup.data.length > 0) {
                         fileGroup.data.forEach((group, itemIndex) => {
-                             // Cari index asli dari data flat
                             const originalGlobalIndex = flatOriginalData.findIndex(item => item === group);
+                             const detailsId = `details-${originalGlobalIndex}`; // ID unik untuk detail collapse
 
                             const hasDuplicateZP01 = (group.operations || []).filter(op => (op.IV_STEUS === 'ZP01' || op.CONTROL_KEY === 'ZP01')).length > 1;
                             const rowClass = hasDuplicateZP01 ? 'table-danger' : '';
@@ -395,6 +446,7 @@
                             const detailCount = (group.services && group.services.length > 0) ? group.services.length : (group.operations || []).length;
 
                             const mainRow = document.createElement('tr');
+                            // [PERUBAHAN] Tambahkan class collapseId ke baris utama juga
                             mainRow.className = `collapse ${collapseId} ${rowClass}`;
                             mainRow.setAttribute('data-global-index', originalGlobalIndex);
                             mainRow.setAttribute('data-file-index', fileIndex);
@@ -405,18 +457,26 @@
                                 <td>${group.header.IV_MATERIAL}</td>
                                 <td>${group.header.IV_PLANT}</td>
                                 <td>${group.header.IV_DESCRIPTION}</td>
-                                <td class="details-modal-trigger" data-item-source="pending" data-item-index="${originalGlobalIndex}">
+                                <td class="details-toggle" data-bs-toggle="collapse" data-bs-target="#${detailsId}">
                                     ${detailCount} <i class="bi bi-info-circle ms-1 small"></i>
                                 </td>
                                 <td class="status-cell">${statusHtml}</td>
                                 <td><i class="bi bi-trash-fill delete-row-icon" data-global-index="${originalGlobalIndex}" title="Hapus baris ini"></i></td>`;
                             resultsTbody.appendChild(mainRow);
 
+                            // Tambahkan kembali baris collapse untuk detail inline
+                            const detailContentHtml = createInlineDetailsHtml(group);
+                            const detailsRow = document.createElement('tr');
+                            // [PERUBAHAN] Tambahkan class collapseId ke baris detail juga
+                            detailsRow.className = `collapse-row collapse ${collapseId}`;
+                            detailsRow.innerHTML = `<td colspan="8"><div class="collapse" id="${detailsId}"><div class="details-card">${detailContentHtml}</div></div></td>`;
+                            resultsTbody.appendChild(detailsRow);
                         });
                     }
                 });
                 updateButtonStates();
             }
+
 
             function renderHistoryTable(data = historyRoutings) {
                 historyTbody.innerHTML = '';
@@ -466,23 +526,27 @@
                 });
             }
 
+            // Fungsi ini sekarang HANYA menangani trigger modal dari history
             function handleDetailTriggerClick(event) {
                 const trigger = event.target.closest('.details-modal-trigger');
-                if (trigger) {
-                    const source = trigger.dataset.itemSource;
-                    const index = parseInt(trigger.dataset.itemIndex, 10);
-                    let dataItem;
-                    if (source === 'pending') {
-                         const flatData = getFlatData();
-                         dataItem = flatData[index];
-                    } else if (source === 'history') {
-                         dataItem = allHistoryItemsFlat[index];
+                 // Pastikan trigger ditemukan dan berasal dari history table
+                if (trigger && trigger.closest('#history-tbody')) {
+                    if (trigger.dataset.itemSource === 'history') {
+                         const index = parseInt(trigger.dataset.itemIndex, 10);
+                         // Pastikan index valid sebelum mengakses array
+                         if (!isNaN(index) && index >= 0 && index < allHistoryItemsFlat.length) {
+                             const dataItem = allHistoryItemsFlat[index];
+                             showDetailsModal(dataItem);
+                         } else {
+                              console.error("Invalid index for history item:", trigger.dataset.itemIndex);
+                         }
                     }
-                    showDetailsModal(dataItem);
                 }
+                 // Klik pada .details-toggle di tabel pending akan ditangani oleh event listener klik di resultsTbody
             }
-            resultsTbody.addEventListener('click', handleDetailTriggerClick);
-            historyTbody.addEventListener('click', handleDetailTriggerClick);
+            // Pasang listener di kedua tbody
+             // [PERUBAHAN] Kita hanya perlu satu listener di body dokumen untuk event delegation yang lebih efisien
+            document.body.addEventListener('click', handleDetailTriggerClick);
 
 
             async function updateDocumentStatusOnServer(document_number, status) {
@@ -528,13 +592,13 @@
             }
 
             function updateButtonStates() {
-                const checkedRowCount = document.querySelectorAll('.row-checkbox:checked:not(:disabled)').length;
-                const checkedDocCount = document.querySelectorAll('.document-group-checkbox:checked').length;
+                const checkedRowCount = document.querySelectorAll('#results-tbody .row-checkbox:checked:not(:disabled)').length; // Target spesifik
+                const checkedDocCount = document.querySelectorAll('#results-tbody .document-group-checkbox:checked').length; // Target spesifik
                 const totalChecked = checkedRowCount + checkedDocCount;
                 deleteSelectedBtn.disabled = totalChecked === 0;
                 uploadSelectedBtn.disabled = checkedRowCount === 0;
                 saveSelectedBtn.disabled = checkedRowCount === 0;
-                const allRowCheckboxes = document.querySelectorAll('.row-checkbox:not(:disabled)');
+                const allRowCheckboxes = document.querySelectorAll('#results-tbody .row-checkbox:not(:disabled)'); // Target spesifik
                 if (allRowCheckboxes.length > 0 && checkedRowCount === allRowCheckboxes.length) {
                     selectAllCheckbox.checked = true;
                     selectAllCheckbox.indeterminate = false;
@@ -550,16 +614,16 @@
             function handleDocumentGroupCheck(masterCheckbox) {
                  const fileIndex = masterCheckbox.dataset.fileIndex;
                  const isChecked = masterCheckbox.checked;
-                 document.querySelectorAll(`tr[data-file-index="${fileIndex}"].collapse .row-checkbox:not(:disabled)`).forEach(child => child.checked = isChecked);
+                 document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse .row-checkbox:not(:disabled)`).forEach(child => child.checked = isChecked); // Target spesifik
                  updateButtonStates(); // Update tombol setelah check grup
             }
 
             function handleRowCheck(rowCheckbox) {
                 const fileIndex = rowCheckbox.closest('tr').dataset.fileIndex;
-                const masterCheckbox = document.querySelector(`.document-group-checkbox[data-file-index="${fileIndex}"]`);
+                const masterCheckbox = document.querySelector(`#results-tbody .document-group-checkbox[data-file-index="${fileIndex}"]`); // Target spesifik
                 if (!masterCheckbox) return;
-                const allChilds = document.querySelectorAll(`tr[data-file-index="${fileIndex}"].collapse .row-checkbox:not(:disabled)`);
-                const checkedChilds = document.querySelectorAll(`tr[data-file-index="${fileIndex}"].collapse .row-checkbox:checked:not(:disabled)`);
+                const allChilds = document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse .row-checkbox:not(:disabled)`); // Target spesifik
+                const checkedChilds = document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse .row-checkbox:checked:not(:disabled)`); // Target spesifik
                 masterCheckbox.checked = allChilds.length > 0 && checkedChilds.length === allChilds.length;
                 masterCheckbox.indeterminate = checkedChilds.length > 0 && checkedChilds.length < allChilds.length;
                 updateButtonStates(); // Update tombol setelah check baris
@@ -567,7 +631,7 @@
 
             async function performSave(docName, prodName) {
                 const allItems = getFlatData();
-                const selectedItems = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
+                const selectedItems = Array.from(document.querySelectorAll('#results-tbody .row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]); // Target spesifik
                 if (selectedItems.length === 0) return Swal.fire({title: 'Info', text: 'Tidak ada data yang dipilih.', icon: 'info'});
                 saveSelectedBtn.disabled = true;
                 confirmSaveBtn.disabled = true;
@@ -591,26 +655,24 @@
 
             async function performDeletion() {
                 const allItems = getFlatData();
-                const checkedRowBoxes = document.querySelectorAll('.row-checkbox:checked');
-                const checkedDocBoxes = document.querySelectorAll('.document-group-checkbox:checked');
+                const checkedRowBoxes = document.querySelectorAll('#results-tbody .row-checkbox:checked'); // Target spesifik
+                const checkedDocBoxes = document.querySelectorAll('#results-tbody .document-group-checkbox:checked'); // Target spesifik
                 if (checkedRowBoxes.length === 0 && checkedDocBoxes.length === 0) return;
                 const docsToDelete = new Set();
                 const rowsToDeleteFromDb = [];
-                const allIndicesToUpdateView = new Set(); // Hanya index yg akan dihapus dari view
-                const itemsToDeleteFromMemory = []; // Data objek yang akan dihapus dari memory
+                const allIndicesToUpdateView = new Set();
+                const itemsToDeleteFromMemory = [];
 
                 checkedDocBoxes.forEach(docBox => {
                     const fileIndex = docBox.dataset.fileIndex;
-                    const headerRow = document.querySelector(`.document-header-row[data-file-index="${fileIndex}"]`);
-                    // Cari semua baris dalam grup ini
-                    document.querySelectorAll(`tr[data-file-index="${fileIndex}"].collapse`).forEach(row => {
+                    const headerRow = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`); // Target spesifik
+                    document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse`).forEach(row => { // Target spesifik
                          const globalIndex = parseInt(row.dataset.globalIndex);
                          if (!isNaN(globalIndex)) {
                              allIndicesToUpdateView.add(globalIndex);
-                             itemsToDeleteFromMemory.push(allItems[globalIndex]); // Tambahkan objeknya
+                             itemsToDeleteFromMemory.push(allItems[globalIndex]);
                          }
                     });
-                    // Jika dokumen ini sudah disimpan, tandai untuk dihapus dari DB
                     if (headerRow && headerRow.dataset.isSaved === 'true') {
                         const docNumber = headerRow.dataset.docNumber;
                         if(docNumber) docsToDelete.add(docNumber);
@@ -619,17 +681,15 @@
 
                 checkedRowBoxes.forEach(rowBox => {
                     const globalIndex = parseInt(rowBox.dataset.globalIndex);
-                    if (allIndicesToUpdateView.has(globalIndex)) return; // Sudah ditandai oleh check grup
+                    if (allIndicesToUpdateView.has(globalIndex)) return;
 
                     allIndicesToUpdateView.add(globalIndex);
-                    itemsToDeleteFromMemory.push(allItems[globalIndex]); // Tambahkan objeknya
+                    itemsToDeleteFromMemory.push(allItems[globalIndex]);
 
-                    // Cari grup file terkait
                     const rowElement = rowBox.closest('tr');
                     const fileIndex = rowElement.dataset.fileIndex;
-                    const fileGroupHeader = document.querySelector(`.document-header-row[data-file-index="${fileIndex}"]`);
+                    const fileGroupHeader = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`); // Target spesifik
 
-                    // Jika baris ini berasal dari dokumen yang sudah disimpan, tandai untuk dihapus dari DB
                     if (fileGroupHeader && fileGroupHeader.dataset.isSaved === 'true') {
                         const docNumber = fileGroupHeader.dataset.docNumber;
                         const material = allItems[globalIndex].header.IV_MATERIAL;
@@ -644,7 +704,6 @@
 
                 if (result.isConfirmed) {
                     let allSuccess = true;
-                    // Hapus dari DB jika perlu
                     if (docsToDelete.size > 0 || rowsToDeleteFromDb.length > 0) {
                         try {
                             if (docsToDelete.size > 0) {
@@ -656,7 +715,6 @@
                                 if (!response.ok) throw new Error('Gagal menghapus dokumen dari database.');
                             }
                             if (rowsToDeleteFromDb.length > 0) {
-                                // Filter rowsToDeleteFromDb: hanya hapus baris jika dokumennya TIDAK ikut dihapus
                                 const finalRowsToDelete = rowsToDeleteFromDb.filter(row => !docsToDelete.has(row.doc_number));
                                 if (finalRowsToDelete.length > 0) {
                                     const response = await fetch("{{ route('routing.deleteRows') }}", {
@@ -673,15 +731,13 @@
                         }
                     }
 
-                    // Jika operasi DB berhasil (atau tidak diperlukan), hapus dari tampilan/memory
                     if (allSuccess) {
-                         // Hapus item dari processedDataByFile berdasarkan objek
                          processedDataByFile = processedDataByFile.map(fileGroup => {
                             const newData = fileGroup.data.filter(item => !itemsToDeleteFromMemory.includes(item));
                             return { ...fileGroup, data: newData };
-                        }).filter(fileGroup => fileGroup.data.length > 0); // Hapus grup jika kosong
+                        }).filter(fileGroup => fileGroup.data.length > 0);
 
-                        renderPendingTable(); // Render ulang tabel
+                        renderPendingTable();
                         Swal.fire({title: 'Dihapus!', text: 'Item yang dipilih telah dihapus.', icon: 'success'});
                     }
                 }
@@ -695,14 +751,13 @@
 
                 uploadModal.hide();
 
-                // [PERUBAHAN] Putar audio saat release dimulai
                 if (uploadSound) {
                     uploadSound.currentTime = 0;
                     uploadSound.play().catch(error => console.warn("Pemutaran audio diblokir:", error));
                 }
 
                 const allItems = getFlatData();
-                const itemsToUpload = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
+                const itemsToUpload = Array.from(document.querySelectorAll('#results-tbody .row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]); // Target spesifik
                 const totalItems = itemsToUpload.length;
                 let successCount = 0, failCount = 0, processedCount = 0;
                 const successfulUploads = [];
@@ -713,11 +768,11 @@
                 progressBar.textContent = '0%';
                 progressModal.show();
 
-                try { // [PERUBAHAN] Tambahkan try...finally di sekitar loop
+                try {
                     for (const routingData of itemsToUpload) {
                         processedCount++;
                         const globalIndex = allItems.findIndex(item => item === routingData);
-                        const targetRow = document.querySelector(`tr[data-global-index="${globalIndex}"]`);
+                        const targetRow = document.querySelector(`#results-tbody tr[data-global-index="${globalIndex}"]`); // Target spesifik
                         const statusCell = targetRow.querySelector('.status-cell');
                         statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-warning"></span> Menciptakan...`;
                         try {
@@ -730,7 +785,7 @@
                                 statusCell.innerHTML = `<span class="badge bg-success">Success</span>`;
                                 successCount++;
                                 const fileIndex = targetRow.dataset.fileIndex;
-                                const headerRow = document.querySelector(`.document-header-row[data-file-index="${fileIndex}"]`);
+                                const headerRow = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`); // Target spesifik
                                 if (headerRow && headerRow.dataset.isSaved === 'true') {
                                     successfulUploads.push({
                                         material: routingData.header.IV_MATERIAL,
@@ -750,13 +805,12 @@
                         progressBar.textContent = percentage + '%';
                         statusText.textContent = `${successCount} / ${totalItems} material berhasil diupload`;
                     }
-                } finally { // [PERUBAHAN] Hentikan audio di finally
+                } finally {
                      progressModal.hide();
                      if (uploadSound) {
                          uploadSound.pause();
                          uploadSound.currentTime = 0;
                      }
-                    // Tampilkan hasil setelah audio berhenti
                     if (successfulUploads.length > 0) {
                         await fetch("{{ route('routing.markAsUploaded') }}", {
                             method: 'POST',
@@ -777,25 +831,20 @@
 
             searchInput.addEventListener('input', () => {
                 const searchTerm = searchInput.value.toLowerCase().trim();
-                const filterData = (sourceData) => { // Fungsi filter generik
+                const filterData = (sourceData) => {
                     return sourceData.map(fileGroup => {
-                        // Cek match di nama file/dokumen
                         if ((fileGroup.fileName || '').toLowerCase().includes(searchTerm)) { return fileGroup; }
-                        // Filter item di dalam dokumen
                         const filteredItems = (fileGroup.data || []).filter(item => {
                             const materialMatch = (item.header.IV_MATERIAL || '').toLowerCase().includes(searchTerm);
                             const descriptionMatch = (item.header.IV_DESCRIPTION || '').toLowerCase().includes(searchTerm);
-                            // Cek match di work center dalam operasi
                             const workCenterMatch = (item.operations || []).some(op =>
                                 (op.IV_ARBPL || op.WORK_CNTR || '').toLowerCase().includes(searchTerm)
                             );
                             return materialMatch || descriptionMatch || workCenterMatch;
                         });
-                        // Jika ada item yang match, kembalikan grup dengan item yang terfilter
                         if (filteredItems.length > 0) { return { ...fileGroup, data: filteredItems }; }
-                        // Jika tidak ada match sama sekali di grup ini
                         return null;
-                    }).filter(Boolean); // Hapus grup yang null (tidak ada match sama sekali)
+                    }).filter(Boolean);
                 };
                 renderPendingTable(filterData(processedDataByFile));
                 renderHistoryTable(filterData(historyRoutings));
@@ -806,10 +855,6 @@
                 e.preventDefault();
                 const fileInput = document.getElementById('routing_file');
                 if (!fileInput.files[0]) return Swal.fire({title: 'Peringatan', text: 'Silakan pilih file terlebih dahulu.', icon: 'warning'});
-
-                // [PERUBAHAN] Hapus pemutaran audio di sini
-                // const uploadSound = document.getElementById('upload-sound');
-                // if (uploadSound) { ... }
 
                 processBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span>`;
                 processBtn.disabled = true;
@@ -822,7 +867,7 @@
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error || 'Gagal memproses file di server.');
                     processedDataByFile.push(result);
-                    renderPendingTable(); // Render ulang tabel pending
+                    renderPendingTable();
                     Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, title: 'File berhasil diproses!', icon: 'success' });
                 } catch (error) {
                     Swal.fire({title: 'Error!', html: error.message, icon: 'error'});
@@ -843,16 +888,15 @@
                 saveModal.hide();
                 performSave(docName, prodName);
             });
-            confirmUploadBtn.addEventListener('click', performUpload); // [PERUBAHAN] Tetap panggil performUpload
+            confirmUploadBtn.addEventListener('click', performUpload);
 
             selectAllCheckbox.addEventListener('change', (e) => {
                 const isChecked = e.target.checked;
-                // Hanya check/uncheck checkbox di tabel pending
                 document.querySelectorAll('#results-tbody .document-group-checkbox, #results-tbody .row-checkbox:not(:disabled)').forEach(cb => cb.checked = isChecked);
                 updateButtonStates();
             });
 
-             // Event listener hanya untuk tabel pending (resultsTbody)
+             // Event listener change HANYA untuk tabel pending (resultsTbody)
             resultsTbody.addEventListener('change', (e) => {
                  const target = e.target;
                  if (target.classList.contains('document-group-checkbox')) {
@@ -860,13 +904,16 @@
                  } else if (target.classList.contains('row-checkbox')) {
                      handleRowCheck(target);
                  }
-                 // Tidak perlu updateButtonStates di sini karena sudah dipanggil di dalam handleDocumentGroupCheck dan handleRowCheck
              });
 
 
-             // Event listener klik untuk tabel pending (resultsTbody)
+             // Event listener klik HANYA untuk tabel pending (resultsTbody)
             resultsTbody.addEventListener('click', e => {
                  const cycleBtn = e.target.closest('.status-cycle-btn');
+                 const deleteBtn = e.target.closest('.delete-row-icon');
+                 const headerRow = e.target.closest('.document-header-row');
+                 const detailToggle = e.target.closest('.details-toggle'); // Target klik detail
+
                  if (cycleBtn) {
                      e.preventDefault();
                      const statuses = ['', 'Urgent', 'Priority', 'Standart'];
@@ -876,35 +923,52 @@
                      const nextIndex = (currentIndex + 1) % statuses.length;
                      const newStatus = statuses[nextIndex];
                      if (docNumber) { updateDocumentStatusOnServer(docNumber, newStatus); }
-                     return;
-                 }
-                 const deleteBtn = e.target.closest('.delete-row-icon');
-                 if (deleteBtn) {
-                     // Uncheck semua dulu
+                 } else if (deleteBtn) {
                      document.querySelectorAll('#results-tbody .row-checkbox, #results-tbody .document-group-checkbox').forEach(cb => cb.checked = false);
-                     // Check baris yang diklik
                      const globalIndex = parseInt(deleteBtn.dataset.globalIndex);
                      const targetCheckbox = document.querySelector(`#results-tbody .row-checkbox[data-global-index="${globalIndex}"]`);
                      if (targetCheckbox) targetCheckbox.checked = true;
-                     updateButtonStates(); // Update tombol sebelum konfirmasi
-                     performDeletion(); // Panggil fungsi delete
-                     return;
-                 }
-                 // Handle collapse/expand untuk grup dokumen
-                 const headerRow = e.target.closest('.document-header-row');
-                 if (headerRow) {
-                     const targetSelector = headerRow.getAttribute('data-bs-target');
+                     updateButtonStates();
+                     performDeletion();
+                 } else if (headerRow) {
+                      // Handle group collapse/expand
+                     const targetSelector = headerRow.getAttribute('data-bs-target'); // e.g., ".collapse-doc-0"
                      if (targetSelector) {
-                          // Pastikan kita hanya men-toggle baris di dalam #results-tbody
-                         document.querySelectorAll(`#results-tbody tr.collapse${targetSelector.substring(1)}`).forEach(element => {
+                         // Toggle semua elemen yang cocok (baris utama dan baris detail)
+                         document.querySelectorAll(`#results-tbody tr${targetSelector}`).forEach(element => {
                             const instance = bootstrap.Collapse.getOrCreateInstance(element);
                              instance.toggle();
                          });
                      }
                      const isCollapsed = headerRow.classList.toggle('collapsed');
                      headerRow.setAttribute('aria-expanded', !isCollapsed);
+                 } else if (detailToggle) {
+                      // Bootstrap sudah menangani collapse/expand via data-bs-* attributes
+                      // Tidak perlu kode JS tambahan di sini, cukup pastikan atribut HTML benar
                  }
              });
+
+
+            // Event listener klik HANYA untuk tabel history (historyTbody)
+            historyTbody.addEventListener('click', e => {
+                 // Handle collapse/expand untuk grup dokumen di tabel history
+                 const headerRow = e.target.closest('.document-header-row');
+                  if (headerRow) { // Pastikan klik berasal dari tabel history atau header row
+                     const targetSelector = headerRow.getAttribute('data-bs-target');
+                     if (targetSelector) {
+                         document.querySelectorAll(`#history-tbody tr.collapse-row${targetSelector.substring(1)}`).forEach(element => { // Target collapse-row
+                            const innerCollapse = element.querySelector('.collapse'); // Cari div collapse di dalamnya
+                            if (innerCollapse) {
+                                 const instance = bootstrap.Collapse.getOrCreateInstance(innerCollapse);
+                                 instance.toggle();
+                            }
+                         });
+                     }
+                     const isCollapsed = headerRow.classList.toggle('collapsed');
+                     headerRow.setAttribute('aria-expanded', !isCollapsed);
+                 }
+                 // Handle klik trigger modal (sudah ditangani oleh listener umum handleDetailTriggerClick)
+            });
 
 
             // Toggle All Details hanya untuk tabel pending
@@ -912,9 +976,11 @@
             if(toggleAllDetailsCheckbox) {
                 toggleAllDetailsCheckbox.addEventListener('change', (e) => {
                     const isChecked = e.target.checked;
-                    // Fungsi ini sekarang tidak relevan karena detail ada di modal
-                    console.log("Toggle all details (di tabel pending) tidak lagi berfungsi karena detail dipindah ke modal.");
-
+                    // Target collapse di dalam collapse-row di tabel pending
+                    document.querySelectorAll('#results-tbody .collapse-row .collapse').forEach(element => {
+                        const instance = bootstrap.Collapse.getOrCreateInstance(element);
+                        if (isChecked) { instance.show(); } else { instance.hide(); }
+                    });
                 });
             }
         });
