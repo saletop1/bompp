@@ -22,16 +22,62 @@
         .table { --bs-table-bg: transparent; --bs-table-hover-bg: rgba(0, 0, 0, 0.04); color: #212529; width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; }
         .table th, .table td { padding: 0.4rem 1rem; vertical-align: middle; border-top: none; }
         .table-responsive { max-height: 70vh; overflow-y: auto; border-radius: 0.75rem; background: rgba(255, 255, 240, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); }
-        thead th { position: sticky; top: 0; z-index: 2; background-color: #343a40; border-bottom: 2px solid rgba(0, 0, 0, 0.2); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #fff; }
+
+
+        /* Aturan untuk Tabel "Data Menunggu" */
+        #results-container .table-responsive thead th {
+            position: sticky; top: 0; z-index: 2;
+            background-color: #006597ff; border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+            font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #fff;
+        }
+        #results-container .table-responsive .document-header-row > td {
+            position: sticky; top: 40px; background-color: #e9ecef; z-index: 1;
+        }
+
+        /* --- Aturan CSS untuk Tabel History --- */
+
+        /* 1. Header Utama (NAMA DOKUMEN...) */
+        #history-card .table-responsive > .table > thead {
+            position: sticky;
+            top: 0;
+            z-index: 10; /* Tertinggi */
+        }
+        #history-card .table-responsive > .table > thead th {
+            /* Tidak perlu sticky lagi di sini jika sudah di thead */
+            background-color: #1b7737ff;
+            color: #fff;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.2);
+            font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em;
+        }
+
+        /* 2. Header Dokumen (Dokumen: tes...) */
+        #history-card .table-responsive .document-header-row > td {
+            position: sticky;
+            top: 40px;
+            background-color: #e9ecef;
+            z-index: 5; /* Menengah */
+        }
+
+        /* 3. Header Detail (MATERIAL...) */
+        #history-card .sticky-detail-header th {
+            position: sticky;
+            top: 80px; /* [PERBAIKAN] Kembalikan ke 80px (40px header utama + 40px header dokumen) */
+            z-index: 4; /* Lebih rendah dari header dokumen */
+            background-color: #009095ff;
+            color: #fff;
+            border-bottom: 1px solid #17191cff;
+        }
+        /* --- Akhir Aturan CSS Tabel History --- */
+
         tbody tr:not(.collapse-row) { border-bottom: 1px solid rgba(0, 0, 0, 0.1); }
         tbody tr:last-child { border-bottom: none; }
         .document-header-row { cursor: pointer; border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; }
-        .document-header-row > td { position: sticky; top: 40px; background-color: #e9ecef; z-index: 1; }
+
         #results-tbody > .document-header-row:first-child { border-top: none; }
         .details-toggle { cursor: pointer; user-select: none; }
         .details-toggle:hover { color: #0d6efd; }
         .collapse-row > td { padding: 0 !important; border: none !important; background-color: transparent !important; }
-        .details-card { background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 0.5rem; } /* [PERUBAHAN] */
+        .details-card { background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 0.5rem; }
         .table-danger, .table-danger > th, .table-danger > td { --bs-table-bg: #dc3545; color: white; font-weight: bold; }
         .delete-row-icon { cursor: pointer; transition: color 0.2s ease; font-size: 1.1rem; }
         .delete-row-icon:hover { color: #dc3545; }
@@ -293,7 +339,7 @@
                     detailRow.className = 'collapse-row';
                     detailRow.innerHTML = `<td colspan="4" class="p-0"><div class="collapse" id="${docCollapseId}"><div class="details-card"></div></div></td>`;
 
-                    let innerHtml = '<table class="table table-sm table-borderless"><thead><tr><th>Material</th><th>Description</th><th>Jml Detail</th><th>Tgl Eksekusi</th></tr></thead><tbody>';
+                    let innerHtml = '<table class="table table-sm table-borderless"><thead class="sticky-detail-header"><tr><th>Material</th><th>Description</th><th>Jml Detail</th><th>Tgl Eksekusi</th></tr></thead><tbody>';
                     doc.data.forEach(item => {
                         const opCollapseId = `history-op-collapse-${historyGlobalIndex}`;
                         const detailCount = (item.services && item.services.length > 0) ? item.services.length : (item.operations || []).length;
@@ -668,5 +714,4 @@
     </script>
 </body>
 </html>
-
 
