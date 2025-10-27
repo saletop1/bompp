@@ -19,7 +19,7 @@
         .sap-logo-header { height: 80px; width: auto; margin-left: 20px; }
         .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.1); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; border-radius: 50px; }
         .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff1c; color: #02fff7ff; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .table { --bs-table-bg: transparent; --bs-table-hover-bg: rgba(0, 0, 0, 0.04); color: #212529; width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; }
+        .table { --bs-table-bg: transparent; --bs-table-hover-bg: rgba(0, 0, 0, 0.04); color: #212529; width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; } /* Kembali ke separate untuk border-radius */
         .table th, .table td { padding: 0.4rem 1rem; vertical-align: middle; border-top: none; }
         .table-responsive { max-height: 70vh; overflow-y: auto; border-radius: 0.75rem; background: rgba(255, 255, 240, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); }
 
@@ -30,12 +30,34 @@
              background-color: #009095ff;
         }
         #results-container .table-responsive thead th {
+            /* Hapus sticky dari th jika sudah di thead */
             border-bottom: 2px solid rgba(0, 0, 0, 0.2);
             font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #fff;
         }
-        #results-container .table-responsive .document-header-row > td {
-            position: sticky; top: 40px; background-color: #e9ecef; z-index: 1;
+        /* [PERBAIKAN] Terapkan sticky ke TR (baris grup dokumen) */
+        #results-container .table-responsive .document-header-row {
+            position: sticky;
+            top: 40px; /* Sesuaikan dengan tinggi header th di atas */
+            z-index: 1; /* Di bawah header utama */
         }
+        /* Pastikan TD di dalamnya mewarisi background */
+        #results-container .table-responsive .document-header-row > td {
+             background-color: #e9ecef; /* Beri background langsung ke TD agar solid */
+        }
+
+        /* [PERBAIKAN] Hilangkan border-top hanya pada baris grup dokumen pertama di tbody */
+         #results-container .table-responsive #results-tbody > tr.document-header-row:first-of-type > td {
+              border-top: none !important;
+         }
+         /* Atur border-top standar untuk baris grup dokumen lainnya */
+         #results-container .table-responsive #results-tbody > tr.document-header-row:not(:first-of-type) > td {
+              border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+         }
+         /* Atur border bawah standar */
+         #results-container .table-responsive .document-header-row > td {
+              border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+         }
+
 
         /* --- Aturan CSS untuk Tabel History --- */
 
@@ -44,10 +66,9 @@
             position: sticky;
             top: 0;
             z-index: 10; /* Tertinggi */
-            background-color: #009095ff; /* Tambahkan background di sini */
+            background-color: #009095ff; /* Warna header disamakan */
         }
         #history-card .table-responsive > .table > thead th {
-            /* Tidak perlu background lagi di sini */
             color: #fff;
             border-bottom: 2px solid rgba(0, 0, 0, 0.2);
             font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em;
@@ -63,7 +84,6 @@
 
         /* 3. Header Detail (MATERIAL...) - Tidak sticky */
         #history-card .sticky-detail-header th {
-            /* Dihapus sticky */
             background-color: #343a40;
             color: #fff;
             border-bottom: 1px solid #495057;
@@ -72,9 +92,10 @@
 
         tbody tr:not(.collapse-row) { border-bottom: 1px solid rgba(0, 0, 0, 0.1); }
         tbody tr:last-child { border-bottom: none; }
-        .document-header-row { cursor: pointer; border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; }
+        /* Hapus border top/bottom default dari .document-header-row */
+        .document-header-row { cursor: pointer; /* border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; */ }
 
-        #results-tbody > .document-header-row:first-child { border-top: none; }
+
         .details-modal-trigger { cursor: pointer; user-select: none; }
         .details-modal-trigger:hover { color: #0d6efd; }
          /* Kembalikan styling untuk collapse inline */
@@ -91,7 +112,7 @@
         .form-check-input:checked { background-color: #10b981; border-color: #059669; }
         .form-check-input:focus { box-shadow: 0 0 0 .25rem rgba(16, 185, 129, 0.25); border-color: #10b981; }
         #history-card { margin-top: 2rem; }
-        #history-card .table-responsive { max-height: 40vh; }
+        #history-card .table-responsive { max-height: 75vh; }
         .doc-header-content { display: flex; align-items: center; gap: 1rem; width: 100%; }
         .doc-header-left { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
         .doc-title { flex-grow: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; font-weight: 500;}
