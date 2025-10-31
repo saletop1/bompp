@@ -148,7 +148,7 @@
                 </div>
                 @else
                 {{-- FORM UPLOAD AWAL --}}
-                <form action="{{ route('converter.upload') }}" method="post" enctype="multipart/form-data" id="upload-form">
+                <form action="{{ route('converter.upload') }}" method="POST" enctype="multipart/form-data" id="upload-form">
                     @csrf
                     <div class="row g-3">
                         <div class="col-md-12">
@@ -652,4 +652,3 @@
     </script>
 </body>
 </html>
-    

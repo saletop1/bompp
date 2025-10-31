@@ -198,6 +198,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             let finalBomUploadResults = [];
+            let finalGeneratedCodeResults = [];
             const processedPlant = @json(session('processed_plant'));
             const uploadMusic = document.getElementById('upload-music');
 
@@ -217,34 +218,85 @@
                 button.disabled = isLoading;
                 if (spinner) isLoading ? spinner.classList.remove('d-none') : spinner.classList.add('d-none');
             }
-            function showResult(div, isSuccess, message, details = null) {
+
+            /**
+             * [FUNGSI DIPERBARUI]
+             * Menampilkan hasil. Bisa append=true untuk menambah hasil (live progress).
+             */
+            function showResult(div, isSuccess, message, details = null, append = false) {
                 if (!div) return;
                 const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
-                let html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
-                if (details && Array.isArray(details)) {
-                    html += '<div class="upload-details"><ul>';
-                    details.forEach(item => {
-                        if (item.status !== undefined) {
-                            const icon = item.status === 'Success' ? '✅' : '❌';
+                let html = '';
 
+                // Jika tidak append, tambahkan header message
+                if (!append || div.innerHTML === '') {
+                    html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
+                }
+
+                // Siapkan detail list
+                let detailHtml = '';
+                if (details && Array.isArray(details)) {
+                    detailHtml += '<div class="upload-details"><ul>';
+                    details.forEach(item => {
+                        // [PERBAIKAN] Cek 'item.message' untuk hasil Upload
+                        // Cek 'item.code' untuk hasil Generate Code
+                        if (item.message !== undefined) {
+                            // Format untuk hasil UPLOAD (Success/Failed)
+                            const icon = item.status === 'Success' ? '✅' : '❌';
                             let originalMessage = item.message;
                             if (item.status === 'Success' && originalMessage.includes('berhasil dibuat untuk material')) {
                                 originalMessage = originalMessage.split(' untuk material')[0];
                             }
-
                             const cleanMessage = originalMessage.replace(/^✅\s*|^\s*/, '').replace(/0*(\d+)/g, "$1");
+                            detailHtml += `<li>${icon} ${cleanMessage}</li>`;
 
-                            html += `<li>${icon} ${cleanMessage}</li>`;
-                        } else {
-                            const icon = item.code !== 'tidak ditemukan' ? '✅' : '❌';
-                            const cleanCode = item.code.match(/^[a-zA-Z]/) ? item.code : parseInt(item.code, 10);
-                            html += `<li>${icon} <strong>${item.description}:</strong> ${cleanCode}</li>`;
+                        } else if (item.code !== undefined) {
+                            // Format untuk hasil GENERATE CODE (deskripsi + kode)
+                            const icon = (item.code !== '#NOT_FOUND#' && item.code !== '#ERROR#') ? '✅' : '❌';
+                            const cleanCode = (item.code.match(/^[a-zA-Z]/) || item.code.startsWith('#')) ? item.code : parseInt(item.code, 10);
+                            detailHtml += `<li>${icon} <strong>${item.description}:</strong> ${cleanCode}</li>`;
                         }
                     });
-                    html += '</ul></div>';
+                    detailHtml += '</ul></div>';
                 }
-                div.innerHTML = html;
+
+                // Gabungkan
+                if (append) {
+                    // Jika append, cari <ul> yang ada atau buat baru
+                    let ulContainer = div.querySelector('.upload-details ul');
+                    if (!ulContainer) {
+                        // Jika ini item pertama, tambahkan wrapper detail
+                        div.innerHTML += '<div class="upload-details"><ul></ul></div>';
+                        ulContainer = div.querySelector('.upload-details ul');
+                    }
+                    // Tambahkan hanya list item baru
+                    if (details && Array.isArray(details)) {
+                         details.forEach(item => {
+                            if (item.message !== undefined) {
+                                // Format untuk hasil UPLOAD (Success/Failed)
+                                const icon = item.status === 'Success' ? '✅' : '❌';
+                                let originalMessage = item.message;
+                                if (item.status === 'Success' && originalMessage.includes('berhasil dibuat untuk material')) {
+                                    originalMessage = originalMessage.split(' untuk material')[0];
+                                }
+                                const cleanMessage = originalMessage.replace(/^✅\s*|^\s*/, '').replace(/0*(\d+)/g, "$1");
+                                ulContainer.innerHTML += `<li>${icon} ${cleanMessage}</li>`;
+
+                            } else if (item.code !== undefined) {
+                                // Format untuk hasil GENERATE CODE (deskripsi + kode)
+                                const icon = (item.code !== '#NOT_FOUND#' && item.code !== '#ERROR#') ? '✅' : '❌';
+                                const cleanCode = (item.code.match(/^[a-zA-Z]/) || item.code.startsWith('#')) ? item.code : parseInt(item.code, 10);
+                                ulContainer.innerHTML += `<li>${icon} <strong>${item.description}:</strong> ${cleanCode}</li>`;
+                            }
+                         });
+                    }
+                } else {
+                    // Tulis ulang HTML
+                    html += detailHtml;
+                    div.innerHTML = html;
+                }
             }
+
             function showProgressBar(text) {
                 const progressContainer = document.getElementById('progress-container');
                 const progressText = document.getElementById('progress-text');
@@ -309,106 +361,231 @@
                 const sendEmailBtn = document.getElementById('send-email-btn-bom');
                 const emailResultDiv = document.getElementById('email-result');
 
-                generateBtn.addEventListener('click', async () => {
-                    setLoadingState(generateBtn, true);
-                    resultDiv.innerHTML = '';
-                    showProgressBar('Generating material codes...');
-                    try {
-                        const response = await fetch("{{ route('api.bom.generate_codes') }}", {
-                            method: 'POST',
-                            headers: getHeaders(),
-                            body: JSON.stringify({ filename: generateBtn.dataset.filename })
-                        });
-
-                        if (response.status === 419) {
-                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
-                            window.location.reload();
-                            return;
-                        }
-
-                        const result = await response.json();
-                        showResult(resultDiv, response.ok, result.message, result.results);
-                        if (response.ok && result.status === 'success') {
-                            generateBtn.classList.add('d-none');
-                            const hasNotFound = result.results.some(item => item.code === 'tidak ditemukan');
-                            if (hasNotFound) {
-                                uploadBomBtn.disabled = true;
-                                uploadBomBtn.setAttribute('title', 'Upload dinonaktifkan karena ada kode material yang tidak ditemukan.');
-                                uploadBomBtn.classList.remove('btn-primary');
-                                uploadBomBtn.classList.add('btn-secondary');
-                            } else {
-                                uploadBomBtn.disabled = false;
-                                uploadBomBtn.removeAttribute('title');
-                                uploadBomBtn.classList.remove('btn-secondary');
-                                uploadBomBtn.classList.add('btn-primary');
-                            }
-                            uploadBomBtn.classList.remove('d-none');
-                            downloadBtn.classList.remove('d-none');
-                            downloadRoutingBtn.classList.remove('d-none');
-                        }
-                    } catch (error) {
-                        showResult(resultDiv, false, 'Network error during code generation.');
-                    } finally {
-                        setLoadingState(generateBtn, false);
-                        hideProgressBar();
-                    }
-                });
-
-                uploadBomBtn.addEventListener('click', () => {
-                    sapLoginModal.show();
-                });
+                generateBtn.addEventListener('click', handleGenerateCodes);
+                uploadBomBtn.addEventListener('click', () => sapLoginModal.show());
                 confirmBtn.addEventListener('click', () => {
                     sapLoginModal.hide();
                     handleBomUpload();
                 });
                 sendEmailBtn.addEventListener('click', handleSendBomEmail);
 
+                /**
+                 * [FUNGSI DIPERBARUI]
+                 * Menangani proses generate codes dengan live progress.
+                 */
+                async function handleGenerateCodes() {
+                    setLoadingState(generateBtn, true);
+                    resultDiv.innerHTML = ''; // Bersihkan hasil sebelumnya
+                    finalGeneratedCodeResults = []; // Reset hasil
+
+                    try {
+                        // Langkah 1: Ambil daftar deskripsi yang perlu dicek
+                        showProgressBar('Mengambil daftar material...');
+                        const listResponse = await fetch("{{ route('api.bom.generate_codes') }}", {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify({ filename: generateBtn.dataset.filename })
+                        });
+
+                        if (!listResponse.ok) {
+                            if (listResponse.status === 419) window.location.reload();
+                            throw new Error('Gagal mengambil daftar material dari server.');
+                        }
+
+                        const listResult = await listResponse.json();
+                        if (listResult.status !== 'success' || !listResult.descriptions_to_check) {
+                            throw new Error(listResult.message || 'Server mengembalikan data yang tidak valid.');
+                        }
+
+                        const descriptions = listResult.descriptions_to_check;
+                        const total = descriptions.length;
+                        if (total === 0) {
+                            showResult(resultDiv, true, "Tidak ada material yang memerlukan pencarian kode. Semua sudah lengkap.", null);
+                            generateBtn.classList.add('d-none');
+                            uploadBomBtn.classList.remove('d-none');
+                            downloadBtn.classList.remove('d-none');
+                            downloadRoutingBtn.classList.remove('d-none');
+                            return;
+                        }
+
+                        // Langkah 2: Loop dan cari satu per satu
+                        for (let i = 0; i < total; i++) {
+                            const desc = descriptions[i];
+                            const shortDesc = desc.length > 40 ? desc.substring(0, 37) + '...' : desc;
+                            showProgressBar(`Mencari Kode ${i + 1}/${total}: '${shortDesc}'`);
+
+                            try {
+                                const findResponse = await fetch("{{ route('api.bom.find_single_code') }}", {
+                                    method: 'POST',
+                                    headers: getHeaders(),
+                                    body: JSON.stringify({ description: desc })
+                                });
+
+                                const findResult = await findResponse.json();
+                                finalGeneratedCodeResults.push(findResult); // Simpan hasil
+
+                                // Tampilkan hasil langsung (mode append)
+                                showResult(resultDiv, true, "Mencari kode...", [findResult], true);
+
+                            } catch (loopError) {
+                                // Tangani error per item (misal network error di tengah loop)
+                                const errorResult = { status: 'error', description: desc, code: '#ERROR#' };
+                                finalGeneratedCodeResults.push(errorResult);
+                                showResult(resultDiv, true, "Mencari kode...", [errorResult], true);
+                            }
+                        }
+
+                        // Langkah 3: Simpan semua hasil yang ditemukan ke file JSON di server
+                        showProgressBar('Menyimpan semua kode yang ditemukan...');
+                        const saveResponse = await fetch("{{ route('api.bom.save_codes') }}", {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify({
+                                filename: generateBtn.dataset.filename,
+                                results: finalGeneratedCodeResults
+                            })
+                        });
+
+                        if (!saveResponse.ok) {
+                            throw new Error('Gagal menyimpan hasil kode di server.');
+                        }
+
+                        const saveResult = await saveResponse.json();
+                        if (saveResult.status !== 'success') {
+                            throw new Error(saveResult.message || 'Gagal menyimpan hasil kode.');
+                        }
+
+                        // Selesai - Tampilkan pesan final
+                        hideProgressBar();
+                        showResult(resultDiv, true, saveResult.message, saveResult.results, false); // Tulis ulang hasil akhir
+
+                        // Tampilkan tombol berikutnya
+                        generateBtn.classList.add('d-none');
+                        const hasNotFound = finalGeneratedCodeResults.some(item => item.code === '#NOT_FOUND#' || item.code === '#ERROR#');
+                        if (hasNotFound) {
+                            uploadBomBtn.disabled = true;
+                            uploadBomBtn.setAttribute('title', 'Upload dinonaktifkan karena ada kode material yang tidak ditemukan/error.');
+                            uploadBomBtn.classList.remove('btn-primary');
+                            uploadBomBtn.classList.add('btn-secondary');
+                        } else {
+                            uploadBomBtn.disabled = false;
+                            uploadBomBtn.removeAttribute('title');
+                            uploadBomBtn.classList.remove('btn-secondary');
+                            uploadBomBtn.classList.add('btn-primary');
+                        }
+                        uploadBomBtn.classList.remove('d-none');
+                        downloadBtn.classList.remove('d-none');
+                        downloadRoutingBtn.classList.remove('d-none');
+
+                    } catch (error) {
+                        console.error('Error during code generation:', error);
+                        showResult(resultDiv, false, error.message || 'Network error during code generation.');
+                    } finally {
+                        setLoadingState(generateBtn, false);
+                        hideProgressBar();
+                    }
+                }
+
+
+                /**
+                 * [FUNGSI DIPERBARUI]
+                 * Menangani proses upload BOM dengan live progress.
+                 */
                 async function handleBomUpload() {
                     setLoadingState(uploadBomBtn, true);
                     resultDiv.innerHTML = '';
-                    showProgressBar('Uploading BOM to SAP...');
+                    finalBomUploadResults = []; // Reset hasil
                     if (uploadMusic) uploadMusic.play();
+
                     try {
-                        const response = await fetch("{{ route('api.bom.upload') }}", {
+                        // Langkah 1: Ambil daftar BOM yang akan di-upload
+                        showProgressBar('Mengambil daftar BOM untuk di-upload...');
+                        const listResponse = await fetch("{{ route('api.bom.upload') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: getAuthBody({ filename: uploadBomBtn.dataset.filename })
                         });
 
-                        if (response.status === 419) {
-                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
-                            window.location.reload();
+                        if (!listResponse.ok) {
+                             if (listResponse.status === 419) window.location.reload();
+                             const errorResult = await listResponse.json(); // Coba ambil pesan error
+                             throw new Error(errorResult.message || 'Gagal mengambil daftar BOM dari server.');
+                        }
+
+                        const listResult = await listResponse.json();
+                        if (listResult.status !== 'success') {
+                            throw new Error(listResult.message || 'Server mengembalikan data yang tidak valid.');
+                        }
+
+                        const bomsToUpload = listResult.boms_to_upload;
+                        const descriptionMap = listResult.description_map;
+                        const total = bomsToUpload.length;
+
+                        if (total === 0) {
+                            showResult(resultDiv, true, "Tidak ada BOM valid yang perlu di-upload.", null);
                             return;
                         }
 
-                        const result = await response.json();
-                        finalBomUploadResults = result.results;
-                        showResult(resultDiv, response.ok && result.status === 'success', result.message, finalBomUploadResults);
+                        // Langkah 2: Loop dan upload satu per satu
+                        for (let i = 0; i < total; i++) {
+                            const bom = bomsToUpload[i];
+                            const materialCode = ltrim(bom.IV_MATNR, '0');
+                            const description = descriptionMap[materialCode] || bom.IV_STKTX;
 
-                        if (response.ok && result.status === 'success') {
-                            const successfulUploads = finalBomUploadResults.filter(r => r.status === 'Success');
-                            if (successfulUploads.length > 0) {
-                                emailNotificationArea.classList.remove('d-none');
-                                sendEmailBtn.classList.remove('d-none');
-                            }
-                            const hasFailures = finalBomUploadResults.some(r => r.status === 'Failed');
-                            if (!hasFailures) {
-                                uploadBomBtn.classList.add('d-none');
-                            }
+                            showProgressBar(`Proses BOM ${i + 1}/${total}: '${materialCode}'`);
 
-                            // --- LOGIKA DOWNLOAD OTOMATIS ---
-                            if (downloadBtn) {
-                                downloadBtn.click();
+                            try {
+                                const uploadResponse = await fetch("{{ route('api.bom.upload_single') }}", {
+                                    method: 'POST',
+                                    headers: getHeaders(),
+                                    body: getAuthBody({ bom: bom })
+                                });
+
+                                const uploadResult = await uploadResponse.json();
+                                const results = enrichResults(uploadResult.results || [], descriptionMap);
+                                finalBomUploadResults.push(...results);
+
+                                // Tampilkan hasil langsung (mode append)
+                                showResult(resultDiv, true, "Mengupload BOM...", results, true);
+
+                            } catch (loopError) {
+                                // Tangani error per item (misal network error di tengah loop)
+                                const errorResult = [{
+                                    status: 'Failed',
+                                    material_code: bom.IV_MATNR,
+                                    message: `Network Error: ${loopError.message}`
+                                }];
+                                finalBomUploadResults.push(...errorResult);
+                                showResult(resultDiv, true, "Mengupload BOM...", errorResult, true);
                             }
-                            setTimeout(() => {
-                                if (downloadRoutingBtn) {
-                                    downloadRoutingBtn.click();
-                                }
-                            }, 1000);
-                            // --- AKHIR LOGIKA DOWNLOAD OTOMATIS ---
                         }
+
+                        // Langkah 3: Selesai
+                        hideProgressBar();
+                        showResult(resultDiv, true, `Proses upload selesai. ${total}/${total} BOM diproses.`, finalBomUploadResults, false); // Tulis ulang hasil akhir
+
+                        // Tampilkan tombol email jika ada sukses
+                        const successfulUploads = finalBomUploadResults.filter(r => r.status === 'Success');
+                        if (successfulUploads.length > 0) {
+                            emailNotificationArea.classList.remove('d-none');
+                            sendEmailBtn.classList.remove('d-none');
+                        }
+
+                        // Sembunyikan tombol upload jika tidak ada error
+                        const hasFailures = finalBomUploadResults.some(r => r.status === 'Failed');
+                        if (!hasFailures) {
+                            uploadBomBtn.classList.add('d-none');
+                        }
+
+                        // Auto-download
+                        if (downloadBtn) downloadBtn.click();
+                        setTimeout(() => {
+                            if (downloadRoutingBtn) downloadRoutingBtn.click();
+                        }, 1000);
+
                     } catch (error) {
-                        showResult(resultDiv, false, 'Network Error during BOM upload.');
+                        console.error('Error during BOM upload:', error);
+                        showResult(resultDiv, false, error.message || 'Network Error during BOM upload.');
                     } finally {
                         setLoadingState(uploadBomBtn, false);
                         hideProgressBar();
@@ -418,6 +595,7 @@
                         }
                     }
                 }
+
                 async function handleSendBomEmail() {
                     setLoadingState(sendEmailBtn, true);
                     emailResultDiv.innerHTML = '';
@@ -468,6 +646,26 @@
                         hideProgressBar();
                     }
                 }
+
+                // --- FUNGSI HELPER ---
+                function ltrim(str, char = '0') {
+                    if (!str) return '';
+                    let start = 0;
+                    while (start < str.length && str[start] === char) {
+                        start++;
+                    }
+                    return str.substring(start);
+                }
+
+                function enrichResults(results, descriptionMap) {
+                    if (!results) return [];
+                    return results.map(result => {
+                        const matCode = ltrim(result.material_code, '0');
+                        result['description'] = descriptionMap[matCode] || 'N/A';
+                        return result;
+                    });
+                }
+
             }
         });
     </script>
@@ -479,3 +677,4 @@
 
 </body>
 </html>
+

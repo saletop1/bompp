@@ -40,10 +40,31 @@ class ProcessedBomExport implements FromCollection, WithHeadings
             // Terjemahkan penanda #NOT_FOUND# untuk parent
             $parentCode = ($parent['code'] === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $parent['code'];
 
+            // Ambil sloc1 parent untuk logika komponen
+            $parentSloc1 = $parent['sloc1'] ?? '';
+
             foreach ($components as $comp) {
                 $itemNumber += 10;
-                // Terjemahkan penanda #NOT_FOUND# untuk komponen
-                $compCode = ($comp['code'] === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $comp['code'];
+
+                // Ambil kode material mentah (raw) dari komponen
+                $compCodeRaw = $comp['code'] ?? '';
+                // Terjemahkan penanda #NOT_FOUND# untuk tampilan Excel
+                $compCode = ($compCodeRaw === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $compCodeRaw;
+
+                // === [PERBAIKAN LOGIKA LTRIM] ===
+                $lgort = '';
+
+                // 1. Hapus nol di depan dari kode material mentah
+                $cleanedCode = ltrim($compCodeRaw, '0');
+
+                if ($compCodeRaw !== '#NOT_FOUND#' && !empty($compCodeRaw) && str_starts_with($cleanedCode, '9')) {
+                    // 2. Cek apakah kode yang SUDAH BERSIH diawali '9'
+                    $lgort = $parentSloc1;
+                } else {
+                    // 3. Jika tidak (atau #NOT_FOUND#), ambil sloc (dari komponen)
+                    $lgort = $comp['sloc'] ?? '';
+                }
+                // === [AKHIR PERBAIKAN LOGIKA] ===
 
                 $excelRows[] = [
                     'RC29N-MATNR'   => $parentCode,
@@ -57,12 +78,13 @@ class ProcessedBomExport implements FromCollection, WithHeadings
                     'RC29K-BMEIN'   => $parent['uom'],
                     'RC29P-POSNR'   => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
                     'RC29P-POSTP'   => 'L',
-                    'RC29P-IDNRK'   => $compCode,
+                    'RC29P-IDNRK'   => $compCode, // Tampilkan kode yang sudah diterjemahkan
                     'RC29P-KTEXT'   => $comp['description'],
                     'RC29P-MENGE'   => $comp['qty'],
                     'RC29P-MEINS'   => $comp['uom'],
                     'RC29P-AUSCH'   => '',
-                    'RC29P-LGORT'   => $comp['sloc'], 
+                    // Gunakan $lgort yang sudah dihitung
+                    'RC29P-LGORT'   => $lgort,
                     'RC29P-POTX1'   => '',
                     'RC29P-POTX2'   => '',
                 ];

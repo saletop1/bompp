@@ -44,8 +44,18 @@ Route::post('/api/sap/download-report', [BomController::class, 'downloadUploadRe
 Route::post('/api/sap/create_inspection_plan', [BomController::class, 'createInspectionPlan'])->name('api.sap.create_inspection_plan');
 
 // --- BOM Uploader API ---
+// [DIPERBARUI] Rute ini sekarang mengambil DAFTAR DESKRIPSI
 Route::post('/api/bom/generate-codes', [BomController::class, 'generateBomMaterialCodes'])->name('api.bom.generate_codes');
+// [BARU] Rute untuk mencari SATU kode
+Route::post('/api/bom/find-single-code', [BomController::class, 'apiFindMaterialCode'])->name('api.bom.find_single_code');
+// [BARU] Rute untuk menyimpan SEMUA kode yang ditemukan
+Route::post('/api/bom/save-generated-codes', [BomController::class, 'saveGeneratedCodes'])->name('api.bom.save_codes');
+
+// [DIPERBARUI] Rute ini sekarang mengambil DAFTAR BOM
 Route::post('/api/bom/upload-sap', [BomController::class, 'uploadProcessedBom'])->name('api.bom.upload');
+// Rute ini untuk meng-upload SATU BOM per panggilan
+Route::post('/api/bom/upload-single', [BomController::class, 'uploadSingleBom'])->name('api.bom.upload_single');
+
 
 // --- Routing API ---
 Route::post('/routing/process-file', [RoutingController::class, 'processFile'])->name('routing.processFile');
@@ -57,9 +67,9 @@ Route::post('/routing/delete', [RoutingController::class, 'deleteRoutings'])->na
 Route::post('/routing/check-name', [RoutingController::class, 'checkDocumentNameExists'])->name('routing.checkName');
 Route::post('/routing/check-materials', [RoutingController::class, 'checkMaterialsInExistingDocument'])->name('routing.checkMaterials');
 Route::post('/routing/delete-rows', [RoutingController::class, 'deleteRoutingRows'])->name('routing.deleteRows');
-Route::get('/routing', [RoutingController::class, 'index'])->name('routing.index');
 Route::post('/routing/update-status', [RoutingController::class, 'updateStatus'])->name('routing.updateStatus');
 
 // --- Notifikasi API ---
 Route::post('/api/notification/send', [BomController::class, 'sendNotification'])->name('api.notification.send');
 Route::post('/api/notification/send-bom', [BomController::class, 'sendBomNotification'])->name('api.notification.sendBom');
+
