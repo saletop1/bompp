@@ -44,18 +44,14 @@ Route::post('/api/sap/download-report', [BomController::class, 'downloadUploadRe
 Route::post('/api/sap/create_inspection_plan', [BomController::class, 'createInspectionPlan'])->name('api.sap.create_inspection_plan');
 
 // --- BOM Uploader API ---
-// [DIPERBARUI] Rute ini sekarang mengambil DAFTAR DESKRIPSI
-Route::post('/api/bom/generate-codes', [BomController::class, 'generateBomMaterialCodes'])->name('api.bom.generate_codes');
-// [BARU] Rute untuk mencari SATU kode
-Route::post('/api/bom/find-single-code', [BomController::class, 'apiFindMaterialCode'])->name('api.bom.find_single_code');
-// [BARU] Rute untuk menyimpan SEMUA kode yang ditemukan
-Route::post('/api/bom/save-generated-codes', [BomController::class, 'saveGeneratedCodes'])->name('api.bom.save_codes');
+// [PERBAIKAN] Menambahkan 2 rute baru untuk live-progress "Generate Codes"
+Route::post('/api/bom/generate-codes-list', [BomController::class, 'generateBomMaterialCodes'])->name('api.bom.generate_codes');
+Route::post('/api/bom/find-material', [BomController::class, 'apiFindMaterialCode'])->name('api.bom.api_find_material');
+Route::post('/api/bom/save-codes', [BomController::class, 'saveGeneratedCodes'])->name('api.bom.save_generated_codes');
 
-// [DIPERBARUI] Rute ini sekarang mengambil DAFTAR BOM
-Route::post('/api/bom/upload-sap', [BomController::class, 'uploadProcessedBom'])->name('api.bom.upload');
-// Rute ini untuk meng-upload SATU BOM per panggilan
+// Rute untuk live-progress "Upload BOM"
+Route::post('/api/bom/upload-sap-list', [BomController::class, 'uploadProcessedBom'])->name('api.bom.upload');
 Route::post('/api/bom/upload-single', [BomController::class, 'uploadSingleBom'])->name('api.bom.upload_single');
-
 
 // --- Routing API ---
 Route::post('/routing/process-file', [RoutingController::class, 'processFile'])->name('routing.processFile');

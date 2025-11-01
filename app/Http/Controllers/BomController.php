@@ -128,7 +128,7 @@ class BomController extends Controller
                     'description' => $findValue($rowData, ['material description']),
                     'qty'         => str_replace(',', '.', $findValue($rowData, ['qty'], '1')),
                     'sloc'        => $findValue($rowData, ['sloc']),
-                    'sloc1'       => $findValue($rowData, ['sloc1']), // [LOGIKA SLOC1] Mengambil sloc1
+                    'sloc1'       => $findValue($rowData, ['sloc1']), // [FIX] Mengambil sloc1
                     'code'        => '',
                     'uom'         => $findValue($rowData, ['uom'], 'PC'),
                 ];
@@ -146,16 +146,13 @@ class BomController extends Controller
 
                     // 3. Hitung total qty raw material
                     $totalRawMaterialQty = $partQty * $unitOfIssueQty;
-                    // Pastikan format string, bukan angka saintifik
-                    $totalRawMaterialQtyStr = rtrim(rtrim(sprintf('%.10f', $totalRawMaterialQty), '0'), '.');
-
 
                     $materialNode = [
                         'item'        => $itemNumber . '.1',
                         'description' => $findValue($rowData, ['description2']),
-                        'qty'         => $totalRawMaterialQtyStr, // Gunakan total qty yg dihitung
+                        'qty'         => (string)$totalRawMaterialQty, // [FIX] Gunakan total qty yg dihitung
                         'sloc'        => $findValue($rowData, ['sloc']),
-                        'sloc1'       => $findValue($rowData, ['sloc1']), // [LOGIKA SLOC1] Mengambil sloc1
+                        'sloc1'       => $findValue($rowData, ['sloc1']), // [FIX] Mengambil sloc1
                         'code'        => $rawMaterialCode,
                         'uom'         => $findValue($rowData, ['uom1'], 'PC'),
                     ];
@@ -210,8 +207,8 @@ class BomController extends Controller
     }
 
     /**
-     * [FUNGSI DIPERBARUI - LIVE PROGRESS]
-     * Langkah 1: Mengambil daftar deskripsi unik yang perlu dicari kodenya.
+     * [FUNGSI DIPERBARUI - LIVE PROGRESS 1/3]
+     * Mengambil daftar material yang perlu dicari kodenya.
      */
     public function generateBomMaterialCodes(Request $request)
     {
@@ -223,19 +220,19 @@ class BomController extends Controller
             }
 
             $fileContent = json_decode(Storage::disk('local')->get($filename), true);
-            $boms = $fileContent['boms'];
+            $boms = $fileContent['boms'] ?? [];
 
-            $descriptionsToCheck = [];
+            $descriptionsToFind = [];
 
+            // Kumpulkan semua deskripsi unik yang kodenya kosong
             foreach ($boms as $bom) {
-                $parentData = $bom['parent'];
-                if (empty($parentData['code']) && !empty($parentData['description'])) {
-                    $descriptionsToCheck[trim($parentData['description'])] = true;
+                $parent = $bom['parent'];
+                if (empty($parent['code']) && !empty($parent['description'])) {
+                    $descriptionsToFind[trim($parent['description'])] = true; // Gunakan key untuk auto-unique
                 }
-
                 foreach ($bom['components'] as $component) {
                     if (empty($component['code']) && !empty($component['description'])) {
-                        $descriptionsToCheck[trim($component['description'])] = true;
+                        $descriptionsToFind[trim($component['description'])] = true;
                     }
                 }
             }
@@ -243,106 +240,103 @@ class BomController extends Controller
             // Kembalikan daftar deskripsi unik ke JavaScript
             return response()->json([
                 'status' => 'success',
-                'message' => 'List of materials to check has been retrieved.',
-                'descriptions_to_check' => array_keys($descriptionsToCheck)
+                'message' => 'Daftar material siap untuk dicari.',
+                'descriptions' => array_keys($descriptionsToFind) // Kirim hanya deskripsinya
             ]);
 
         } catch (\Exception $e) {
-            Log::error('BOM Code Generation Error (Step 1): ' . $e->getMessage());
-            return response()->json(['status' => 'error', 'message' => 'An error occurred while preparing code generation.'], 500);
+            Log::error('BOM Code Generation Error (Step 1 - Get List): ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'An error occurred during code generation preparation.'], 500);
         }
     }
 
     /**
-     * [FUNGSI BARU - LIVE PROGRESS]
-     * Langkah 2: Mencari SATU kode material. Dipanggil oleh JS dalam loop.
+     * [FUNGSI BARU - LIVE PROGRESS 2/3]
+     * Menerima SATU deskripsi, mencarinya via API Python, dan mengembalikan hasilnya.
      */
     public function apiFindMaterialCode(Request $request)
     {
         $request->validate(['description' => 'required|string']);
         $description = $request->input('description');
+        $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
 
-        try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
-            $foundCode = $this->findMaterialCode($pythonApiUrl, $description);
+        $foundCode = $this->findMaterialCode($pythonApiUrl, $description);
 
-            if ($foundCode) {
-                return response()->json(['status' => 'success', 'description' => $description, 'code' => $foundCode]);
-            } else {
-                return response()->json(['status' => 'not_found', 'description' => $description, 'code' => '#NOT_FOUND#']);
-            }
-
-        } catch (\Exception $e) {
-            Log::error('apiFindMaterialCode Error: ' . $e->getMessage());
-            return response()->json(['status' => 'error', 'description' => $description, 'code' => '#ERROR#'], 500);
+        if ($foundCode) {
+            return response()->json([
+                'status' => 'success',
+                'description' => $description,
+                'code' => $foundCode
+            ]);
+        } else {
+            // #NOT_FOUND# adalah penanda internal kita, #ERROR# jika API-nya error
+            $code = $foundCode === null ? '#NOT_FOUND#' : '#ERROR#';
+            return response()->json([
+                'status' => 'not_found',
+                'description' => $description,
+                'code' => $code
+            ]);
         }
     }
 
     /**
-     * [FUNGSI BARU - LIVE PROGRESS]
-     * Langkah 3: Menyimpan SEMUA hasil pencarian kode kembali ke file JSON.
+     * [FUNGSI BARU - LIVE PROGRESS 3/3]
+     * Menerima semua hasil pencarian dari JavaScript, memperbarui file JSON,
+     * dan menjalankan proses deduplikasi.
      */
     public function saveGeneratedCodes(Request $request)
     {
         $request->validate([
             'filename' => 'required|string',
-            'results' => 'required|array'
+            'results'  => 'required|array'
         ]);
 
         try {
             $filename = $request->input('filename');
-            $results = $request->input('results', []);
+            $results = $request->input('results'); // Ini adalah map [description => code]
+            $totalLookups = count($results);
 
             if (!Storage::disk('local')->exists($filename)) {
                 return response()->json(['status' => 'error', 'message' => 'Processed file not found.'], 404);
             }
 
             $fileContent = json_decode(Storage::disk('local')->get($filename), true);
-            $boms = $fileContent['boms'];
-
-            // Buat lookup map dari hasil
-            $resultMap = [];
-            foreach ($results as $result) {
-                if (isset($result['description'])) {
-                    $resultMap[$result['description']] = $result['code'];
-                }
-            }
+            $boms = $fileContent['boms'] ?? [];
 
             $updatedBoms = [];
 
+            // Perbarui BOM di memori dengan kode yang ditemukan
             foreach ($boms as $bom) {
-                // Update parent code
-                if (empty($bom['parent']['code']) && !empty($bom['parent']['description'])) {
-                    $desc = trim($bom['parent']['description']);
-                    if (isset($resultMap[$desc])) {
-                        $bom['parent']['code'] = $resultMap[$desc];
-                    }
+                $parent = $bom['parent'];
+                $parentDesc = trim($parent['description']);
+                if (empty($parent['code']) && isset($results[$parentDesc])) {
+                    $parent['code'] = $results[$parentDesc];
                 }
 
-                // Update component codes
                 $updatedComponents = [];
                 foreach ($bom['components'] as $component) {
-                    if (empty($component['code']) && !empty($component['description'])) {
-                        $desc = trim($component['description']);
-                        if (isset($resultMap[$desc])) {
-                            $component['code'] = $resultMap[$desc];
-                        }
+                    $compDesc = trim($component['description']);
+                    if (empty($component['code']) && isset($results[$compDesc])) {
+                        $component['code'] = $results[$compDesc];
                     }
                     $updatedComponents[] = $component;
                 }
-                $bom['components'] = $updatedComponents;
-                $updatedBoms[] = $bom;
+
+                $updatedBoms[] = [
+                    'parent' => $parent,
+                    'components' => $updatedComponents
+                ];
             }
 
             // ===================================================================
-            // == LOGIKA BARU: Membersihkan dan menggabungkan data duplikat SETELAH KODE DITEMUKAN ==
+            // == LOGIKA DEDUPLIKASI (setelah kode ditemukan) ==
             // ===================================================================
             Log::info('Starting BOM deduplication process POST code generation.');
             $cleanedBomsMap = [];
 
             foreach ($updatedBoms as $bom) {
                 $parent = $bom['parent'];
-                $parentKey = (!empty($parent['code']) && $parent['code'] !== '#NOT_FOUND#'  && $parent['code'] !== '#ERROR#')
+                $parentKey = (!empty($parent['code']) && $parent['code'] !== '#NOT_FOUND#' && $parent['code'] !== '#ERROR#')
                                 ? $parent['code']
                                 : strtolower(trim($parent['description']));
 
@@ -378,39 +372,34 @@ class BomController extends Controller
                     $cleanedBomsMap[$parentKey]['components'] = array_values($componentMap);
                 }
             }
+
             $finalCleanedBoms = array_values($cleanedBomsMap);
             Log::info('BOM deduplication finished. Count before: ' . count($updatedBoms) . ', Count after: ' . count($finalCleanedBoms));
 
+            // Timpa file JSON dengan data yang sudah bersih
             $fileContent['boms'] = $finalCleanedBoms;
             Storage::disk('local')->put($filename, json_encode($fileContent));
 
-            // [PERBAIKAN LOGIKA HITUNG -22]
-            // Hitung berdasarkan hasil unik yang dikirim oleh klien
+            // [PERBAIKAN BUG HITUNG -22]
+            // Hitung berdasarkan hasil unik yang diterima
             $actualFoundCount = 0;
-            $actualNotFoundCount = 0;
-
-            foreach ($results as $result) {
-                if (isset($result['code'])) {
-                    if ($result['code'] !== '#NOT_FOUND#' && $result['code'] !== '#ERROR#') {
-                        $actualFoundCount++;
-                    } else {
-                        $actualNotFoundCount++;
-                    }
+            foreach ($results as $desc => $code) {
+                if ($code !== '#NOT_FOUND#' && $code !== '#ERROR#') {
+                    $actualFoundCount++;
                 }
             }
-            // [AKHIR PERBAIKAN]
-
-            $message = "Code saving and data cleaning complete. Found: {$actualFoundCount}, Not Found: {$actualNotFoundCount}.";
+            $actualNotFoundCount = $totalLookups - $actualFoundCount;
+            // [AKHIR PERBAIKAN BUG HITUNG]
 
             return response()->json([
                 'status' => 'success',
-                'message' => $message,
-                'results' => $results // Kirim kembali hasil yang sudah diformat
+                'message' => "Code saving and data cleaning complete. Found: {$actualFoundCount}, Not Found: {$actualNotFoundCount}.",
+                'results_summary' => $results // Kirim ringkasan kembali untuk konfirmasi (jika perlu)
             ]);
 
         } catch (\Exception $e) {
-            Log::error('saveGeneratedCodes Error: ' . $e->getMessage());
-            return response()->json(['status' => 'error', 'message' => 'An error occurred while saving the generated codes.'], 500);
+            Log::error('BOM Code Saving Error (Step 3): ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'An error occurred while saving generated codes.'], 500);
         }
     }
 
@@ -477,7 +466,7 @@ class BomController extends Controller
 
     /**
      * [FUNGSI DIPERBARUI - LIVE PROGRESS]
-     * Langkah 1: Mempersiapkan dan MENGEMBALIKAN DAFTAR BOM
+     * Fungsi ini sekarang hanya mempersiapkan dan MENGEMBALIKAN DAFTAR BOM
      * untuk di-loop oleh JavaScript di sisi klien.
      */
     public function uploadProcessedBom(Request $request)
@@ -504,7 +493,13 @@ class BomController extends Controller
 
                 $cleanParentCode = ltrim($parentCode, '0');
                 $descriptionMap[$cleanParentCode] = $bom['parent']['description'] ?? 'No Description';
-                $parentSloc1 = $bom['parent']['sloc1'] ?? ''; // sloc1 milik parent
+
+                // [LOGIKA BARU PARENT SLOC]
+                // Aturan: Prioritaskan sloc1. Jika sloc1 kosong, baru gunakan sloc.
+                $parentSloc = $bom['parent']['sloc'] ?? '';
+                $parentSloc1 = $bom['parent']['sloc1'] ?? '';
+                $parentLgort = !empty($parentSloc1) ? $parentSloc1 : $parentSloc;
+                // [AKHIR LOGIKA BARU]
 
                 $validComponents = [];
                 foreach ($bom['components'] as $comp) {
@@ -525,18 +520,12 @@ class BomController extends Controller
                                         ? str_pad($comp['code'], 18, '0', STR_PAD_LEFT)
                                         : $comp['code'];
 
-                    // [LOGIKA SLOC KOMPONEN]
-                    $compCodeRaw = $comp['code'] ?? '';
-                    $cleanedCode = ltrim($compCodeRaw, '0'); // Hapus 0 di depan
-                    $lgort = '';
-
-                    // Jika kode (tanpa 0) diawali '9', gunakan sloc1 parent
-                    if (str_starts_with($cleanedCode, '9')) {
-                        $lgort = $parentSloc1;
-                    } else {
-                        $lgort = $comp['sloc'] ?? ''; // Gunakan sloc komponen
-                    }
-                    // [AKHIR LOGIKA SLOC]
+                    // [LOGIKA BARU KOMPONEN SLOC]
+                    // Aturan: Prioritaskan sloc. Jika sloc kosong, baru gunakan sloc1.
+                    $compSloc = $comp['sloc'] ?? '';
+                    $compSloc1 = $comp['sloc1'] ?? ''; // sloc1 dari baris komponen
+                    $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
+                    // [AKHIR LOGIKA BARU]
 
                     $componentsPayload[] = [
                         'ITEM_CATEG'    => 'L', 'POSNR' => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
@@ -563,7 +552,7 @@ class BomController extends Controller
                     'IV_DATUV'      => date('dmY'), 'IV_BMENG' => $baseQuantity,
                     'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC',
                     'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload',
-                    'IV_LGORT'      => $parentSloc1, // [LOGIKA SLOC1 PARENT]
+                    'IV_LGORT'      => $parentLgort, // [LOGIKA SLOC1 PARENT]
                     'IT_COMPONENTS' => $componentsPayload,
                 ];
             }
@@ -581,14 +570,13 @@ class BomController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('uploadProcessedBom Error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'A fatal error occurred: ' . $e->getMessage()], 500);
         }
     }
 
     /**
      * [FUNGSI BARU - LIVE PROGRESS]
-     * Langkah 2: Menerima SATU BOM dari JavaScript dan mengirimkannya ke Python/SAP.
+     * Menerima SATU BOM dari JavaScript dan mengirimkannya ke Python/SAP.
      */
     public function uploadSingleBom(Request $request)
     {
@@ -679,12 +667,14 @@ class BomController extends Controller
                     return $foundCode;
                 }
             }
+
             Log::warning("Semua metode pencarian untuk '{$originalDescription}' gagal.");
             return null;
 
         } catch (\Exception $e) {
             Log::error("Koneksi ke Python API gagal saat mencari '{$description}': " . $e->getMessage());
-            return null;
+            // Kembalikan null jika API error, agar bisa ditandai sbg #ERROR#
+            return false;
         }
     }
 
@@ -1062,4 +1052,3 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
-

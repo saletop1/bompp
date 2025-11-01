@@ -13,6 +13,16 @@
         #drop-zone dotlottie-player {
             pointer-events: none;
         }
+        /* [PERBAIKAN WARNA] Menambahkan style untuk 'Not Found' */
+        .upload-details ul li.result-success {
+            color: #c8e6c9; /* Hijau muda */
+        }
+        .upload-details ul li.result-not-found {
+            color: #ffe082; /* Kuning muda */
+        }
+        .upload-details ul li.result-failed {
+            color: #ffcdd2; /* Merah muda */
+        }
     </style>
 </head>
 <body>
@@ -108,6 +118,7 @@
                             <input type="text" id="email-recipient-bom" class="form-control" placeholder="Masukkan email, pisahkan dengan koma...">
                         </div>
                     </div>
+                    <!-- [PERBAIKAN 2-KLIK] Mengembalikan tombol "Generate" dan memodifikasi "Upload" -->
                     <div id="action-buttons" class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
                         <button type="button" id="generate-codes-btn"
                                 class="btn btn-warning btn-lg px-4 @if(session('header_error')) disabled @endif"
@@ -187,7 +198,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="confirm-action-btn">
-                        <i class="bi bi-cloud-upload"></i> Confirm & Upload
+                        <i class="bi bi-cloud-upload"></i> Confirm
                     </button>
                 </div>
             </div>
@@ -198,7 +209,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             let finalBomUploadResults = [];
-            let finalGeneratedCodeResults = [];
+            let generatedCodeResults = {}; // Simpan hasil generate code di sini
             const processedPlant = @json(session('processed_plant'));
             const uploadMusic = document.getElementById('upload-music');
 
@@ -221,79 +232,55 @@
 
             /**
              * [FUNGSI DIPERBARUI]
-             * Menampilkan hasil. Bisa append=true untuk menambah hasil (live progress).
+             * Menampilkan hasil dengan format yang berbeda untuk 'Generate Code' vs 'Upload BOM'
              */
-            function showResult(div, isSuccess, message, details = null, append = false) {
+            function showResult(div, isSuccess, message, details = null, isFinalSummary = false) {
                 if (!div) return;
-                const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
-                let html = '';
 
-                // Jika tidak append, tambahkan header message
-                if (!append || div.innerHTML === '') {
-                    html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
+                // Tentukan alert class hanya untuk summary box
+                if (isFinalSummary) {
+                    const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
+                    let html = `<div class="alert ${alertClass}">${message || (isSuccess ? 'Process successful.' : 'An error occurred.')}</div>`;
+                    div.innerHTML = html;
+                    return;
                 }
 
-                // Siapkan detail list
-                let detailHtml = '';
+                // Logika untuk menampilkan detail (bukan summary box)
+                let html = '';
                 if (details && Array.isArray(details)) {
-                    detailHtml += '<div class="upload-details"><ul>';
+                    html += '<div class="upload-details"><ul>';
                     details.forEach(item => {
-                        // [PERBAIKAN] Cek 'item.message' untuk hasil Upload
-                        // Cek 'item.code' untuk hasil Generate Code
+                        // Logika untuk hasil 'Upload BOM' (memiliki 'message')
                         if (item.message !== undefined) {
-                            // Format untuk hasil UPLOAD (Success/Failed)
-                            const icon = item.status === 'Success' ? '✅' : '❌';
+                            const isSuccessUpload = item.status === 'Success';
+                            const icon = isSuccessUpload ? '✅' : '❌';
+                            const liClass = isSuccessUpload ? 'result-success' : 'result-failed';
+
                             let originalMessage = item.message;
-                            if (item.status === 'Success' && originalMessage.includes('berhasil dibuat untuk material')) {
+                            if (isSuccessUpload && originalMessage.includes('berhasil dibuat untuk material')) {
                                 originalMessage = originalMessage.split(' untuk material')[0];
                             }
                             const cleanMessage = originalMessage.replace(/^✅\s*|^\s*/, '').replace(/0*(\d+)/g, "$1");
-                            detailHtml += `<li>${icon} ${cleanMessage}</li>`;
 
-                        } else if (item.code !== undefined) {
-                            // Format untuk hasil GENERATE CODE (deskripsi + kode)
-                            const icon = (item.code !== '#NOT_FOUND#' && item.code !== '#ERROR#') ? '✅' : '❌';
+                            html += `<li class="${liClass}">${icon} ${cleanMessage}</li>`;
+                        }
+                        // Logika untuk hasil 'Generate Code' (memiliki 'code')
+                        else if (item.code !== undefined) {
+                            const isSuccessGenerate = item.code !== '#NOT_FOUND#' && item.code !== '#ERROR#';
+                            // [PERBAIKAN IKON] Ganti '❌' menjadi '⚠️' untuk 'Not Found'
+                            const icon = isSuccessGenerate ? '✅' : (item.code === '#NOT_FOUND#' ? '⚠️' : '❌');
+                            const liClass = isSuccessGenerate ? 'result-success' : (item.code === '#NOT_FOUND#' ? 'result-not-found' : 'result-failed');
+
                             const cleanCode = (item.code.match(/^[a-zA-Z]/) || item.code.startsWith('#')) ? item.code : parseInt(item.code, 10);
-                            detailHtml += `<li>${icon} <strong>${item.description}:</strong> ${cleanCode}</li>`;
+                            html += `<li class="${liClass}">${icon} <strong>${item.description}:</strong> ${cleanCode}</li>`;
                         }
                     });
-                    detailHtml += '</ul></div>';
-                }
-
-                // Gabungkan
-                if (append) {
-                    // Jika append, cari <ul> yang ada atau buat baru
-                    let ulContainer = div.querySelector('.upload-details ul');
-                    if (!ulContainer) {
-                        // Jika ini item pertama, tambahkan wrapper detail
-                        div.innerHTML += '<div class="upload-details"><ul></ul></div>';
-                        ulContainer = div.querySelector('.upload-details ul');
-                    }
-                    // Tambahkan hanya list item baru
-                    if (details && Array.isArray(details)) {
-                         details.forEach(item => {
-                            if (item.message !== undefined) {
-                                // Format untuk hasil UPLOAD (Success/Failed)
-                                const icon = item.status === 'Success' ? '✅' : '❌';
-                                let originalMessage = item.message;
-                                if (item.status === 'Success' && originalMessage.includes('berhasil dibuat untuk material')) {
-                                    originalMessage = originalMessage.split(' untuk material')[0];
-                                }
-                                const cleanMessage = originalMessage.replace(/^✅\s*|^\s*/, '').replace(/0*(\d+)/g, "$1");
-                                ulContainer.innerHTML += `<li>${icon} ${cleanMessage}</li>`;
-
-                            } else if (item.code !== undefined) {
-                                // Format untuk hasil GENERATE CODE (deskripsi + kode)
-                                const icon = (item.code !== '#NOT_FOUND#' && item.code !== '#ERROR#') ? '✅' : '❌';
-                                const cleanCode = (item.code.match(/^[a-zA-Z]/) || item.code.startsWith('#')) ? item.code : parseInt(item.code, 10);
-                                ulContainer.innerHTML += `<li>${icon} <strong>${item.description}:</strong> ${cleanCode}</li>`;
-                            }
-                         });
-                    }
-                } else {
-                    // Tulis ulang HTML
-                    html += detailHtml;
-                    div.innerHTML = html;
+                    html += '</ul></div>';
+                    div.innerHTML = html; // Ganti isi div dengan detail
+                } else if (message) {
+                    // Fallback jika hanya ada pesan (bukan summary)
+                    const alertClass = isSuccess ? 'alert-success-frosted' : 'alert-danger';
+                    div.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
                 }
             }
 
@@ -361,178 +348,230 @@
                 const sendEmailBtn = document.getElementById('send-email-btn-bom');
                 const emailResultDiv = document.getElementById('email-result');
 
+                // [PERBAIKAN 2-KLIK] Event listener dikembalikan ke tombol "Generate"
                 generateBtn.addEventListener('click', handleGenerateCodes);
-                uploadBomBtn.addEventListener('click', () => sapLoginModal.show());
+                uploadBomBtn.addEventListener('click', () => {
+                    // Cek jika generate code belum dijalankan
+                    if (Object.keys(generatedCodeResults).length === 0) {
+                        alert('Harap jalankan "Generate Missing Codes" terlebih dahulu.');
+                        return;
+                    }
+                    sapLoginModal.show();
+                });
                 confirmBtn.addEventListener('click', () => {
                     sapLoginModal.hide();
                     handleBomUpload();
                 });
                 sendEmailBtn.addEventListener('click', handleSendBomEmail);
 
+
                 /**
-                 * [FUNGSI DIPERBARUI]
-                 * Menangani proses generate codes dengan live progress.
+                 * [FUNGSI DIPERBARUI - LIVE PROGRESS 1/3]
+                 * Meng-handle proses "Generate Missing Codes"
                  */
                 async function handleGenerateCodes() {
                     setLoadingState(generateBtn, true);
-                    resultDiv.innerHTML = ''; // Bersihkan hasil sebelumnya
-                    finalGeneratedCodeResults = []; // Reset hasil
+                    resultDiv.innerHTML = ''; // Kosongkan hasil sebelumnya
+                    showProgressBar('Mempersiapkan daftar material...');
+                    generatedCodeResults = {}; // Reset hasil
+                    let hasNotFound = false;
+                    let hasError = false;
 
                     try {
-                        // Langkah 1: Ambil daftar deskripsi yang perlu dicek
-                        showProgressBar('Mengambil daftar material...');
+                        // LANGKAH 1: Dapatkan daftar deskripsi yang perlu dicari
                         const listResponse = await fetch("{{ route('api.bom.generate_codes') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({ filename: generateBtn.dataset.filename })
                         });
 
+                        // [FIX 419] Menangani session timeout
+                        if (listResponse.status === 419) {
+                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                            window.location.reload();
+                            return;
+                        }
                         if (!listResponse.ok) {
-                            if (listResponse.status === 419) window.location.reload();
-                            throw new Error('Gagal mengambil daftar material dari server.');
+                            throw new Error('Gagal mendapatkan daftar material dari server.');
                         }
 
                         const listResult = await listResponse.json();
-                        if (listResult.status !== 'success' || !listResult.descriptions_to_check) {
-                            throw new Error(listResult.message || 'Server mengembalikan data yang tidak valid.');
+
+                        if (listResult.status !== 'success' || !listResult.descriptions) {
+                            throw new Error(listResult.message || 'Server tidak mengembalikan daftar material.');
                         }
 
-                        const descriptions = listResult.descriptions_to_check;
-                        const total = descriptions.length;
-                        if (total === 0) {
-                            showResult(resultDiv, true, "Tidak ada material yang memerlukan pencarian kode. Semua sudah lengkap.", null);
-                            generateBtn.classList.add('d-none');
-                            uploadBomBtn.classList.remove('d-none');
+                        const descriptions = listResult.descriptions;
+                        if (descriptions.length === 0) {
+                            showProgressBar('Tidak ada kode material yang perlu dicari.');
+                            showResult(resultDiv, true, 'Semua material sudah memiliki kode. Siap untuk di-upload.', null, true);
+                            generateBtn.classList.add('d-none'); // Sembunyikan generate
+                            uploadBomBtn.classList.remove('d-none'); // Tampilkan upload
                             downloadBtn.classList.remove('d-none');
                             downloadRoutingBtn.classList.remove('d-none');
+                            hideProgressBar();
+                            setLoadingState(generateBtn, false);
+                            // Set hasil kosong agar upload bisa lanjut
+                            generatedCodeResults = { status: 'empty' };
                             return;
                         }
 
-                        // Langkah 2: Loop dan cari satu per satu
-                        for (let i = 0; i < total; i++) {
-                            const desc = descriptions[i];
-                            const shortDesc = desc.length > 40 ? desc.substring(0, 37) + '...' : desc;
-                            showProgressBar(`Mencari Kode ${i + 1}/${total}: '${shortDesc}'`);
+                        // Buat kontainer untuk hasil live
+                        resultDiv.innerHTML = '<div class="upload-details"><ul></ul></div>';
+                        const resultList = resultDiv.querySelector('ul');
+
+                        // LANGKAH 2: Loop dan cari setiap deskripsi
+                        for (let i = 0; i < descriptions.length; i++) {
+                            const description = descriptions[i];
+                            showProgressBar(`Mencari kode (${i + 1}/${descriptions.length}): "${description}"`);
 
                             try {
-                                const findResponse = await fetch("{{ route('api.bom.find_single_code') }}", {
+                                const findResponse = await fetch("{{ route('api.bom.api_find_material') }}", {
                                     method: 'POST',
                                     headers: getHeaders(),
-                                    body: JSON.stringify({ description: desc })
+                                    body: JSON.stringify({ description: description })
                                 });
 
-                                const findResult = await findResponse.json();
-                                finalGeneratedCodeResults.push(findResult); // Simpan hasil
+                                // [FIX 419] Menangani session timeout
+                                if (findResponse.status === 419) {
+                                    alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                                    window.location.reload();
+                                    return;
+                                }
 
-                                // Tampilkan hasil langsung (mode append)
-                                showResult(resultDiv, true, "Mencari kode...", [findResult], true);
+                                const result = await findResponse.json();
+                                let icon = '❌';
+                                let liClass = 'result-failed';
+                                let foundCode = result.code || '#ERROR#';
+
+                                if (result.status === 'success') {
+                                    icon = '✅';
+                                    liClass = 'result-success';
+                                    foundCode = result.code;
+                                } else if (result.code === '#NOT_FOUND#') {
+                                    icon = '⚠️';
+                                    liClass = 'result-not-found';
+                                    hasNotFound = true;
+                                } else {
+                                    hasError = true;
+                                }
+
+                                generatedCodeResults[description] = foundCode; // Simpan hasil
+                                const cleanCode = (foundCode.match(/^[a-zA-Z]/) || foundCode.startsWith('#')) ? foundCode : parseInt(foundCode, 10);
+                                resultList.innerHTML += `<li class="${liClass}">${icon} <strong>${description}:</strong> ${cleanCode}</li>`;
+                                resultList.scrollTop = resultList.scrollHeight; // Auto-scroll
 
                             } catch (loopError) {
-                                // Tangani error per item (misal network error di tengah loop)
-                                const errorResult = { status: 'error', description: desc, code: '#ERROR#' };
-                                finalGeneratedCodeResults.push(errorResult);
-                                showResult(resultDiv, true, "Mencari kode...", [errorResult], true);
+                                hasError = true;
+                                generatedCodeResults[description] = '#ERROR#'; // Tandai sebagai error
+                                resultList.innerHTML += `<li class="result-failed">❌ <strong>${description}:</strong> Network Error</li>`;
+                                resultList.scrollTop = resultList.scrollHeight;
                             }
                         }
 
-                        // Langkah 3: Simpan semua hasil yang ditemukan ke file JSON di server
-                        showProgressBar('Menyimpan semua kode yang ditemukan...');
-                        const saveResponse = await fetch("{{ route('api.bom.save_codes') }}", {
+                        // LANGKAH 3: Simpan semua hasil ke server (file JSON)
+                        showProgressBar('Menyimpan kode yang ditemukan...');
+                        const saveResponse = await fetch("{{ route('api.bom.save_generated_codes') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: JSON.stringify({
                                 filename: generateBtn.dataset.filename,
-                                results: finalGeneratedCodeResults
+                                results: generatedCodeResults
                             })
                         });
 
-                        if (!saveResponse.ok) {
-                            throw new Error('Gagal menyimpan hasil kode di server.');
+                        // [FIX 419] Menangani session timeout
+                        if (saveResponse.status === 419) {
+                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                            window.location.reload();
+                            return;
                         }
 
                         const saveResult = await saveResponse.json();
-                        if (saveResult.status !== 'success') {
-                            throw new Error(saveResult.message || 'Gagal menyimpan hasil kode.');
-                        }
 
-                        // Selesai - Tampilkan pesan final
-                        hideProgressBar();
-                        showResult(resultDiv, true, saveResult.message, saveResult.results, false); // Tulis ulang hasil akhir
+                        // Tampilkan box summary
+                        const summaryDiv = document.createElement('div');
+                        resultDiv.prepend(summaryDiv);
+                        showResult(summaryDiv, saveResult.status === 'success', saveResult.message, null, true);
 
-                        // Tampilkan tombol berikutnya
+                        // Sembunyikan tombol Generate, tampilkan sisanya
                         generateBtn.classList.add('d-none');
-                        const hasNotFound = finalGeneratedCodeResults.some(item => item.code === '#NOT_FOUND#' || item.code === '#ERROR#');
-                        if (hasNotFound) {
-                            uploadBomBtn.disabled = true;
-                            uploadBomBtn.setAttribute('title', 'Upload dinonaktifkan karena ada kode material yang tidak ditemukan/error.');
-                            uploadBomBtn.classList.remove('btn-primary');
-                            uploadBomBtn.classList.add('btn-secondary');
-                        } else {
-                            uploadBomBtn.disabled = false;
-                            uploadBomBtn.removeAttribute('title');
-                            uploadBomBtn.classList.remove('btn-secondary');
-                            uploadBomBtn.classList.add('btn-primary');
-                        }
                         uploadBomBtn.classList.remove('d-none');
                         downloadBtn.classList.remove('d-none');
                         downloadRoutingBtn.classList.remove('d-none');
 
+                        // Nonaktifkan tombol Upload jika ada "Not Found" atau Error
+                        if (hasNotFound || hasError) {
+                            uploadBomBtn.disabled = true;
+                            const errorMsg = hasError ? 'Upload dinonaktifkan karena ada error API.' : 'Upload dinonaktifkan karena ada kode material yang tidak ditemukan.';
+                            uploadBomBtn.setAttribute('title', errorMsg);
+                            uploadBomBtn.classList.remove('btn-primary');
+                            uploadBomBtn.classList.add('btn-secondary');
+                        }
+
                     } catch (error) {
-                        console.error('Error during code generation:', error);
-                        showResult(resultDiv, false, error.message || 'Network error during code generation.');
+                        showResult(resultDiv, false, `Proses Generate Gagal: ${error.message}`, null, true);
                     } finally {
                         setLoadingState(generateBtn, false);
                         hideProgressBar();
                     }
                 }
 
-
                 /**
-                 * [FUNGSI DIPERBARUI]
-                 * Menangani proses upload BOM dengan live progress.
+                 * [FUNGSI DIPERBARUI - LIVE PROGRESS 2/3]
+                 * Meng-handle proses "Upload BOM to SAP"
                  */
                 async function handleBomUpload() {
                     setLoadingState(uploadBomBtn, true);
-                    resultDiv.innerHTML = '';
-                    finalBomUploadResults = []; // Reset hasil
+                    resultDiv.innerHTML = ''; // Kosongkan hasil generate code
+                    showProgressBar('Mempersiapkan daftar BOM untuk di-upload...');
                     if (uploadMusic) uploadMusic.play();
 
+                    finalBomUploadResults = []; // Reset hasil upload
+                    let bomsToUpload = [];
+                    let descriptionMap = {};
+
                     try {
-                        // Langkah 1: Ambil daftar BOM yang akan di-upload
-                        showProgressBar('Mengambil daftar BOM untuk di-upload...');
+                        // LANGKAH 1 (Upload): Dapatkan daftar BOM yang sudah siap (dari JSON)
                         const listResponse = await fetch("{{ route('api.bom.upload') }}", {
                             method: 'POST',
                             headers: getHeaders(),
                             body: getAuthBody({ filename: uploadBomBtn.dataset.filename })
                         });
 
-                        if (!listResponse.ok) {
-                             if (listResponse.status === 419) window.location.reload();
-                             const errorResult = await listResponse.json(); // Coba ambil pesan error
-                             throw new Error(errorResult.message || 'Gagal mengambil daftar BOM dari server.');
-                        }
-
-                        const listResult = await listResponse.json();
-                        if (listResult.status !== 'success') {
-                            throw new Error(listResult.message || 'Server mengembalikan data yang tidak valid.');
-                        }
-
-                        const bomsToUpload = listResult.boms_to_upload;
-                        const descriptionMap = listResult.description_map;
-                        const total = bomsToUpload.length;
-
-                        if (total === 0) {
-                            showResult(resultDiv, true, "Tidak ada BOM valid yang perlu di-upload.", null);
+                        // [FIX 419] Menangani session timeout
+                        if (listResponse.status === 419) {
+                            alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                            window.location.reload();
                             return;
                         }
 
-                        // Langkah 2: Loop dan upload satu per satu
-                        for (let i = 0; i < total; i++) {
-                            const bom = bomsToUpload[i];
-                            const materialCode = ltrim(bom.IV_MATNR, '0');
-                            const description = descriptionMap[materialCode] || bom.IV_STKTX;
+                        const listResult = await listResponse.json();
 
-                            showProgressBar(`Proses BOM ${i + 1}/${total}: '${materialCode}'`);
+                        if (listResult.status !== 'success' || !listResult.boms_to_upload) {
+                            throw new Error(listResult.message || 'Server tidak mengembalikan daftar BOM untuk di-upload.');
+                        }
+
+                        bomsToUpload = listResult.boms_to_upload;
+                        descriptionMap = listResult.description_map;
+
+                        if (bomsToUpload.length === 0) {
+                            showResult(resultDiv, true, 'Tidak ada BOM valid yang perlu di-upload.', null, true);
+                            uploadBomBtn.classList.add('d-none'); // Sembunyikan tombol upload
+                            setLoadingState(uploadBomBtn, false);
+                            hideProgressBar();
+                            return;
+                        }
+
+                        // Buat kontainer untuk hasil live
+                        resultDiv.innerHTML = '<div class="upload-details"><ul></ul></div>';
+                        const resultList = resultDiv.querySelector('ul');
+
+                        // LANGKAH 2 (Upload): Loop dan kirim setiap BOM
+                        for (let i = 0; i < bomsToUpload.length; i++) {
+                            const bom = bomsToUpload[i];
+                            const materialCode = bom.IV_MATNR.replace(/^0+/, ''); // Kode bersih
+                            showProgressBar(`Proses BOM (${i + 1}/${bomsToUpload.length}): '${materialCode}'`);
 
                             try {
                                 const uploadResponse = await fetch("{{ route('api.bom.upload_single') }}", {
@@ -541,51 +580,67 @@
                                     body: getAuthBody({ bom: bom })
                                 });
 
-                                const uploadResult = await uploadResponse.json();
-                                const results = enrichResults(uploadResult.results || [], descriptionMap);
-                                finalBomUploadResults.push(...results);
+                                // [FIX 419] Menangani session timeout
+                                if (uploadResponse.status === 419) {
+                                    alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
+                                    window.location.reload();
+                                    return;
+                                }
 
-                                // Tampilkan hasil langsung (mode append)
-                                showResult(resultDiv, true, "Mengupload BOM...", results, true);
+                                const result = await uploadResponse.json();
+
+                                // Ambil hasil spesifik dari array 'results' (karena API /upload_bom mengembalikan array)
+                                const bomResult = result.results ? result.results[0] : null;
+
+                                if (bomResult) {
+                                    // Tambahkan deskripsi untuk notifikasi email
+                                    bomResult.description = descriptionMap[ltrim(bomResult.material_code, '0')] || 'N/A';
+                                    finalBomUploadResults.push(bomResult); // Kumpulkan hasil
+
+                                    // Tampilkan di UI
+                                    const icon = bomResult.status === 'Success' ? '✅' : '❌';
+                                    const liClass = bomResult.status === 'Success' ? 'result-success' : 'result-failed';
+                                    const cleanMessage = bomResult.message.replace(/^✅\s*|^\s*/, '').replace(/0*(\d+)/g, "$1");
+                                    resultList.innerHTML += `<li class="${liClass}">${icon} ${cleanMessage}</li>`;
+                                } else {
+                                    // Jika format respons tidak terduga
+                                    throw new Error(result.message || 'Respons upload tidak valid');
+                                }
 
                             } catch (loopError) {
-                                // Tangani error per item (misal network error di tengah loop)
-                                const errorResult = [{
+                                const errorResult = {
                                     status: 'Failed',
                                     material_code: bom.IV_MATNR,
-                                    message: `Network Error: ${loopError.message}`
-                                }];
-                                finalBomUploadResults.push(...errorResult);
-                                showResult(resultDiv, true, "Mengupload BOM...", errorResult, true);
+                                    message: `❌ Network Error: ${loopError.message}`,
+                                    description: descriptionMap[ltrim(bom.IV_MATNR, '0')] || 'N/A'
+                                };
+                                finalBomUploadResults.push(errorResult);
+                                resultList.innerHTML += `<li class="result-failed">${errorResult.message}</li>`;
                             }
+                            resultList.scrollTop = resultList.scrollHeight; // Auto-scroll
                         }
 
-                        // Langkah 3: Selesai
-                        hideProgressBar();
-                        showResult(resultDiv, true, `Proses upload selesai. ${total}/${total} BOM diproses.`, finalBomUploadResults, false); // Tulis ulang hasil akhir
-
-                        // Tampilkan tombol email jika ada sukses
+                        // LANGKAH 3 (Upload): Tampilkan tombol notifikasi jika ada yang sukses
                         const successfulUploads = finalBomUploadResults.filter(r => r.status === 'Success');
                         if (successfulUploads.length > 0) {
                             emailNotificationArea.classList.remove('d-none');
                             sendEmailBtn.classList.remove('d-none');
                         }
 
-                        // Sembunyikan tombol upload jika tidak ada error
+                        // Sembunyikan tombol upload jika semua sukses
                         const hasFailures = finalBomUploadResults.some(r => r.status === 'Failed');
                         if (!hasFailures) {
                             uploadBomBtn.classList.add('d-none');
                         }
 
-                        // Auto-download
-                        if (downloadBtn) downloadBtn.click();
-                        setTimeout(() => {
-                            if (downloadRoutingBtn) downloadRoutingBtn.click();
-                        }, 1000);
+                        // Tampilkan box summary
+                        const summaryDiv = document.createElement('div');
+                        resultDiv.prepend(summaryDiv);
+                        showResult(summaryDiv, true, `Proses upload selesai. Sukses: ${successfulUploads.length}, Gagal: ${finalBomUploadResults.length - successfulUploads.length}`, null, true);
+
 
                     } catch (error) {
-                        console.error('Error during BOM upload:', error);
-                        showResult(resultDiv, false, error.message || 'Network Error during BOM upload.');
+                        showResult(resultDiv, false, `Proses Upload Gagal: ${error.message}`, null, true);
                     } finally {
                         setLoadingState(uploadBomBtn, false);
                         hideProgressBar();
@@ -627,6 +682,7 @@
                             })
                         });
 
+                        // [FIX 419] Menangani session timeout
                         if (response.status === 419) {
                             alert('Sesi Anda telah berakhir. Halaman akan dimuat ulang untuk keamanan.');
                             window.location.reload();
@@ -634,38 +690,24 @@
                         }
 
                         const result = await response.json();
-                        showResult(emailResultDiv, response.ok, result.message);
+                        showResult(emailResultDiv, response.ok, result.message, null, true); // Tampilkan sbg summary box
                         if (response.ok) {
                             emailNotificationArea.classList.add('d-none');
                             sendEmailBtn.classList.add('d-none');
                         }
                     } catch (error) {
-                        showResult(emailResultDiv, false, 'Network error while sending email.');
+                        showResult(emailResultDiv, false, 'Network error while sending email.', null, true);
                     } finally {
                         setLoadingState(sendEmailBtn, false);
                         hideProgressBar();
                     }
                 }
 
-                // --- FUNGSI HELPER ---
-                function ltrim(str, char = '0') {
-                    if (!str) return '';
-                    let start = 0;
-                    while (start < str.length && str[start] === char) {
-                        start++;
-                    }
-                    return str.substring(start);
+                // Fungsi helper
+                function ltrim(str, chars) {
+                    chars = chars || "\\s";
+                    return str.replace(new RegExp("^[" + chars + "]+", "g"), "");
                 }
-
-                function enrichResults(results, descriptionMap) {
-                    if (!results) return [];
-                    return results.map(result => {
-                        const matCode = ltrim(result.material_code, '0');
-                        result['description'] = descriptionMap[matCode] || 'N/A';
-                        return result;
-                    });
-                }
-
             }
         });
     </script>
