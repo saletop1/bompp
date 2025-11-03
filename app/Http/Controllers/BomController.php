@@ -132,6 +132,7 @@ class BomController extends Controller
                     'sloc1'       => $findValue($rowData, ['sloc1']),
                     'code'        => '',
                     'uom'         => $findValue($rowData, ['uom'], 'PC'),
+                    'is_raw'      => false, // <-- TAMBAHKAN INI
                 ];
                 $nodes[$itemNumber] = $partNode;
 
@@ -153,6 +154,7 @@ class BomController extends Controller
                         'sloc1'       => $findValue($rowData, ['sloc1']),
                         'code'        => $rawMaterialCode,
                         'uom'         => $findValue($rowData, ['uom1'], 'PC'),
+                        'is_raw'      => true, // <-- TAMBAHKAN INI
                     ];
                     $nodes[$itemNumber . '.1'] = $materialNode;
                 }
@@ -1062,6 +1064,5 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
-
 
 

@@ -14,6 +14,7 @@ class ProcessedBomExport implements FromCollection, WithHeadings
     public function __construct(array $boms, string $plant)
     {
         $this->boms = $boms;
+        // [PERBAIKAN] Mengganti $this.plant menjadi $this->plant
         $this->plant = $plant;
     }
 
