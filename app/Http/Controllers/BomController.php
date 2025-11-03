@@ -258,7 +258,7 @@ class BomController extends Controller
     {
         $request->validate(['description' => 'required|string']);
         $description = $request->input('description');
-        $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+        $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
 
         $foundCode = $this->findMaterialCode($pythonApiUrl, $description);
 
@@ -608,7 +608,7 @@ class BomController extends Controller
         ]);
 
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
 
             // Kirim HANYA SATU BOM
             $response = Http::timeout(300)->post($pythonApiUrl . '/upload_bom', [
@@ -879,7 +879,7 @@ class BomController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Processed file not found.'], 404);
             }
 
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
             $materials = json_decode(Storage::disk('local')->get($filename), true);
 
             // Panggil endpoint Python yang baru: /stage_materials
@@ -928,7 +928,7 @@ class BomController extends Controller
     {
         $request->validate(['username' => 'required', 'password' => 'required', 'materials' => 'required|array']);
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
 
             // Panggil endpoint Python yang baru: /activate_qm_and_upload
             // $request->all() sudah berisi username, password, dan materials
@@ -952,7 +952,7 @@ class BomController extends Controller
             'plan_details' => 'required|array',
         ]);
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
 
             // Panggil endpoint Python yang baru: /create_inspection_plan
             $response = Http::timeout(600)->post($pythonApiUrl . '/create_inspection_plan', $request->all());
@@ -998,7 +998,7 @@ class BomController extends Controller
     {
         $request->validate(['material_type' => 'required|string']);
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
             $response = Http::get($pythonApiUrl . '/get_next_material', $request->all());
             return $response->json();
         } catch (\Exception $e) {
