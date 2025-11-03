@@ -14,6 +14,7 @@ class ProcessedBomExport implements FromCollection, WithHeadings
     public function __construct(array $boms, string $plant)
     {
         $this->boms = $boms;
+        // [PERBAIKAN] Mengganti $this.plant menjadi $this->plant
         $this->plant = $plant;
     }
 
@@ -48,12 +49,20 @@ class ProcessedBomExport implements FromCollection, WithHeadings
                 // Terjemahkan penanda #NOT_FOUND# untuk tampilan Excel
                 $compCode = ($compCodeRaw === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $compCodeRaw;
 
-                // === [PERBAIKAN LOGIKA LGORT SESUAI PERMINTAAN] ===
-                // Aturan: Untuk komponen (child), gunakan 'sloc'.
-                // Jika 'sloc' kosong, baru gunakan 'sloc1'.
+                // === [PERBAIKAN LOGIKA KONTRAKTIF] ===
+                // Aturan: Raw Material (PLAT SS) prioritaskan sloc (3C01)
+                //         Komponen (PART METAL) prioritaskan sloc1 (3C13)
+                $isRaw = $comp['is_raw'] ?? false; // Cek flag yang di-set di BomController
                 $compSloc = $comp['sloc'] ?? '';
                 $compSloc1 = $comp['sloc1'] ?? '';
-                $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
+
+                if ($isRaw) {
+                    // Untuk Raw Material (PLAT SS), prioritaskan sloc
+                    $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
+                } else {
+                    // Untuk Komponen (PART METAL), prioritaskan sloc1
+                    $lgort = !empty($compSloc1) ? $compSloc1 : $compSloc;
+                }
                 // === [AKHIR PERBAIKAN LOGIKA] ===
 
                 $excelRows[] = [

@@ -128,10 +128,11 @@ class BomController extends Controller
                     'item'        => $itemNumber,
                     'description' => $findValue($rowData, ['material description']),
                     'qty'         => str_replace(',', '.', $findValue($rowData, ['qty'], '1')),
-                    'sloc'        => $findValue($rowData, ['sloc']),
+                    'sloc'        => $findValue($rowData, ['sloc']), // <-- [PERBAIKAN] BARIS INI HILANG
                     'sloc1'       => $findValue($rowData, ['sloc1']),
                     'code'        => '',
                     'uom'         => $findValue($rowData, ['uom'], 'PC'),
+                    'is_raw'      => false, // <-- TAMBAHKAN INI
                 ];
                 $nodes[$itemNumber] = $partNode;
 
@@ -149,10 +150,11 @@ class BomController extends Controller
                         'item'        => $itemNumber . '.1',
                         'description' => $findValue($rowData, ['description2']),
                         'qty'         => (string)$totalRawMaterialQty,
-                        'sloc'        => $findValue($rowData, ['sloc']),
+                        'sloc'        => $findValue($rowData, ['sloc']), // <-- [PERBAIKAN] BARIS INI HILANG
                         'sloc1'       => $findValue($rowData, ['sloc1']),
                         'code'        => $rawMaterialCode,
                         'uom'         => $findValue($rowData, ['uom1'], 'PC'),
+                        'is_raw'      => true, // <-- TAMBAHKAN INI
                     ];
                     $nodes[$itemNumber . '.1'] = $materialNode;
                 }
@@ -530,11 +532,20 @@ class BomController extends Controller
                                         ? str_pad($comp['code'], 18, '0', STR_PAD_LEFT)
                                         : $comp['code'];
 
-                    // [PERBAIKAN SESUAI PERMINTAAN]
-                    // Aturan: Child LGORT diambil dari sloc, JIKA KOSONG baru ambil sloc1
+                    // [PERBAIKAN LOGIKA KONTRAKTIF]
+                    // Aturan: Raw Material (PLAT SS) prioritaskan sloc (3C01)
+                    //         Komponen (PART METAL) prioritaskan sloc1 (3C13)
+                    $isRaw = $comp['is_raw'] ?? false;
                     $compSloc = $comp['sloc'] ?? '';
                     $compSloc1 = $comp['sloc1'] ?? '';
-                    $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
+
+                    if ($isRaw) {
+                        // Untuk Raw Material (PLAT SS), prioritaskan sloc
+                        $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
+                    } else {
+                        // Untuk Komponen (PART METAL), prioritaskan sloc1
+                        $lgort = !empty($compSloc1) ? $compSloc1 : $compSloc;
+                    }
                     // [AKHIR PERBAIKAN]
 
                     $componentsPayload[] = [
@@ -1062,6 +1073,9 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
+
+
+
 
 
 
