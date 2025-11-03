@@ -123,36 +123,34 @@ class BomController extends Controller
                 $itemNumber = $findValue($rowData, ['item']);
                 if (empty($itemNumber)) continue;
 
+                // Ini adalah 'Part' atau 'Komponen'
                 $partNode = [
                     'item'        => $itemNumber,
                     'description' => $findValue($rowData, ['material description']),
                     'qty'         => str_replace(',', '.', $findValue($rowData, ['qty'], '1')),
                     'sloc'        => $findValue($rowData, ['sloc']),
-                    'sloc1'       => $findValue($rowData, ['sloc1']), // [FIX] Mengambil sloc1
+                    'sloc1'       => $findValue($rowData, ['sloc1']),
                     'code'        => '',
                     'uom'         => $findValue($rowData, ['uom'], 'PC'),
                 ];
                 $nodes[$itemNumber] = $partNode;
 
                 $rawMaterialCode = $findValue($rowData, ['kode material']);
+                // Jika 'Part' ini memiliki 'Kode Material', berarti ia memiliki 'Raw Material'
                 if (!empty($rawMaterialCode)) {
 
                     // [LOGIKA PERKALIAN QTY]
-                    // 1. Ambil QTY dari kolom C (qty 'part')
                     $partQty = (float)str_replace(',', '.', $findValue($rowData, ['qty'], '1'));
-
-                    // 2. Ambil Unit of Issue dari kolom G (qty 'raw material' per part)
                     $unitOfIssueQty = (float)str_replace(',', '.', $findValue($rowData, ['unit of issue'], '0'));
-
-                    // 3. Hitung total qty raw material
                     $totalRawMaterialQty = $partQty * $unitOfIssueQty;
 
+                    // Ini adalah 'Raw Material' yang menjadi child dari 'Part'
                     $materialNode = [
                         'item'        => $itemNumber . '.1',
                         'description' => $findValue($rowData, ['description2']),
-                        'qty'         => (string)$totalRawMaterialQty, // [FIX] Gunakan total qty yg dihitung
+                        'qty'         => (string)$totalRawMaterialQty,
                         'sloc'        => $findValue($rowData, ['sloc']),
-                        'sloc1'       => $findValue($rowData, ['sloc1']), // [FIX] Mengambil sloc1
+                        'sloc1'       => $findValue($rowData, ['sloc1']),
                         'code'        => $rawMaterialCode,
                         'uom'         => $findValue($rowData, ['uom1'], 'PC'),
                     ];
@@ -344,9 +342,15 @@ class BomController extends Controller
                     $cleanedBomsMap[$parentKey] = $bom;
                     $componentMap = [];
                     foreach ($bom['components'] as $component) {
-                        $componentKey = (!empty($component['code']) && $component['code'] !== '#NOT_FOUND#' && $component['code'] !== '#ERROR#')
+                        // [PERBAIKAN KUNCI DEDUPLIKASI]
+                        // Gunakan KODE + DESKRIPSI sebagai kunci unik, bukan hanya KODE.
+                        $componentCode = (!empty($component['code']) && $component['code'] !== '#NOT_FOUND#' && $component['code'] !== '#ERROR#')
                                             ? $component['code']
-                                            : strtolower(trim($component['description']));
+                                            : '#NO_CODE#';
+                        // [PERBAIKAN] Mengganti '+' menjadi '.' untuk string concatenation
+                        $componentKey = $componentCode . '::' . strtolower(trim($component['description']));
+                        // [AKHIR PERBAIKAN]
+
                         if (!isset($componentMap[$componentKey])) {
                             $componentMap[$componentKey] = $component;
                         }
@@ -356,15 +360,23 @@ class BomController extends Controller
                     $existingComponents = $cleanedBomsMap[$parentKey]['components'];
                     $componentMap = [];
                     foreach ($existingComponents as $component) {
-                        $componentKey = (!empty($component['code']) && $component['code'] !== '#NOT_FOUND#' && $component['code'] !== '#ERROR#')
+                        // [PERBAIKAN KUNCI DEDUPLIKASI]
+                        $componentCode = (!empty($component['code']) && $component['code'] !== '#NOT_FOUND#' && $component['code'] !== '#ERROR#')
                                             ? $component['code']
-                                            : strtolower(trim($component['description']));
+                                            : '#NO_CODE#';
+                        // [PERBAIKAN] Mengganti '+' menjadi '.' untuk string concatenation
+                        $componentKey = $componentCode . '::' . strtolower(trim($component['description']));
+                        // [AKHIR PERBAIKAN]
                         $componentMap[$componentKey] = $component;
                     }
                     foreach ($bom['components'] as $newComponent) {
-                        $componentKey = (!empty($newComponent['code']) && $newComponent['code'] !== '#NOT_FOUND#' && $newComponent['code'] !== '#ERROR#')
-                                            ? $newComponent['code']
-                                            : strtolower(trim($newComponent['description']));
+                        // [PERBAIKAN KUNCI DEDUPLIKASI]
+                        $componentCode = (!empty($newComponent['code']) && $newComponent['code'] !== '#NOT_FOUND#' && $newComponent['code'] !== '#ERROR#')
+                                            ? $component['code']
+                                            : '#NO_CODE#';
+                        // [PERBAIKAN] Mengganti '+' menjadi '.' untuk string concatenation
+                        $componentKey = $componentCode . '::' . strtolower(trim($component['description']));
+                        // [AKHIR PERBAIKAN]
                         if (!isset($componentMap[$componentKey])) {
                             $componentMap[$componentKey] = $newComponent;
                         }
@@ -494,12 +506,10 @@ class BomController extends Controller
                 $cleanParentCode = ltrim($parentCode, '0');
                 $descriptionMap[$cleanParentCode] = $bom['parent']['description'] ?? 'No Description';
 
-                // [LOGIKA BARU PARENT SLOC]
-                // Aturan: Prioritaskan sloc1. Jika sloc1 kosong, baru gunakan sloc.
-                $parentSloc = $bom['parent']['sloc'] ?? '';
-                $parentSloc1 = $bom['parent']['sloc1'] ?? '';
-                $parentLgort = !empty($parentSloc1) ? $parentSloc1 : $parentSloc;
-                // [AKHIR LOGIKA BARU]
+                // [PERBAIKAN SESUAI PERMINTAAN]
+                // Aturan: Parent LGORT diambil dari sloc1
+                $parentLgort = $bom['parent']['sloc1'] ?? '';
+                // [AKHIR PERBAIKAN]
 
                 $validComponents = [];
                 foreach ($bom['components'] as $comp) {
@@ -520,12 +530,12 @@ class BomController extends Controller
                                         ? str_pad($comp['code'], 18, '0', STR_PAD_LEFT)
                                         : $comp['code'];
 
-                    // [LOGIKA BARU KOMPONEN SLOC]
-                    // Aturan: Prioritaskan sloc. Jika sloc kosong, baru gunakan sloc1.
+                    // [PERBAIKAN SESUAI PERMINTAAN]
+                    // Aturan: Child LGORT diambil dari sloc, JIKA KOSONG baru ambil sloc1
                     $compSloc = $comp['sloc'] ?? '';
-                    $compSloc1 = $comp['sloc1'] ?? ''; // sloc1 dari baris komponen
+                    $compSloc1 = $comp['sloc1'] ?? '';
                     $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
-                    // [AKHIR LOGIKA BARU]
+                    // [AKHIR PERBAIKAN]
 
                     $componentsPayload[] = [
                         'ITEM_CATEG'    => 'L', 'POSNR' => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
@@ -801,7 +811,7 @@ class BomController extends Controller
             $tempSapRow["Profit Center"] = $profitCenterMap[$selectedPlant] ?? '';
             $tempSapRow["Price Control"] = "S"; $tempSapRow["Industry Sector"] = "F"; $tempSapRow["General item cat group"] = "NORM";
             $tempSapRow["Batch Management"] = "X"; $tempSapRow["Valuation Class"] = "SF01"; $tempSapRow["Price Unit"] = "1";
-            $tempSapRow["Class"] = "PRODUCTION"; $tempSapRow["MRP Type"] = "PD"; $tempSapRow["Lot Size"] = "EX";
+            $tempSapRow["Class"] = "PRODUCTION"; $tempSapRow["MRP Type"] = "PD"; $tempSapRow["LotSize"] = "EX";
             $tempSapRow["Backflush Indicator"] = "1"; $tempSapRow["Schedulled Margin Key"] = "000";
             $tempSapRow["Strategy Group"] = "20"; $tempSapRow["period indicator"] = "M"; $tempSapRow["Availability Check"] = "KP";
             $tempSapRow["Individual Collective"] = "1"; $tempSapRow["Prod Schedule Profile"] = "000002"; $tempSapRow["Material-related origin"] = "X";
@@ -1052,3 +1062,6 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
+
+
+

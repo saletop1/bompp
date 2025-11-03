@@ -40,9 +40,6 @@ class ProcessedBomExport implements FromCollection, WithHeadings
             // Terjemahkan penanda #NOT_FOUND# untuk parent
             $parentCode = ($parent['code'] === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $parent['code'];
 
-            // Ambil sloc1 parent untuk logika komponen
-            $parentSloc1 = $parent['sloc1'] ?? '';
-
             foreach ($components as $comp) {
                 $itemNumber += 10;
 
@@ -51,19 +48,12 @@ class ProcessedBomExport implements FromCollection, WithHeadings
                 // Terjemahkan penanda #NOT_FOUND# untuk tampilan Excel
                 $compCode = ($compCodeRaw === '#NOT_FOUND#') ? 'KODE TIDAK DITEMUKAN' : $compCodeRaw;
 
-                // === [PERBAIKAN LOGIKA LTRIM] ===
-                $lgort = '';
-
-                // 1. Hapus nol di depan dari kode material mentah
-                $cleanedCode = ltrim($compCodeRaw, '0');
-
-                if ($compCodeRaw !== '#NOT_FOUND#' && !empty($compCodeRaw) && str_starts_with($cleanedCode, '9')) {
-                    // 2. Cek apakah kode yang SUDAH BERSIH diawali '9'
-                    $lgort = $parentSloc1;
-                } else {
-                    // 3. Jika tidak (atau #NOT_FOUND#), ambil sloc (dari komponen)
-                    $lgort = $comp['sloc'] ?? '';
-                }
+                // === [PERBAIKAN LOGIKA LGORT SESUAI PERMINTAAN] ===
+                // Aturan: Untuk komponen (child), gunakan 'sloc'.
+                // Jika 'sloc' kosong, baru gunakan 'sloc1'.
+                $compSloc = $comp['sloc'] ?? '';
+                $compSloc1 = $comp['sloc1'] ?? '';
+                $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
                 // === [AKHIR PERBAIKAN LOGIKA] ===
 
                 $excelRows[] = [
