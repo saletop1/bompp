@@ -61,6 +61,20 @@
         #process-another-btn { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
         #process-another-btn:hover { background-color: #157347 !important; border-color: #146c43 !important; }
         #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: -20px; }
+        #lock-countdown-timer {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(246, 255, 0, 1);
+    border: 1px solid #111009ff;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-family: sans-serif;
+    font-size: 0.9rem;
+    color: #333;
+    z-index: 1000;
+    display: none; /* Sembunyi secara default */
+}
     </style>
 </head>
 <body>
@@ -354,7 +368,14 @@
                         if (response.ok) {
                             materialCodeInput.value = data.next_material_code;
                         } else {
-                            alert(`Error: ${data.error || 'Failed to retrieve data from server.'}`);
+                            // [PERBAIKAN] Cek status 423 (Locked)
+                            if (response.status === 423 && data.lock_expires_at) {
+                                alert(`Error: ${data.error || 'Failed to retrieve data from server.'}`);
+                                // Panggil fungsi countdown
+                                startLockCountdown(data.lock_expires_at);
+                            } else {
+                                alert(`Error: ${data.error || 'Failed to retrieve data from server.'}`);
+                            }
                         }
                     } catch (error) {
                         alert('Network error. Please ensure the SAP service (Python) is running.');
@@ -647,8 +668,51 @@
                     div.innerHTML = html;
                 }
             }
+
+            // --- [FUNGSI BARU UNTUK COUNTDOWN] ---
+            let countdownInterval;
+
+            function startLockCountdown(expiresAtTimestamp) {
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+
+                const timerElement = document.getElementById('lock-countdown-timer');
+                const timeDisplay = document.getElementById('countdown-time');
+
+                if (!timerElement || !timeDisplay) return;
+
+                timerElement.style.display = 'block';
+
+                const updateTimer = () => {
+                    const now = Math.floor(Date.now() / 1000);
+                    const remainingSeconds = expiresAtTimestamp - now;
+
+                    if (remainingSeconds <= 0) {
+                        clearInterval(countdownInterval);
+                        timerElement.style.display = 'none';
+                        const generateButton = document.getElementById('generate-btn');
+                        if (generateButton) {
+                            generateButton.disabled = false;
+                        }
+                        return;
+                    }
+
+                    const minutes = Math.floor(remainingSeconds / 60);
+                    const seconds = remainingSeconds % 60;
+
+                    timeDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                };
+
+                updateTimer();
+                countdownInterval = setInterval(updateTimer, 1000);
+            }
+            // --- [AKHIR FUNGSI COUNTDOWN] ---
         });
 
     </script>
 </body>
+<div id="lock-countdown-timer">
+    Generate terkunci, coba lagi dalam: <strong id="countdown-time">5:00</strong>
+</div>
 </html>

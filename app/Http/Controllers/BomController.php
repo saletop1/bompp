@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\SapUploadNotification;
 use App\Exports\RoutingTemplateExport;
 use App\Mail\MaterialUploadNotification;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Custom import class untuk BOM Uploader.
@@ -131,8 +132,9 @@ class BomController extends Controller
                     'sloc'        => $findValue($rowData, ['sloc']),
                     'sloc1'       => $findValue($rowData, ['sloc1']),
                     'code'        => '',
-                    'uom'         => $findValue($rowData, ['uom'], 'PC'),
-                    'is_raw'      => false, // <-- TAMBAHKAN INI
+                    // [PERBAIKAN] Paksa UOM menjadi huruf besar
+                    'uom'         => strtoupper($findValue($rowData, ['uom'], 'PC')),
+                    'is_raw'      => false,
                 ];
                 $nodes[$itemNumber] = $partNode;
 
@@ -153,8 +155,9 @@ class BomController extends Controller
                         'sloc'        => $findValue($rowData, ['sloc']),
                         'sloc1'       => $findValue($rowData, ['sloc1']),
                         'code'        => $rawMaterialCode,
-                        'uom'         => $findValue($rowData, ['uom1'], 'PC'),
-                        'is_raw'      => true, // <-- TAMBAHKAN INI
+                        // [PERBAIKAN] Paksa UOM menjadi huruf besar
+                        'uom'         => strtoupper($findValue($rowData, ['uom1'], 'PC')),
+                        'is_raw'      => true,
                     ];
                     $nodes[$itemNumber . '.1'] = $materialNode;
                 }
@@ -258,7 +261,8 @@ class BomController extends Controller
     {
         $request->validate(['description' => 'required|string']);
         $description = $request->input('description');
-        $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
+        // [PERBAIKAN] Menghapus format Markdown dari URL default
+        $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
 
         $foundCode = $this->findMaterialCode($pythonApiUrl, $description);
 
@@ -532,17 +536,26 @@ class BomController extends Controller
                                         ? str_pad($comp['code'], 18, '0', STR_PAD_LEFT)
                                         : $comp['code'];
 
-                    // [PERBAIKAN SESUAI PERMINTAAN]
-                    // Aturan: Child LGORT diambil dari sloc, JIKA KOSONG baru ambil sloc1
+                    // [PERBAIKAN LOGIKA KONTRAKTIF]
+                    // Aturan: Raw Material (PLAT SS) prioritaskan sloc (3C01)
+                    //         Komponen (PART METAL) prioritaskan sloc1 (3C13)
+                    $isRaw = $comp['is_raw'] ?? false;
                     $compSloc = $comp['sloc'] ?? '';
                     $compSloc1 = $comp['sloc1'] ?? '';
-                    $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
-                    // [AKHIR PERBAIKAN]
 
+                    if ($isRaw) {
+                        // Untuk Raw Material (PLAT SS), prioritaskan sloc
+                        $lgort = !empty($compSloc) ? $compSloc : $compSloc1;
+                    } else {
+                        // Untuk Komponen (PART METAL), prioritaskan sloc1
+                        $lgort = !empty($compSloc1) ? $compSloc1 : $compSloc;
+                    }
+                    // [AKHIR PERBAIKAN]
+                    // [PERBAIKAN] Paksa UOM menjadi huruf besar (sebagai pengaman)
                     $componentsPayload[] = [
                         'ITEM_CATEG'    => 'L', 'POSNR' => str_pad($itemNumber, 4, '0', STR_PAD_LEFT),
                         'COMPONENT'     => $componentCodeForSap,
-                        'COMP_QTY'      => $quantity, 'COMP_UNIT' => $comp['uom'] ?? 'PC',
+                        'COMP_QTY'      => $quantity, 'COMP_UNIT' => strtoupper($comp['uom'] ?? 'PC'),
                         'PROD_STOR_LOC' => $lgort, // Menggunakan $lgort yg dihitung
                         'SCRAP' => '0',
                         'ITEM_TEXT'     => '', 'ITEM_TEXT2' => '',
@@ -562,7 +575,8 @@ class BomController extends Controller
                     'IV_WERKS'      => $plant,
                     'IV_STLAN'      => '1', 'IV_STLAL' => '01',
                     'IV_DATUV'      => date('dmY'), 'IV_BMENG' => $baseQuantity,
-                    'IV_BMEIN'      => $bom['parent']['uom'] ?? 'PC',
+                    // [PERBAIKAN] Paksa UOM menjadi huruf besar (sebagai pengaman)
+                    'IV_BMEIN'      => strtoupper($bom['parent']['uom'] ?? 'PC'),
                     'IV_STKTX'      => $bom['parent']['description'] ?? 'BOM Upload',
                     'IV_LGORT'      => $parentLgort, // [LOGIKA SLOC1 PARENT]
                     'IT_COMPONENTS' => $componentsPayload,
@@ -599,7 +613,8 @@ class BomController extends Controller
         ]);
 
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
+            // [PERBAIKAN] Menghapus format Markdown dari URL default
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
 
             // Kirim HANYA SATU BOM
             $response = Http::timeout(300)->post($pythonApiUrl . '/upload_bom', [
@@ -697,168 +712,178 @@ class BomController extends Controller
 
     public function showMaterialConverter()
     {
-        return view('converter');
+        // [PERMINTAAN BARU] Cek status lock saat halaman dimuat
+        $lockExpiresAt = Cache::get('material_master_lock_expires_at', null);
+
+        // Jika kuncinya ada, kirim sisa waktunya ke view
+        return view('converter', [
+            'lockExpiresAt' => $lockExpiresAt
+        ]);
     }
 
     public function upload(Request $request)
-{
-    $request->validate([
-        'file' => 'required|mimes:xls,xlsx,csv', 'start_material_code' => 'required|string',
-        'material_type' => 'required|string', 'plant' => 'required|string',
-        'division' => ['required_if:material_type,FERT', 'nullable', 'string'],
-        'distribution_channel' => ['required_if:material_type,FERT', 'nullable', 'string'],
-    ]);
+    {
+        $request->validate([
+            'file' => 'required|mimes:xls,xlsx,csv', 'start_material_code' => 'required|string',
+            'material_type' => 'required|string', 'plant' => 'required|string',
+            'division' => ['required_if:material_type,FERT', 'nullable', 'string'],
+            'distribution_channel' => ['required_if:material_type,FERT', 'nullable', 'string'],
+        ]);
 
-    // --- [VALIDASI BARU] Cek kesesuaian Material Type dan awalan Kode Material ---
-    $materialType = $request->input('material_type');
-    $materialCode = $request->input('start_material_code');
+        // --- [VALIDASI BARU] Cek kesesuaian Material Type dan awalan Kode Material ---
+        $materialType = $request->input('material_type');
+        $materialCode = $request->input('start_material_code');
 
-    $rules = [
-        'HALB' => ['2', 'H'],
-        'HALM' => ['9'],
-        'FERT' => ['3'],
-        'VERP' => ['5'],
-    ];
-
-    if (isset($rules[$materialType])) {
-        $isValid = false;
-        foreach ($rules[$materialType] as $prefix) {
-            if (str_starts_with(strtoupper($materialCode), strtoupper($prefix))) {
-                $isValid = true;
-                break;
-            }
-        }
-        if (!$isValid) {
-            $allowedPrefixes = implode(' atau ', $rules[$materialType]);
-            $errorMessage = "Starting Material Code tidak valid. Untuk tipe {$materialType}, kode harus diawali dengan '{$allowedPrefixes}'.";
-            return back()->withErrors(['start_material_code' => $errorMessage])->withInput();
-        }
-    }
-    // --- AKHIR VALIDASI BARU ---
-
-    try {
-        $collection = Excel::toCollection(null, $request->file('file'))->first();
-        if ($collection->isEmpty() || $collection->count() <= 1) {
-            return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
-        }
-
-        $inventorHeader = array_map('strtolower', array_map('trim', $collection->first()->toArray()));
-
-        $exactHeaders = [
-            'material description', 'base unit of measure', 'document', 'dimension',
-            'mrp group', 'mrp controller', 'material group', 'storage location',
-            'procurement', 'spec proc'
+        $rules = [
+            'HALB' => ['2', 'H'],
+            'HALM' => ['9'],
+            'FERT' => ['3'],
+            'VERP' => ['5'],
         ];
 
-        $missingHeaders = array_diff($exactHeaders, $inventorHeader);
-        $extraHeaders = array_diff($inventorHeader, $exactHeaders);
-
-        if (!empty($missingHeaders) || !empty($extraHeaders)) {
-            $errorParts = [];
-            if (!empty($missingHeaders)) {
-                $errorParts[] = "Kolom berikut WAJIB ADA: " . implode(', ', $missingHeaders);
-            }
-            if (!empty($extraHeaders)) {
-                $errorParts[] = "Kolom berikut SEHARUSNYA TIDAK ADA: " . implode(', ', $extraHeaders);
-            }
-            $errorMessage = "Template Excel tidak sesuai. " . implode('; ', $errorParts);
-            return back()->withErrors(['file' => $errorMessage]);
-        }
-
-        $inventorData = $collection->slice(1);
-
-        $divisionMap = [
-            '01' => ['acct_group' => '01', 'val_class' => 'FG01', 'mat_group' => 'FFG001'], '02' => ['acct_group' => '02', 'val_class' => 'FG02', 'mat_group' => 'FFG009'],
-            '03' => ['acct_group' => '03', 'val_class' => 'FG06', 'mat_group' => 'FFG008'], '04' => ['acct_group' => '04', 'val_class' => 'FG04', 'mat_group' => 'FFG004'],
-            '05' => ['acct_group' => '05', 'val_class' => 'FG03', 'mat_group' => 'FFG002'], '06' => ['acct_group' => '06', 'val_class' => 'FG05', 'mat_group' => 'FFG003'],
-            '07' => ['acct_group' => '07', 'val_class' => 'FG07', 'mat_group' => 'FFG007'], '08' => ['acct_group' => '08', 'val_class' => 'FG10', 'mat_group' => 'FFG005'],
-            '09' => ['acct_group' => '09', 'val_class' => 'FG01', 'mat_group' => 'FFG001'], '10' => ['acct_group' => '10', 'val_class' => 'FG08', 'mat_group' => 'FFG007'],
-            '00' => ['acct_group' => '00', 'val_class' => 'SF01', 'mat_group' => ''],
-        ];
-
-        $columnMapping = [
-            "Material Description" => "Material Description", "Base Unit of Measure" => "Base Unit of Measure",
-            "Dimension" => "Dimension", "MRP GROUP" => "MRP GROUP", "MRP Controller" => "MRP Controller",
-            "Material Group" => "Material Group", "Storage Location" => "Storage Location",
-            "Production Storage Location" => "Storage Location", "Document" => "Document",
-            "Procurement Type" => "Procurement",
-            "Special Procurement Type" => "Spec Proc"
-        ];
-
-        $sapHeader = [ 'Material', 'Industry Sector', 'Old material number', 'Material Type', 'Material Group', 'Base Unit of Measure', 'Material Description', 'Division', 'General item cat group', 'Prod./insp. Memo', 'Document', 'Ind. Std Desc', 'Dimension', 'Plant', 'Storage Location', 'Sales Organization', 'Distribution Channel', 'Delivery Plant', 'Sales Unit', 'Tax Country', 'Tax Class', 'Tax Cat', 'Item Category Group', 'Acct assignment grp', 'Mat Group 1', 'Mat Group 2', 'Mat Group 3', 'Mat Group 4', 'Mat Group 5', 'Trans Group', 'Loadin Group', 'Material Package', 'Mat pack type', 'Batch Management', 'Profit Center', 'Valuation Class', 'StandardPrc', 'MovingAvg', 'Price Unit', 'Price Control', 'Price Unit Hard Currency', 'Denominator', 'Alternative UoM', 'Numerator', 'Length', 'Width', 'Height', 'Unit of Dimension', 'Gross Weight', 'Weight Unit', 'Net Weight', 'Volume', 'Purchasing Group', 'Volume Unit', 'Proportion unit', 'Class', 'WARNA ', 'VOLUME PRODUCT', 'MRP Type', 'MRP GROUP', 'MRP Controller', 'Lot Size', 'Min Lot Size', 'Max Lot Size', 'Rounding Value', 'Procurement Type', 'Special Procurement Type', 'Backflush Indicator', 'Inhouse Production', 'Pl. Deliv. Time', 'GR Processing Time', 'Schedulled Margin Key', 'Safety Stock', 'Strategy Group', 'Consumption Mode', 'Forward Consumption Period', 'Backward Consumption Period', 'period indicator', 'fiscal year', 'Availability Check', 'Selection Method', 'Individual Collective', 'Unit Of Issue', 'Production Storage Location', 'Storage loc. for EP', 'Prod Schedule Profile', 'Under Delivery Tolerance', 'Over Delivery Tolerance', 'Unlt Deliv Tol', 'Material-related origin', 'Ind Qty Structure', 'costing lot size', 'Do Not Cost', 'Plant-sp.matl status', 'Stock Determination Group', 'Unnamed: 95', 'Inspection Type', 'Inspection With Task List' ];
-
-        $sapData = [];
-        $currentMaterialCode = $request->input('start_material_code');
-        $selectedMaterialType = $request->input('material_type');
-        $selectedPlant = $request->input('plant');
-
-        foreach ($inventorData as $inventorRow) {
-            if ($inventorRow->filter()->isEmpty()) continue;
-            $rowData = array_combine($inventorHeader, $inventorRow->toArray());
-
-            $tempSapRow = array_fill_keys($sapHeader, '');
-
-            foreach ($columnMapping as $sapCol => $inventorCol) {
-                $inventorColLower = strtolower($inventorCol);
-                if (isset($rowData[$inventorColLower])) {
-                    $cleanedValue = preg_replace('/\s+/', ' ', trim((string)$rowData[$inventorColLower]));
-                    $tempSapRow[$sapCol] = strtoupper($cleanedValue);
+        if (isset($rules[$materialType])) {
+            $isValid = false;
+            foreach ($rules[$materialType] as $prefix) {
+                if (str_starts_with(strtoupper($materialCode), strtoupper($prefix))) {
+                    $isValid = true;
+                    break;
                 }
             }
+            if (!$isValid) {
+                $allowedPrefixes = implode(' atau ', $rules[$materialType]);
+                $errorMessage = "Starting Material Code tidak valid. Untuk tipe {$materialType}, kode harus diawali dengan '{$allowedPrefixes}'.";
+                return back()->withErrors(['start_material_code' => $errorMessage])->withInput();
+            }
+        }
+        // --- AKHIR VALIDASI BARU ---
 
-            $profitCenterMap = [ '3000' => '300301', '2000' => '200301', '1000' => '100301', '1001' => '100301' ];
-            $tempSapRow["Material"] = $currentMaterialCode;
-            $currentMaterialCode = $this->incrementMaterialCode($currentMaterialCode);
-            $tempSapRow["Material Type"] = $selectedMaterialType; $tempSapRow["Plant"] = $selectedPlant;
-            $tempSapRow["Profit Center"] = $profitCenterMap[$selectedPlant] ?? '';
-            $tempSapRow["Price Control"] = "S"; $tempSapRow["Industry Sector"] = "F"; $tempSapRow["General item cat group"] = "NORM";
-            $tempSapRow["Batch Management"] = "X"; $tempSapRow["Valuation Class"] = "SF01"; $tempSapRow["Price Unit"] = "1";
-            $tempSapRow["Class"] = "PRODUCTION"; $tempSapRow["MRP Type"] = "PD"; $tempSapRow["Lot Size"] = "EX";
-            $tempSapRow["Backflush Indicator"] = "1"; $tempSapRow["Schedulled Margin Key"] = "000";
-            $tempSapRow["Strategy Group"] = "20"; $tempSapRow["period indicator"] = "M"; $tempSapRow["Availability Check"] = "KP";
-            $tempSapRow["Individual Collective"] = "1"; $tempSapRow["Prod Schedule Profile"] = "000002"; $tempSapRow["Material-related origin"] = "X";
-            $tempSapRow["Ind Qty Structure"] = "X"; $tempSapRow["Plant-sp.matl status"] = "03"; $tempSapRow["Stock Determination Group"] = "0001";
-            $tempSapRow["Inspection Type"] = "04"; $tempSapRow["Inspection With Task List"] = "X"; $tempSapRow["Costing lot size"] = "100";
-
-            if (empty($tempSapRow["Procurement Type"])) {
-                $tempSapRow["Procurement Type"] = "E";
+        try {
+            $collection = Excel::toCollection(null, $request->file('file'))->first();
+            if ($collection->isEmpty() || $collection->count() <= 1) {
+                return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
             }
 
-            if ($selectedMaterialType === 'FERT') {
-                $tempSapRow['Sales Organization'] = '1000'; $tempSapRow['Tax Country'] = 'ID'; $tempSapRow['Tax Class'] = '1';
-                $tempSapRow['Tax Cat'] = 'ZPPN'; $tempSapRow['Item Category Group'] = 'Z001'; $tempSapRow['Trans Group'] = '0001';
-                $tempSapRow['Loading Group'] = '0001'; $tempSapRow['Material Package'] = 'ZMG1';
-                $selectedDivision = $request->input('division');
-                $tempSapRow['Division'] = $selectedDivision;
-                $tempSapRow['Distribution Channel'] = $request->input('distribution_channel');
-                if (isset($divisionMap[$selectedDivision])) {
-                    $tempSapRow['Acct assignment grp'] = $divisionMap[$selectedDivision]['acct_group'];
-                    $tempSapRow['Valuation Class'] = $divisionMap[$selectedDivision]['val_class'];
-                    $tempSapRow['Material Group'] = $divisionMap[$selectedDivision]['mat_group'];
+            $inventorHeader = array_map('strtolower', array_map('trim', $collection->first()->toArray()));
+
+            $exactHeaders = [
+                'material description', 'base unit of measure', 'document', 'dimension',
+                'mrp group', 'mrp controller', 'material group', 'storage location',
+                'procurement', 'spec proc'
+            ];
+
+            $missingHeaders = array_diff($exactHeaders, $inventorHeader);
+            $extraHeaders = array_diff($inventorHeader, $exactHeaders);
+
+            if (!empty($missingHeaders) || !empty($extraHeaders)) {
+                $errorParts = [];
+                if (!empty($missingHeaders)) {
+                    $errorParts[] = "Kolom berikut WAJIB ADA: " . implode(', ', $missingHeaders);
                 }
-            } elseif ($selectedMaterialType === 'VERP') {
-                $tempSapRow['Division'] = 'M5'; $tempSapRow['Valuation Class'] = 'PK01';
+                if (!empty($extraHeaders)) {
+                    $errorParts[] = "Kolom berikut SEHARUSNYA TIDAK ADA: " . implode(', ', $extraHeaders);
+                }
+                $errorMessage = "Template Excel tidak sesuai. " . implode('; ', $errorParts);
+                return back()->withErrors(['file' => $errorMessage]);
             }
 
-            $sapData[] = $tempSapRow;
+            $inventorData = $collection->slice(1);
+
+            $divisionMap = [
+                '01' => ['acct_group' => '01', 'val_class' => 'FG01', 'mat_group' => 'FFG001'], '02' => ['acct_group' => '02', 'val_class' => 'FG02', 'mat_group' => 'FFG009'],
+                '03' => ['acct_group' => '03', 'val_class' => 'FG06', 'mat_group' => 'FFG008'], '04' => ['acct_group' => '04', 'val_class' => 'FG04', 'mat_group' => 'FFG004'],
+                '05' => ['acct_group' => '05', 'val_class' => 'FG03', 'mat_group' => 'FFG002'], '06' => ['acct_group' => '06', 'val_class' => 'FG05', 'mat_group' => 'FFG003'],
+                '07' => ['acct_group' => '07', 'val_class' => 'FG07', 'mat_group' => 'FFG007'], '08' => ['acct_group' => '08', 'val_class' => 'FG10', 'mat_group' => 'FFG005'],
+                '09' => ['acct_group' => '09', 'val_class' => 'FG01', 'mat_group' => 'FFG001'], '10' => ['acct_group' => '10', 'val_class' => 'FG08', 'mat_group' => 'FFG007'],
+                '00' => ['acct_group' => '00', 'val_class' => 'SF01', 'mat_group' => ''],
+            ];
+
+            $columnMapping = [
+                "Material Description" => "Material Description", "Base Unit of Measure" => "Base Unit of Measure",
+                "Dimension" => "Dimension", "MRP GROUP" => "MRP GROUP", "MRP Controller" => "MRP Controller",
+                "Material Group" => "Material Group", "Storage Location" => "Storage Location",
+                "Production Storage Location" => "Storage Location", "Document" => "Document",
+                "Procurement Type" => "Procurement",
+                "Special Procurement Type" => "Spec Proc"
+            ];
+
+            $sapHeader = [ 'Material', 'Industry Sector', 'Old material number', 'Material Type', 'Material Group', 'Base Unit of Measure', 'Material Description', 'Division', 'General item cat group', 'Prod./insp. Memo', 'Document', 'Ind. Std Desc', 'Dimension', 'Plant', 'Storage Location', 'Sales Organization', 'Distribution Channel', 'Delivery Plant', 'Sales Unit', 'Tax Country', 'Tax Class', 'Tax Cat', 'Item Category Group', 'Acct assignment grp', 'Mat Group 1', 'Mat Group 2', 'Mat Group 3', 'Mat Group 4', 'Mat Group 5', 'Trans Group', 'Loadin Group', 'Material Package', 'Mat pack type', 'Batch Management', 'Profit Center', 'Valuation Class', 'StandardPrc', 'MovingAvg', 'Price Unit', 'Price Control', 'Price Unit Hard Currency', 'Denominator', 'Alternative UoM', 'Numerator', 'Length', 'Width', 'Height', 'Unit of Dimension', 'Gross Weight', 'Weight Unit', 'Net Weight', 'Volume', 'Purchasing Group', 'Volume Unit', 'Proportion unit', 'Class', 'WARNA ', 'VOLUME PRODUCT', 'MRP Type', 'MRP GROUP', 'MRP Controller', 'Lot Size', 'Min Lot Size', 'Max Lot Size', 'Rounding Value', 'Procurement Type', 'Special Procurement Type', 'Backflush Indicator', 'Inhouse Production', 'Pl. Deliv. Time', 'GR Processing Time', 'Schedulled Margin Key', 'Safety Stock', 'Strategy Group', 'Consumption Mode', 'Forward Consumption Period', 'Backward Consumption Period', 'period indicator', 'fiscal year', 'Availability Check', 'Selection Method', 'Individual Collective', 'Unit Of Issue', 'Production Storage Location', 'Storage loc. for EP', 'Prod Schedule Profile', 'Under Delivery Tolerance', 'Over Delivery Tolerance', 'Unlt Deliv Tol', 'Material-related origin', 'Ind Qty Structure', 'costing lot size', 'Do Not Cost', 'Plant-sp.matl status', 'Stock Determination Group', 'Unnamed: 95', 'Inspection Type', 'Inspection With Task List' ];
+
+            $sapData = [];
+            $currentMaterialCode = $request->input('start_material_code');
+            $selectedMaterialType = $request->input('material_type');
+            $selectedPlant = $request->input('plant');
+
+            foreach ($inventorData as $inventorRow) {
+                if ($inventorRow->filter()->isEmpty()) continue;
+                $rowData = array_combine($inventorHeader, $inventorRow->toArray());
+
+                $tempSapRow = array_fill_keys($sapHeader, '');
+
+                foreach ($columnMapping as $sapCol => $inventorCol) {
+                    $inventorColLower = strtolower($inventorCol);
+                    if (isset($rowData[$inventorColLower])) {
+                        $cleanedValue = preg_replace('/\s+/', ' ', trim((string)$rowData[$inventorColLower]));
+                        $tempSapRow[$sapCol] = strtoupper($cleanedValue);
+                    }
+                }
+
+                $profitCenterMap = [ '3000' => '300301', '2000' => '200301', '1000' => '100301', '1001' => '100301' ];
+                $tempSapRow["Material"] = $currentMaterialCode;
+                $currentMaterialCode = $this->incrementMaterialCode($currentMaterialCode);
+                $tempSapRow["Material Type"] = $selectedMaterialType; $tempSapRow["Plant"] = $selectedPlant;
+                $tempSapRow["Profit Center"] = $profitCenterMap[$selectedPlant] ?? '';
+                $tempSapRow["Price Control"] = "S"; $tempSapRow["Industry Sector"] = "F"; $tempSapRow["General item cat group"] = "NORM";
+                $tempSapRow["Batch Management"] = "X"; $tempSapRow["Valuation Class"] = "SF01"; $tempSapRow["Price Unit"] = "1";
+                $tempSapRow["Class"] = "PRODUCTION"; $tempSapRow["MRP Type"] = "PD";
+
+                // [PERBAIKAN TYPO] "LotSize" diubah menjadi "Lot Size" agar cocok dengan $sapHeader
+                $tempSapRow["Lot Size"] = "EX";
+
+                $tempSapRow["Backflush Indicator"] = "1"; $tempSapRow["Schedulled Margin Key"] = "000";
+                $tempSapRow["Strategy Group"] = "20"; $tempSapRow["period indicator"] = "M"; $tempSapRow["Availability Check"] = "KP";
+                $tempSapRow["Individual Collective"] = "1"; $tempSapRow["Prod Schedule Profile"] = "000002"; $tempSapRow["Material-related origin"] = "X";
+                $tempSapRow["Ind Qty Structure"] = "X"; $tempSapRow["Plant-sp.matl status"] = "03"; $tempSapRow["Stock Determination Group"] = "0001";
+                $tempSapRow["Inspection Type"] = "04"; $tempSapRow["Inspection With Task List"] = "X"; $tempSapRow["Costing lot size"] = "100";
+
+                if (empty($tempSapRow["Procurement Type"])) {
+                    $tempSapRow["Procurement Type"] = "E";
+                }
+
+                if ($selectedMaterialType === 'FERT') {
+                    $tempSapRow['Sales Organization'] = '1000'; $tempSapRow['Tax Country'] = 'ID'; $tempSapRow['Tax Class'] = '1';
+                    $tempSapRow['Tax Cat'] = 'ZPPN'; $tempSapRow['Item Category Group'] = 'Z001'; $tempSapRow['Trans Group'] = '0001';
+                    $tempSapRow['Loading Group'] = '0001'; $tempSapRow['Material Package'] = 'ZMG1';
+                    $selectedDivision = $request->input('division');
+                    $tempSapRow['Division'] = $selectedDivision;
+                    $tempSapRow['Distribution Channel'] = $request->input('distribution_channel');
+                    if (isset($divisionMap[$selectedDivision])) {
+                        $tempSapRow['Acct assignment grp'] = $divisionMap[$selectedDivision]['acct_group'];
+                        $tempSapRow['Valuation Class'] = $divisionMap[$selectedDivision]['val_class'];
+                        $tempSapRow['Material Group'] = $divisionMap[$selectedDivision]['mat_group'];
+                    }
+                } elseif ($selectedMaterialType === 'VERP') {
+                    $tempSapRow['Division'] = 'M5'; $tempSapRow['Valuation Class'] = 'PK01';
+                }
+
+                $sapData[] = $tempSapRow;
+            }
+
+            if (empty($sapData)) {
+                return back()->withErrors(['file' => 'Tidak ada baris data yang valid untuk diproses.']);
+            }
+
+            $tempFilename = 'material_processed_' . Str::random(16) . '.json';
+            Storage::disk('local')->put($tempFilename, json_encode($sapData));
+
+            return redirect()->route('converter.index')
+                ->with('download_filename', $tempFilename)
+                ->with('success', count($sapData) . ' baris data berhasil diproses')
+                ->with('processed_plant', $request->input('plant'));
+        } catch(\Exception $e) {
+            Log::error('Material Upload Processing Error: ' . $e->getMessage());
+            return back()->withErrors('Error during file processing: ' . $e->getMessage());
         }
-
-        if (empty($sapData)) {
-            return back()->withErrors(['file' => 'Tidak ada baris data yang valid untuk diproses.']);
-        }
-
-        $tempFilename = 'material_processed_' . Str::random(16) . '.json';
-        Storage::disk('local')->put($tempFilename, json_encode($sapData));
-
-        return redirect()->route('converter.index')
-            ->with('download_filename', $tempFilename)
-            ->with('success', count($sapData) . ' baris data berhasil diproses')
-            ->with('processed_plant', $request->input('plant'));
-    } catch(\Exception $e) {
-        Log::error('Material Upload Processing Error: ' . $e->getMessage());
-        return back()->withErrors('Error during file processing: ' . $e->getMessage());
     }
-}
 
     public function stageMaterials(Request $request)
     {
@@ -870,7 +895,8 @@ class BomController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Processed file not found.'], 404);
             }
 
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
+            // [PERBAIKAN] Menghapus format Markdown dari URL default
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
             $materials = json_decode(Storage::disk('local')->get($filename), true);
 
             // Panggil endpoint Python yang baru: /stage_materials
@@ -919,15 +945,29 @@ class BomController extends Controller
     {
         $request->validate(['username' => 'required', 'password' => 'required', 'materials' => 'required|array']);
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
+            // [PERBAIKAN] Menghapus format Markdown dari URL default
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
 
             // Panggil endpoint Python yang baru: /activate_qm_and_upload
             // $request->all() sudah berisi username, password, dan materials
             $response = Http::timeout(600)->post($pythonApiUrl . '/activate_qm_and_upload', $request->all());
 
+            // === [PENERAPAN ANTRIAN] ===
+            // Apapun hasilnya (sukses atau gagal), proses upload user ini sudah selesai.
+            // Kita bisa melepaskan kuncinya agar user lain bisa memakai.
+            Cache::forget('material_master_lock');
+            Cache::forget('material_master_lock_expires_at'); // <-- [PERBAIKAN] Hapus timestamp
+            // === [AKHIR ANTRIAN] ===
+
             // Kembalikan respons dari Python langsung ke frontend
             return $response->json();
         } catch (\Exception $e) {
+            // === [PENERAPAN ANTRIAN] ===
+            // Jika ada error fatal, lepas juga kuncinya.
+            Cache::forget('material_master_lock');
+            Cache::forget('material_master_lock_expires_at'); // <-- [PERBAIKAN] Hapus timestamp
+            // === [AKHIR ANTRIAN] ===
+
             Log::error('Activate and Upload API Error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
@@ -943,7 +983,8 @@ class BomController extends Controller
             'plan_details' => 'required|array',
         ]);
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
+            // [PERBAIKAN] Menghapus format Markdown dari URL default
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
 
             // Panggil endpoint Python yang baru: /create_inspection_plan
             $response = Http::timeout(600)->post($pythonApiUrl . '/create_inspection_plan', $request->all());
@@ -988,11 +1029,49 @@ class BomController extends Controller
     public function generateNextMaterialCode(Request $request)
     {
         $request->validate(['material_type' => 'required|string']);
+
+        // === [PENERAPAN ANTRIAN] ===
+        // Cek apakah ada proses yang sedang aktif.
+        // Kita beri timeout 300 detik (5 menit)
+        if (Cache::has('material_master_lock')) {
+            // [PERBAIKAN] Ambil timestamp kapan kunci berakhir
+            $expiresAtTimestamp = Cache::get('material_master_lock_expires_at', now()->timestamp + 300);
+
+            // Jika ada, tolak permintaan baru dan KIRIMKAN TIMESTAMP
+            return response()->json([
+                'error' => 'Sistem sedang dipakai oleh user lain untuk upload material. Mohon coba lagi dalam beberapa menit.',
+                'lock_expires_at' => $expiresAtTimestamp // <-- [PERBAIKAN] Kirim timestamp ke front-end
+            ], 423); // 423 Locked
+        }
+
+        // Jika tidak ada, "kunci" sistem.
+        // User lain tidak akan bisa generate kode selama 15 menit
+        // atau sampai user ini selesai (memanggil activateAndUpload).
+        Cache::put('material_master_lock', true, 300);
+        // [PERBAIKAN] Simpan juga timestamp kapan kunci berakhir
+        $expiresAt = now()->addSeconds(300);
+        Cache::put('material_master_lock_expires_at', $expiresAt->timestamp, 300);
+        // === [AKHIR ANTRIAN] ===
+
         try {
-            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://192.168.90.27:5002');
+            // [PERBAIKAN] Menghapus format Markdown dari URL default
+            $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
             $response = Http::get($pythonApiUrl . '/get_next_material', $request->all());
+
+            // Jika Python API gagal merespon, kita harus lepas kuncinya lagi
+            if (!$response->successful()) {
+                Cache::forget('material_master_lock');
+                Cache::forget('material_master_lock_expires_at'); // <-- [PERBAIKAN] Hapus timestamp
+                // Kirim response error dari Python
+                return $response->json();
+            }
+
+            // Kirim kode ke user, kunci masih dipegang
             return $response->json();
         } catch (\Exception $e) {
+            // Jika ada error koneksi, lepas kuncinya lagi
+            Cache::forget('material_master_lock');
+            Cache::forget('material_master_lock_expires_at'); // <-- [PERBAIKAN] Hapus timestamp
             Log::error('Could not connect to Python API for generating material code: ' . $e->getMessage());
             return response()->json(['error' => 'Could not connect to the processing service.'], 500);
         }
@@ -1064,10 +1143,4 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
-
-
-
-
-
-
 
