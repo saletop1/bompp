@@ -822,7 +822,7 @@ class BomController extends Controller
             $tempSapRow["Profit Center"] = $profitCenterMap[$selectedPlant] ?? '';
             $tempSapRow["Price Control"] = "S"; $tempSapRow["Industry Sector"] = "F"; $tempSapRow["General item cat group"] = "NORM";
             $tempSapRow["Batch Management"] = "X"; $tempSapRow["Valuation Class"] = "SF01"; $tempSapRow["Price Unit"] = "1";
-            $tempSapRow["Class"] = "PRODUCTION"; $tempSapRow["MRP Type"] = "PD"; $tempSapRow["LotSize"] = "EX";
+            $tempSapRow["Class"] = "PRODUCTION"; $tempSapRow["MRP Type"] = "PD"; $tempSapRow["Lot Size"] = "EX";
             $tempSapRow["Backflush Indicator"] = "1"; $tempSapRow["Schedulled Margin Key"] = "000";
             $tempSapRow["Strategy Group"] = "20"; $tempSapRow["period indicator"] = "M"; $tempSapRow["Availability Check"] = "KP";
             $tempSapRow["Individual Collective"] = "1"; $tempSapRow["Prod Schedule Profile"] = "000002"; $tempSapRow["Material-related origin"] = "X";
@@ -1073,6 +1073,7 @@ class BomController extends Controller
         return $code . '-1';
     }
 }
+
 
 
 
