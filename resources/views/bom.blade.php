@@ -153,7 +153,7 @@
                             <input type="text" name="plant" id="plant" class="form-control" required placeholder="Contoh: 1000">
                         </div>
                         <div class="col-12 mt-4">
-                            <input type="file" name="file" id="file-input" required class="d-none" accept=".xls,.xlsx,.csv">
+                            <input type="file" name="file" id="file-input" accept=".xls,.xlsx,.csv" required class="d-none">
                             <div id="drop-zone" class="p-4 text-center" style="cursor: pointer;">
                                 <dotlottie-player src="{{ asset('animations/Greenish arrow down.lottie') }}" background="transparent" speed="1" style="width: 150px; height: 150px; margin: 0 auto;" loop autoplay></dotlottie-player>
                                 <p class="mb-0 mt-2 fw-bold" id="main-text">Drag & drop your BOM Excel file here</p>
