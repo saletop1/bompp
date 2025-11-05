@@ -61,23 +61,32 @@
         #process-another-btn { background-color: #198754 !important; border-color: #198754 !important; color: white !important; }
         #process-another-btn:hover { background-color: #157347 !important; border-color: #146c43 !important; }
         #progress-text { color: #e9ecef; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); font-weight: 500; margin-top: -20px; }
+
+        /* [PERBAIKAN] CSS untuk Timer di Pojok Kanan Atas */
         #lock-countdown-timer {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background-color: rgba(246, 255, 0, 1);
-    border: 1px solid #111009ff;
-    padding: 10px 15px;
-    border-radius: 5px;
-    font-family: sans-serif;
-    font-size: 0.9rem;
-    color: #333;
-    z-index: 1000;
-    display: none; /* Sembunyi secara default */
-}
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #ffc;
+            border: 1px solid #e6db55;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            color: #333;
+            z-index: 1000;
+            display: none; /* Sembunyi secara default */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
+
+    <!-- [PERBAIKAN] Elemen HTML untuk Timer -->
+    <div id="lock-countdown-timer">
+        Sistem terkunci, coba lagi dalam: <strong id="countdown-time">15:00</strong>
+    </div>
+
     <div class="container converter-container">
         {{-- Header --}}
         <div class="d-flex align-items-center justify-content-center mb-3">
@@ -102,7 +111,6 @@
                             <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}">
                                 <i class="bi bi-diagram-3 me-2"></i>BOM Master
                             </a>
-                        </li>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('routing.index') ? 'active' : '' }}" href="{{ route('routing.index') }}">
@@ -221,11 +229,12 @@
                                 <option value="3000">3000</option>
                                 <option value="2000">2000</option>
                                 <option value="1000">1000</option>
-                                <option value="1000">1001</option>
+                                <option value="1001">1001</option> {{-- Duplikat 1000, diganti ke 1001 --}}
                             </select>
                         </div>
                         <div class="col-12 mt-4">
-                            <input type="file" name="file" id="file-input" accept=".xls,.xlsx,.csv" required class="d-none">
+                            <!-- [PERBAIKAN SELULER] Hapus 'accept' -->
+                            <input type="file" name="file" id="file-input" required class="d-none">
                             <div id="drop-zone" class="p-4 text-center" style="cursor: pointer;">
                                 <dotlottie-player src="{{ asset('animations/Greenish arrow down.lottie') }}" background="transparent" speed="1" style="width: 150px; height: 150px; margin: 0 auto;" loop autoplay></dotlottie-player>
                                 <p class="mb-0 mt-2 fw-bold" id="main-text">Drag & drop your Excel file here</p>
@@ -249,6 +258,7 @@
         </footer>
     </div>
 
+    {{-- Modal Login SAP --}}
     <div class="modal fade" id="sapLoginModal" tabindex="-1" aria-labelledby="sapLoginModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content frosted-glass">
@@ -275,6 +285,7 @@
         </div>
     </div>
 
+    {{-- Modal Konfirmasi Upload --}}
     <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content frosted-glass">
@@ -283,7 +294,8 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="confirmation-modal-body">
-                    </div>
+                    {{-- Konten diisi oleh JavaScript --}}
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-warning" id="confirm-activate-btn">
@@ -296,8 +308,80 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    {{-- Variabel global untuk timer --}}
     <script>
+        let countdownInterval;
+    </script>
+
+    <script>
+        /**
+         * [PERBAIKAN] Memulai timer countdown visual
+         * @param {number} expiresAtTimestamp - Timestamp (dalam detik) kapan kunci berakhir
+         */
+        function startLockCountdown(expiresAtTimestamp) {
+            // Hentikan timer lama jika ada
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+
+            const timerElement = document.getElementById('lock-countdown-timer');
+            const timeDisplay = document.getElementById('countdown-time');
+
+            if (!timerElement || !timeDisplay) return;
+
+            timerElement.style.display = 'block'; // Tampilkan timer
+
+            const updateTimer = () => {
+                const now = Math.floor(Date.now() / 1000); // Waktu saat ini dalam detik
+                const remainingSeconds = expiresAtTimestamp - now;
+
+                if (remainingSeconds <= 0) {
+                    clearInterval(countdownInterval);
+                    timerElement.style.display = 'none'; // Sembunyikan timer
+
+                    // [PERBAIKAN] Aktifkan kembali tombol generate untuk semua user
+                    const generateButton = document.getElementById('generate-btn');
+                    if (generateButton) {
+                        generateButton.disabled = false;
+                        const btnIcon = generateButton.querySelector('.bi-stars');
+                        const spinner = generateButton.querySelector('.spinner-border');
+                        if(btnIcon) btnIcon.classList.remove('d-none');
+                        if(spinner) spinner.classList.add('d-none');
+                    }
+                    return;
+                }
+
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+
+                // Format waktu (MM:SS)
+                timeDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            };
+
+            updateTimer(); // Panggil sekali agar langsung update
+            countdownInterval = setInterval(updateTimer, 1000); // Update setiap detik
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+
+            // --- [PERBAIKAN] Pengecekan Timer saat Halaman Dimuat ---
+            @if(isset($lockExpiresAt) && $lockExpiresAt > now()->timestamp)
+                const expiresAt = {{ $lockExpiresAt }};
+                const generateButton = document.getElementById('generate-btn');
+
+                // Langsung kunci tombol generate dan mulai timer
+                if (generateButton) {
+                    generateButton.disabled = true;
+                    const btnIcon = generateButton.querySelector('.bi-stars');
+                    if(btnIcon) btnIcon.classList.add('d-none');
+                }
+
+                // Tampilkan timer (tanpa alert agar tidak mengganggu)
+                startLockCountdown(expiresAt);
+            @endif
+            // --- [AKHIR PERBAIKAN] ---
+
             // --- VARIABEL GLOBAL ---
             let stagedMaterials = [];
             let finalUploadResults = [];
@@ -337,7 +421,13 @@
                     if (event.dataTransfer.files.length > 0) handleFile(event.dataTransfer.files[0]);
                 }, false);
 
+                // [PERBAIKAN SELULER] Tambahkan 'touchstart'
                 dropZone.addEventListener('click', () => fileInput.click());
+                dropZone.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    fileInput.click();
+                });
+
                 fileInput.addEventListener('change', () => {
                     if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
                 });
@@ -365,13 +455,14 @@
                     try {
                         const response = await fetch(`{{ route('api.material.generate') }}?material_type=${selectedType}`);
                         const data = await response.json();
+
                         if (response.ok) {
                             materialCodeInput.value = data.next_material_code;
                         } else {
-                            // [PERBAIKAN] Cek status 423 (Locked)
+                            // [PERBAIKAN] Tangani error 423 (Terkunci)
                             if (response.status === 423 && data.lock_expires_at) {
                                 alert(`Error: ${data.error || 'Failed to retrieve data from server.'}`);
-                                // Panggil fungsi countdown
+                                // Mulai timer jika terkunci
                                 startLockCountdown(data.lock_expires_at);
                             } else {
                                 alert(`Error: ${data.error || 'Failed to retrieve data from server.'}`);
@@ -380,9 +471,12 @@
                     } catch (error) {
                         alert('Network error. Please ensure the SAP service (Python) is running.');
                     } finally {
-                        spinner.classList.add('d-none');
-                        btnIcon.classList.remove('d-none');
-                        generateBtn.disabled = false;
+                        // Hanya setel ulang tombol jika TIDAK terkunci
+                        if (!countdownInterval) { // countdownInterval adalah variabel global
+                            spinner.classList.add('d-none');
+                            btnIcon.classList.remove('d-none');
+                            generateBtn.disabled = false;
+                        }
                     }
                 });
 
@@ -564,15 +658,20 @@
                     }
 
                     let plant = '';
-                    if (finalUploadResults && finalUploadResults.length > 0) {
-                        const firstResultWithPlant = finalUploadResults.find(r => r.plant);
-                        if (firstResultWithPlant) {
-                            plant = firstResultWithPlant.plant;
-                        }
+                    // Coba cari plant dari salah satu hasil
+                    const resultWithPlant = finalUploadResults.find(r => r.plant);
+                    if (resultWithPlant) {
+                        plant = resultWithPlant.plant;
+                    } else if (stagedMaterials.length > 0 && stagedMaterials[0].Plant) {
+                        // Fallback ke data staged jika ada
+                        plant = stagedMaterials[0].Plant;
+                    } else {
+                        // Fallback ke session jika ada (meskipun ini halaman hasil, mungkin berguna)
+                        plant = "{{ session('processed_plant', '') }}";
                     }
 
                     if (!plant) {
-                        alert('Plant information could not be found in the upload results. Cannot send email.');
+                        alert('Plant information could not be found. Cannot send email.');
                         return;
                     }
 
@@ -668,51 +767,7 @@
                     div.innerHTML = html;
                 }
             }
-
-            // --- [FUNGSI BARU UNTUK COUNTDOWN] ---
-            let countdownInterval;
-
-            function startLockCountdown(expiresAtTimestamp) {
-                if (countdownInterval) {
-                    clearInterval(countdownInterval);
-                }
-
-                const timerElement = document.getElementById('lock-countdown-timer');
-                const timeDisplay = document.getElementById('countdown-time');
-
-                if (!timerElement || !timeDisplay) return;
-
-                timerElement.style.display = 'block';
-
-                const updateTimer = () => {
-                    const now = Math.floor(Date.now() / 1000);
-                    const remainingSeconds = expiresAtTimestamp - now;
-
-                    if (remainingSeconds <= 0) {
-                        clearInterval(countdownInterval);
-                        timerElement.style.display = 'none';
-                        const generateButton = document.getElementById('generate-btn');
-                        if (generateButton) {
-                            generateButton.disabled = false;
-                        }
-                        return;
-                    }
-
-                    const minutes = Math.floor(remainingSeconds / 60);
-                    const seconds = remainingSeconds % 60;
-
-                    timeDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                };
-
-                updateTimer();
-                countdownInterval = setInterval(updateTimer, 1000);
-            }
-            // --- [AKHIR FUNGSI COUNTDOWN] ---
         });
-
     </script>
 </body>
-<div id="lock-countdown-timer">
-    Generate terkunci, coba lagi dalam: <strong id="countdown-time">5:00</strong>
-</div>
 </html>
