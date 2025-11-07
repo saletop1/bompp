@@ -745,7 +745,7 @@
                                 <div class="progress-step" data-step="4">Activating</div>
                             </div>
                         </div>
-                        <dotlottie-player src="{{ asset('animations/buble.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay aria-hidden="true"></dotlottie-player>
+                        <dotlottie-player src="{{ asset('animations/Bird.lottie') }}" background="transparent" speed="1" style="width: 200px; height: 200px; margin: 0 auto;" loop autoplay aria-hidden="true"></dotlottie-player>
                         <p id="progress-text" class="text-center">Processing...</p>
                     </div>
 

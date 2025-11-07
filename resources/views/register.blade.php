@@ -79,7 +79,7 @@
     <div class="register-container">
         <div class="register-card">
             <div class="header">
-                <dotlottie-player src="{{ asset('animations/buble.lottie') }}" background="transparent" speed="1" style="width: 160px; height: 160px; margin: 0 auto;" loop autoplay></dotlottie-player>
+                <dotlottie-player src="{{ asset('animations/Bird.lottie') }}" background="transparent" speed="1" style="width: 160px; height: 160px; margin: 0 auto;" loop autoplay></dotlottie-player>
                 <h2 class="title">Create Account</h2>
                 <p class="subtitle">SAP Material Master Converter</p>
             </div>
