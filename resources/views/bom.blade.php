@@ -23,9 +23,77 @@
         .upload-details ul li.result-failed {
             color: #ffcdd2; /* Merah muda */
         }
+
+        /* [BARU] Animasi Floating Particles untuk BOM */
+        .particles-container-bom {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .particle-bom {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: float-bom 15s infinite ease-in-out;
+        }
+
+        @keyframes float-bom {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(100px);
+                opacity: 0;
+            }
+        }
+
+        /* [BARU] Pastikan konten utama berada di atas particles */
+        .container.converter-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
+    <!-- [BARU] Floating Particles Animation untuk BOM -->
+    <div class="particles-container-bom" id="particles-bom"></div>
+
+    @auth
+    <style>
+        .logout-floating { position: fixed; top: 14px; right: 14px; z-index: 1100; }
+        .logout-floating form { display: inline; }
+        .logout-btn { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.3); color: #fff; }
+        .logout-btn:hover { background: rgba(0,0,0,0.55); }
+    </style>
+    <div class="logout-floating">
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button type="submit" class="btn btn-sm logout-btn" title="Logout">
+                <i class="bi bi-box-arrow-right"></i>
+            </button>
+        </form>
+    </div>
+    @endauth
     <div class="container converter-container">
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container">
@@ -207,7 +275,30 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        /**
+         * [BARU] Floating Particles Animation untuk BOM
+         */
+        function createParticlesBom() {
+            const container = document.getElementById('particles-bom');
+            if (!container) return;
+
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle-bom';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (10 + Math.random() * 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+            // [BARU] Inisialisasi particles untuk BOM
+            createParticlesBom();
+
             let finalBomUploadResults = [];
             let generatedCodeResults = {}; // Simpan hasil generate code di sini
             const processedPlant = @json(session('processed_plant'));
@@ -719,4 +810,3 @@
 
 </body>
 </html>
-

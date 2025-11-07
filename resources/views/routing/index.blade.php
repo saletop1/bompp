@@ -17,7 +17,7 @@
         .page-title-container .main-title { color: #fff; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); margin-bottom: 0; }
         .page-title-container .subtitle { color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); font-size: 0.9rem; }
         .sap-logo-header { height: 80px; width: auto; margin-left: 20px; }
-        .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.1); color: #f0f0f0; margin: 0 5px; transition: all 0.3s ease; border: 1px solid transparent; border-radius: 50px; }
+        .nav-pills .nav-link { background-color: rgba(255, 255, 255, 0.1); color: #f0f0f0; margin: 0 5px; transition: all 0.1s ease; border: 1px solid transparent; border-radius: 50px; }
         .nav-pills .nav-link.active, .nav-pills .show>.nav-link { background-color: #ffffff1c; color: #02fff7ff; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .table { --bs-table-bg: transparent; --bs-table-hover-bg: rgba(0, 0, 0, 0.04); color: #212529; width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; } /* Kembali ke separate untuk border-radius */
         .table th, .table td { padding: 0.4rem 1rem; vertical-align: middle; border-top: none; }
@@ -200,6 +200,22 @@
     </style>
 </head>
 <body>
+    @auth
+    <style>
+        .logout-floating { position: fixed; top: 14px; right: 14px; z-index: 1100; }
+        .logout-floating form { display: inline; }
+        .logout-btn { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.3); color: #fff; }
+        .logout-btn:hover { background: rgba(0,0,0,0.55); }
+    </style>
+    <div class="logout-floating">
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button type="submit" class="btn btn-sm logout-btn" title="Logout">
+                <i class="bi bi-box-arrow-right"></i>
+            </button>
+        </form>
+    </div>
+    @endauth
         <div class="container converter-container">
         <div class="d-flex align-items-center justify-content-center mb-3">
             <div class="page-title-container"> <h1 class="h3 main-title">SAP Routing Data Center</h1> <p class="subtitle mb-0">Confirm & Release Routing Data</p> </div>
