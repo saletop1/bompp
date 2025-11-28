@@ -23,7 +23,6 @@
         .table th, .table td { padding: 0.4rem 1rem; vertical-align: middle; border-top: none; }
         .table-responsive { max-height: 70vh; overflow-y: auto; border-radius: 0.75rem; background: rgba(255, 255, 240, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); }
 
-
         /* Aturan untuk Tabel "Data Menunggu" */
         #results-container .table-responsive thead {
              position: sticky; top: 0; z-index: 2;
@@ -58,9 +57,7 @@
               border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
          }
 
-
         /* --- Aturan CSS untuk Tabel History --- */
-
         /* 1. Header Utama (NAMA DOKUMEN...) */
         #history-card .table-responsive > .table > thead {
             position: sticky;
@@ -94,7 +91,6 @@
         tbody tr:last-child { border-bottom: none; }
         /* Hapus border top/bottom default dari .document-header-row */
         .document-header-row { cursor: pointer; /* border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; */ }
-
 
         .details-modal-trigger { cursor: pointer; user-select: none; }
         .details-modal-trigger:hover { color: #0d6efd; }
@@ -445,7 +441,6 @@
                  return detailContentHtml;
             }
 
-
             function renderPendingTable(data = processedDataByFile, checkedIndices = new Set()) {
                 resultsTbody.innerHTML = '';
                 if (data.length === 0) {
@@ -512,8 +507,10 @@
                     }
                 });
                 updateButtonStates();
-            }
 
+                // Setelah render, pasang event listeners untuk checkbox
+                setupCheckboxEvents();
+            }
 
             function renderHistoryTable(data = historyRoutings) {
                 historyTbody.innerHTML = '';
@@ -563,6 +560,46 @@
                 });
             }
 
+            // [FIXED] Setup event listeners untuk checkbox
+            function setupCheckboxEvents() {
+                // Event listener untuk document group checkbox
+                document.querySelectorAll('.document-group-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        const fileIndex = this.dataset.fileIndex;
+                        const isChecked = this.checked;
+
+                        // Cari semua row checkbox dalam grup yang sama
+                        const childCheckboxes = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:not(:disabled)`);
+
+                        childCheckboxes.forEach(child => {
+                            child.checked = isChecked;
+                        });
+
+                        updateButtonStates();
+                    });
+                });
+
+                // Event listener untuk row checkbox
+                document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        const row = this.closest('tr');
+                        const fileIndex = row.dataset.fileIndex;
+                        const masterCheckbox = document.querySelector(`.document-group-checkbox[data-file-index="${fileIndex}"]`);
+
+                        if (!masterCheckbox) return;
+
+                        // Hitung checkbox dalam grup yang sama
+                        const allChilds = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:not(:disabled)`);
+                        const checkedChilds = document.querySelectorAll(`tr[data-file-index="${fileIndex}"] .row-checkbox:checked:not(:disabled)`);
+
+                        masterCheckbox.checked = checkedChilds.length === allChilds.length && allChilds.length > 0;
+                        masterCheckbox.indeterminate = checkedChilds.length > 0 && checkedChilds.length < allChilds.length;
+
+                        updateButtonStates();
+                    });
+                });
+            }
+
             // Fungsi ini sekarang HANYA menangani trigger modal dari history
             function handleDetailTriggerClick(event) {
                 const trigger = event.target.closest('.details-modal-trigger');
@@ -584,7 +621,6 @@
             // Pasang listener di kedua tbody
              // [PERUBAHAN] Kita hanya perlu satu listener di body dokumen untuk event delegation yang lebih efisien
             document.body.addEventListener('click', handleDetailTriggerClick);
-
 
             async function updateDocumentStatusOnServer(document_number, status) {
                 const Toast = Swal.mixin({ toast: true, position: 'top-start', showConfirmButton: false, timer: 3000, timerProgressBar: true });
@@ -629,17 +665,27 @@
             }
 
             function updateButtonStates() {
-                const checkedRowCount = document.querySelectorAll('#results-tbody .row-checkbox:checked:not(:disabled)').length; // Target spesifik
-                const checkedDocCount = document.querySelectorAll('#results-tbody .document-group-checkbox:checked').length; // Target spesifik
+                const checkedRowBoxes = document.querySelectorAll('#results-tbody .row-checkbox:checked:not(:disabled)');
+                const checkedDocBoxes = document.querySelectorAll('#results-tbody .document-group-checkbox:checked');
+
+                const checkedRowCount = checkedRowBoxes.length;
+                const checkedDocCount = checkedDocBoxes.length;
                 const totalChecked = checkedRowCount + checkedDocCount;
+
                 deleteSelectedBtn.disabled = totalChecked === 0;
                 uploadSelectedBtn.disabled = checkedRowCount === 0;
                 saveSelectedBtn.disabled = checkedRowCount === 0;
-                const allRowCheckboxes = document.querySelectorAll('#results-tbody .row-checkbox:not(:disabled)'); // Target spesifik
-                if (allRowCheckboxes.length > 0 && checkedRowCount === allRowCheckboxes.length) {
+
+                // Update select all checkbox state
+                const allRowCheckboxes = document.querySelectorAll('#results-tbody .row-checkbox:not(:disabled)');
+                const allDocCheckboxes = document.querySelectorAll('#results-tbody .document-group-checkbox');
+                const totalCheckboxes = allRowCheckboxes.length + allDocCheckboxes.length;
+                const totalCheckedAll = checkedRowCount + checkedDocCount;
+
+                if (totalCheckboxes > 0 && totalCheckedAll === totalCheckboxes) {
                     selectAllCheckbox.checked = true;
                     selectAllCheckbox.indeterminate = false;
-                } else if (checkedRowCount > 0) {
+                } else if (totalCheckedAll > 0) {
                     selectAllCheckbox.checked = false;
                     selectAllCheckbox.indeterminate = true;
                 } else {
@@ -648,27 +694,9 @@
                 }
             }
 
-            function handleDocumentGroupCheck(masterCheckbox) {
-                 const fileIndex = masterCheckbox.dataset.fileIndex;
-                 const isChecked = masterCheckbox.checked;
-                 document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse .row-checkbox:not(:disabled)`).forEach(child => child.checked = isChecked); // Target spesifik
-                 updateButtonStates(); // Update tombol setelah check grup
-            }
-
-            function handleRowCheck(rowCheckbox) {
-                const fileIndex = rowCheckbox.closest('tr').dataset.fileIndex;
-                const masterCheckbox = document.querySelector(`#results-tbody .document-group-checkbox[data-file-index="${fileIndex}"]`); // Target spesifik
-                if (!masterCheckbox) return;
-                const allChilds = document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse .row-checkbox:not(:disabled)`); // Target spesifik
-                const checkedChilds = document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse .row-checkbox:checked:not(:disabled)`); // Target spesifik
-                masterCheckbox.checked = allChilds.length > 0 && checkedChilds.length === allChilds.length;
-                masterCheckbox.indeterminate = checkedChilds.length > 0 && checkedChilds.length < allChilds.length;
-                updateButtonStates(); // Update tombol setelah check baris
-            }
-
             async function performSave(docName, prodName) {
                 const allItems = getFlatData();
-                const selectedItems = Array.from(document.querySelectorAll('#results-tbody .row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]); // Target spesifik
+                const selectedItems = Array.from(document.querySelectorAll('#results-tbody .row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
                 if (selectedItems.length === 0) return Swal.fire({title: 'Info', text: 'Tidak ada data yang dipilih.', icon: 'info'});
                 saveSelectedBtn.disabled = true;
                 confirmSaveBtn.disabled = true;
@@ -692,8 +720,8 @@
 
             async function performDeletion() {
                 const allItems = getFlatData();
-                const checkedRowBoxes = document.querySelectorAll('#results-tbody .row-checkbox:checked'); // Target spesifik
-                const checkedDocBoxes = document.querySelectorAll('#results-tbody .document-group-checkbox:checked'); // Target spesifik
+                const checkedRowBoxes = document.querySelectorAll('#results-tbody .row-checkbox:checked');
+                const checkedDocBoxes = document.querySelectorAll('#results-tbody .document-group-checkbox:checked');
                 if (checkedRowBoxes.length === 0 && checkedDocBoxes.length === 0) return;
                 const docsToDelete = new Set();
                 const rowsToDeleteFromDb = [];
@@ -702,8 +730,8 @@
 
                 checkedDocBoxes.forEach(docBox => {
                     const fileIndex = docBox.dataset.fileIndex;
-                    const headerRow = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`); // Target spesifik
-                    document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"].collapse`).forEach(row => { // Target spesifik
+                    const headerRow = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`);
+                    document.querySelectorAll(`#results-tbody tr[data-file-index="${fileIndex}"]`).forEach(row => {
                          const globalIndex = parseInt(row.dataset.globalIndex);
                          if (!isNaN(globalIndex)) {
                              allIndicesToUpdateView.add(globalIndex);
@@ -725,7 +753,7 @@
 
                     const rowElement = rowBox.closest('tr');
                     const fileIndex = rowElement.dataset.fileIndex;
-                    const fileGroupHeader = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`); // Target spesifik
+                    const fileGroupHeader = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`);
 
                     if (fileGroupHeader && fileGroupHeader.dataset.isSaved === 'true') {
                         const docNumber = fileGroupHeader.dataset.docNumber;
@@ -780,7 +808,6 @@
                 }
             }
 
-
             async function performUpload() {
                 const username = document.getElementById('sap-username').value;
                 const password = document.getElementById('sap-password').value;
@@ -794,7 +821,7 @@
                 }
 
                 const allItems = getFlatData();
-                const itemsToUpload = Array.from(document.querySelectorAll('#results-tbody .row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]); // Target spesifik
+                const itemsToUpload = Array.from(document.querySelectorAll('#results-tbody .row-checkbox:checked')).map(cb => allItems[cb.getAttribute('data-global-index')]);
                 const totalItems = itemsToUpload.length;
                 let successCount = 0, failCount = 0, processedCount = 0;
                 const successfulUploads = [];
@@ -809,7 +836,7 @@
                     for (const routingData of itemsToUpload) {
                         processedCount++;
                         const globalIndex = allItems.findIndex(item => item === routingData);
-                        const targetRow = document.querySelector(`#results-tbody tr[data-global-index="${globalIndex}"]`); // Target spesifik
+                        const targetRow = document.querySelector(`#results-tbody tr[data-global-index="${globalIndex}"]`);
                         const statusCell = targetRow.querySelector('.status-cell');
                         statusCell.innerHTML = `<span class="spinner-border spinner-border-sm text-warning"></span> Menciptakan...`;
                         try {
@@ -822,7 +849,7 @@
                                 statusCell.innerHTML = `<span class="badge bg-success">Success</span>`;
                                 successCount++;
                                 const fileIndex = targetRow.dataset.fileIndex;
-                                const headerRow = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`); // Target spesifik
+                                const headerRow = document.querySelector(`#results-tbody .document-header-row[data-file-index="${fileIndex}"]`);
                                 if (headerRow && headerRow.dataset.isSaved === 'true') {
                                     successfulUploads.push({
                                         material: routingData.header.IV_MATERIAL,
@@ -862,7 +889,6 @@
                 }
             }
 
-
             renderPendingTable();
             renderHistoryTable();
 
@@ -886,7 +912,6 @@
                 renderPendingTable(filterData(processedDataByFile));
                 renderHistoryTable(filterData(historyRoutings));
             });
-
 
             uploadForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
@@ -927,29 +952,27 @@
             });
             confirmUploadBtn.addEventListener('click', performUpload);
 
+            // [FIXED] Event listener select all checkbox
             selectAllCheckbox.addEventListener('change', (e) => {
                 const isChecked = e.target.checked;
-                document.querySelectorAll('#results-tbody .document-group-checkbox, #results-tbody .row-checkbox:not(:disabled)').forEach(cb => cb.checked = isChecked);
+
+                // Pilih semua document group checkbox dan row checkbox
+                document.querySelectorAll('#results-tbody .document-group-checkbox').forEach(cb => {
+                    cb.checked = isChecked;
+                    // Trigger change event untuk setiap document group checkbox
+                    const event = new Event('change');
+                    cb.dispatchEvent(event);
+                });
+
                 updateButtonStates();
             });
 
-             // Event listener change HANYA untuk tabel pending (resultsTbody)
-            resultsTbody.addEventListener('change', (e) => {
-                 const target = e.target;
-                 if (target.classList.contains('document-group-checkbox')) {
-                     handleDocumentGroupCheck(target);
-                 } else if (target.classList.contains('row-checkbox')) {
-                     handleRowCheck(target);
-                 }
-             });
-
-
-             // Event listener klik HANYA untuk tabel pending (resultsTbody)
+            // [FIXED] Event listener klik untuk resultsTbody
             resultsTbody.addEventListener('click', e => {
                  const cycleBtn = e.target.closest('.status-cycle-btn');
                  const deleteBtn = e.target.closest('.delete-row-icon');
                  const headerRow = e.target.closest('.document-header-row');
-                 const detailToggle = e.target.closest('.details-toggle'); // Target klik detail
+                 const detailToggle = e.target.closest('.details-toggle');
 
                  if (cycleBtn) {
                      e.preventDefault();
@@ -969,9 +992,8 @@
                      performDeletion();
                  } else if (headerRow) {
                       // Handle group collapse/expand
-                     const targetSelector = headerRow.getAttribute('data-bs-target'); // e.g., ".collapse-doc-0"
+                     const targetSelector = headerRow.getAttribute('data-bs-target');
                      if (targetSelector) {
-                         // Toggle semua elemen yang cocok (baris utama dan baris detail)
                          document.querySelectorAll(`#results-tbody tr${targetSelector}`).forEach(element => {
                             const instance = bootstrap.Collapse.getOrCreateInstance(element);
                              instance.toggle();
@@ -981,20 +1003,17 @@
                      headerRow.setAttribute('aria-expanded', !isCollapsed);
                  } else if (detailToggle) {
                       // Bootstrap sudah menangani collapse/expand via data-bs-* attributes
-                      // Tidak perlu kode JS tambahan di sini, cukup pastikan atribut HTML benar
                  }
-             });
+            });
 
-
-            // Event listener klik HANYA untuk tabel history (historyTbody)
+            // Event listener klik untuk historyTbody
             historyTbody.addEventListener('click', e => {
-                 // Handle collapse/expand untuk grup dokumen di tabel history
                  const headerRow = e.target.closest('.document-header-row');
-                  if (headerRow) { // Pastikan klik berasal dari tabel history atau header row
+                  if (headerRow) {
                      const targetSelector = headerRow.getAttribute('data-bs-target');
                      if (targetSelector) {
-                         document.querySelectorAll(`#history-tbody tr.collapse-row${targetSelector.substring(1)}`).forEach(element => { // Target collapse-row
-                            const innerCollapse = element.querySelector('.collapse'); // Cari div collapse di dalamnya
+                         document.querySelectorAll(`#history-tbody tr.collapse-row${targetSelector.substring(1)}`).forEach(element => {
+                            const innerCollapse = element.querySelector('.collapse');
                             if (innerCollapse) {
                                  const instance = bootstrap.Collapse.getOrCreateInstance(innerCollapse);
                                  instance.toggle();
@@ -1004,16 +1023,13 @@
                      const isCollapsed = headerRow.classList.toggle('collapsed');
                      headerRow.setAttribute('aria-expanded', !isCollapsed);
                  }
-                 // Handle klik trigger modal (sudah ditangani oleh listener umum handleDetailTriggerClick)
             });
-
 
             // Toggle All Details hanya untuk tabel pending
             const toggleAllDetailsCheckbox = document.getElementById('toggle-all-details-checkbox');
             if(toggleAllDetailsCheckbox) {
                 toggleAllDetailsCheckbox.addEventListener('change', (e) => {
                     const isChecked = e.target.checked;
-                    // Target collapse di dalam collapse-row di tabel pending
                     document.querySelectorAll('#results-tbody .collapse-row .collapse').forEach(element => {
                         const instance = bootstrap.Collapse.getOrCreateInstance(element);
                         if (isChecked) { instance.show(); } else { instance.hide(); }
@@ -1024,4 +1040,3 @@
     </script>
 </body>
 </html>
-
