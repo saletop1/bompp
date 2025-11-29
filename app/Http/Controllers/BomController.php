@@ -8,6 +8,9 @@ use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\DefaultValueBinder;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
+use PhpOffice\PhpSpreadsheet\Reader\Xls;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 // Use statement yang sudah ada
 use Illuminate\Http\Request;
@@ -65,6 +68,34 @@ class BomController extends Controller
     {
         $request->validate(['file' => 'required|mimes:xls,xlsx,csv', 'plant' => 'required|string']);
         try {
+            // ===================================================================
+            // == VALIDASI BARU: DETEKSI FORMULA DALAM FILE EXCEL ==
+            // ===================================================================
+            $file = $request->file('file');
+            $filename = $file->getPathname();
+
+            // Deteksi formula sebelum memproses file
+            $formulaCheck = $this->checkExcelFormulas($filename);
+            if ($formulaCheck['has_formulas']) {
+                $errorMessage = "File ditolak. File Excel mengandung formula yang tidak diizinkan.\n\n";
+                $errorMessage .= "Sel yang mengandung formula:\n";
+
+                foreach (array_slice($formulaCheck['formula_cells'], 0, 10) as $formulaCell) {
+                    $errorMessage .= "- Sel {$formulaCell['cell']} (Baris {$formulaCell['row']}): ={$formulaCell['formula']}\n";
+                }
+
+                if (count($formulaCheck['formula_cells']) > 10) {
+                    $errorMessage .= "\n... dan " . (count($formulaCheck['formula_cells']) - 10) . " formula lainnya.\n";
+                }
+
+                $errorMessage .= "\nSilakan hapus semua formula dan gunakan hanya nilai (values) saja, kemudian upload ulang.";
+
+                return back()->withErrors(['file' => $errorMessage])->withInput();
+            }
+            // ===================================================================
+            // == AKHIR VALIDASI FORMULA ==
+            // ===================================================================
+
             $import = new BomImport();
             Excel::import($import, $request->file('file'));
             $collection = $import->data;
@@ -722,43 +753,81 @@ class BomController extends Controller
     }
 
     public function upload(Request $request)
-    {
-        $request->validate([
-            'file' => 'required|mimes:xls,xlsx,csv', 'start_material_code' => 'required|string',
-            'material_type' => 'required|string', 'plant' => 'required|string',
-            'division' => ['required_if:material_type,FERT', 'nullable', 'string'],
-            'distribution_channel' => ['required_if:material_type,FERT', 'nullable', 'string'],
-        ]);
+{
+    $request->validate([
+        'file' => 'required|mimes:xls,xlsx,csv', 'start_material_code' => 'required|string',
+        'material_type' => 'required|string', 'plant' => 'required|string',
+        'division' => ['required_if:material_type,FERT', 'nullable', 'string'],
+        'distribution_channel' => ['required_if:material_type,FERT', 'nullable', 'string'],
+    ]);
 
-        // --- [VALIDASI BARU] Cek kesesuaian Material Type dan awalan Kode Material ---
-        $materialType = $request->input('material_type');
-        $materialCode = $request->input('start_material_code');
+    // --- [VALIDASI BARU] Cek kesesuaian Material Type dan awalan Kode Material ---
+    $materialType = $request->input('material_type');
+    $materialCode = $request->input('start_material_code');
 
-        $rules = [
-            'HALB' => ['2', 'H'],
-            'HALM' => ['9'],
-            'FERT' => ['3'],
-            'VERP' => ['5'],
-        ];
+    $rules = [
+        'HALB' => ['2', 'H'],
+        'HALM' => ['9'],
+        'FERT' => ['3'],
+        'VERP' => ['5'],
+    ];
 
-        if (isset($rules[$materialType])) {
-            $isValid = false;
-            foreach ($rules[$materialType] as $prefix) {
-                if (str_starts_with(strtoupper($materialCode), strtoupper($prefix))) {
-                    $isValid = true;
-                    break;
-                }
-            }
-            if (!$isValid) {
-                $allowedPrefixes = implode(' atau ', $rules[$materialType]);
-                $errorMessage = "Starting Material Code tidak valid. Untuk tipe {$materialType}, kode harus diawali dengan '{$allowedPrefixes}'.";
-                return back()->withErrors(['start_material_code' => $errorMessage])->withInput();
+    if (isset($rules[$materialType])) {
+        $isValid = false;
+        foreach ($rules[$materialType] as $prefix) {
+            if (str_starts_with(strtoupper($materialCode), strtoupper($prefix))) {
+                $isValid = true;
+                break;
             }
         }
-        // --- AKHIR VALIDASI BARU ---
+        if (!$isValid) {
+            $allowedPrefixes = implode(' atau ', $rules[$materialType]);
+            $errorMessage = "Starting Material Code tidak valid. Untuk tipe {$materialType}, kode harus diawali dengan '{$allowedPrefixes}'.";
+            return back()->withErrors(['start_material_code' => $errorMessage])->withInput();
+        }
+    }
+    // --- AKHIR VALIDASI BARU ---
 
-        try {
-            $collection = Excel::toCollection(null, $request->file('file'))->first();
+    try {
+        $file = $request->file('file');
+
+        // ===================================================================
+        // == VALIDASI BARU: DETEKSI FORMULA DALAM FILE EXCEL YANG LEBIH KETAT ==
+        // ===================================================================
+        $filename = $file->getPathname();
+
+        $formulaCheck = $this->checkExcelFormulas($filename);
+        if ($formulaCheck['has_formulas']) {
+            $errorMessage = "FILE DITOLAK - TERDETEKSI FORMULA\n\n";
+            $errorMessage .= "File Excel Anda mengandung formula yang tidak diizinkan dalam sistem.\n\n";
+            $errorMessage .= "Contoh sel yang mengandung formula:\n";
+
+            $displayedCells = array_slice($formulaCheck['formula_cells'], 0, 15);
+            foreach ($displayedCells as $formulaCell) {
+                $errorMessage .= "• Baris {$formulaCell['row']} - {$formulaCell['cell']}: ={$formulaCell['formula']}\n";
+            }
+
+            if (count($formulaCheck['formula_cells']) > 15) {
+                $remaining = count($formulaCheck['formula_cells']) - 15;
+                $errorMessage .= "\n... dan {$remaining} formula lainnya.\n";
+            }
+
+            $errorMessage .= "\nTINDAKAN YANG HARUS DILAKUKAN:\n";
+            $errorMessage .= "1. Copy semua data dari file Excel ini\n";
+            $errorMessage .= "2. Paste sebagai VALUES ONLY (Nilai saja) di file Excel baru\n";
+            $errorMessage .= "3. Simpan file Excel baru tersebut\n";
+            $errorMessage .= "4. Upload file Excel yang baru\n";
+            $errorMessage .= "\nPastikan tidak ada formula yang tersisa sebelum upload ulang.";
+
+            Log::warning("File rejected due to formulas: " . $file->getClientOriginalName() . " - " . count($formulaCheck['formula_cells']) . " formulas found");
+
+            return back()->withErrors(['file' => $errorMessage])->withInput();
+        }
+            // ===================================================================
+            // == AKHIR VALIDASI FORMULA ==
+            // ===================================================================
+
+            $collection = Excel::toCollection(null, $file)->first();
             if ($collection->isEmpty() || $collection->count() <= 1) {
                 return back()->withErrors(['file' => 'File yang Anda upload kosong atau hanya berisi header.']);
             }
@@ -787,6 +856,42 @@ class BomController extends Controller
             }
 
             $inventorData = $collection->slice(1);
+
+            // ===================================================================
+            // == VALIDASI BARU: CEK PANJANG DESKRIPSI MATERIAL (MAKS 40 KARAKTER) ==
+            // ===================================================================
+            $invalidDescriptions = [];
+
+            foreach ($inventorData as $index => $inventorRow) {
+                if ($inventorRow->filter()->isEmpty()) continue;
+
+                $rowData = array_combine($inventorHeader, $inventorRow->toArray());
+                $materialDescription = trim($rowData['material description'] ?? '');
+
+                // Validasi panjang deskripsi
+                if (strlen($materialDescription) > 40) {
+                    // Simpan nomor baris dan deskripsi yang bermasalah (baris + 2 karena header + index mulai dari 0)
+                    $invalidDescriptions[] = [
+                        'row' => $index + 1,
+                        'description' => $materialDescription,
+                        'length' => strlen($materialDescription)
+                    ];
+                }
+            }
+
+            // Jika ada deskripsi yang melebihi 40 karakter, tolak file
+            if (!empty($invalidDescriptions)) {
+                $errorMessage = "File ditolak. Berikut deskripsi material yang melebihi 40 karakter:\n";
+                foreach ($invalidDescriptions as $invalid) {
+                    $errorMessage .= "- Baris {$invalid['row']}: '{$invalid['description']}' ({$invalid['length']} karakter)\n";
+                }
+                $errorMessage .= "\nSilakan perpendek deskripsi material maksimal 40 karakter dan upload ulang.";
+
+                return back()->withErrors(['file' => $errorMessage])->withInput();
+            }
+            // ===================================================================
+            // == AKHIR VALIDASI PANJANG DESKRIPSI ==
+            // ===================================================================
 
             $divisionMap = [
                 '01' => ['acct_group' => '01', 'val_class' => 'FG01', 'mat_group' => 'FFG001'], '02' => ['acct_group' => '02', 'val_class' => 'FG02', 'mat_group' => 'FFG009'],
@@ -1142,5 +1247,106 @@ class BomController extends Controller
         }
         return $code . '-1';
     }
-}
 
+    /**
+     * [FUNGSI BARU] - Deteksi formula dalam file Excel
+     * Fungsi ini akan memeriksa apakah file Excel mengandung formula
+     * dan mengembalikan informasi detail tentang sel yang mengandung formula
+     */
+    private function checkExcelFormulas(string $filename): array
+        {
+            $result = [
+                'has_formulas' => false,
+                'formula_cells' => []
+            ];
+
+            try {
+                // Tentukan reader berdasarkan ekstensi file
+                $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+                // Untuk file CSV, tidak perlu cek formula
+                if ($extension === 'csv') {
+                    return $result;
+                }
+
+                if ($extension === 'xlsx') {
+                    $reader = new Xlsx();
+                } elseif ($extension === 'xls') {
+                    $reader = new Xls();
+                } else {
+                    return $result;
+                }
+
+                // Konfigurasi reader untuk mendeteksi formula
+                $reader->setReadDataOnly(false); // Baca termasuk formula
+                $reader->setLoadSheetsOnly(0); // Hanya baca sheet pertama
+
+                $spreadsheet = $reader->load($filename);
+                $worksheet = $spreadsheet->getActiveSheet();
+
+                // Dapatkan rentang sel yang berisi data
+                $highestRow = $worksheet->getHighestDataRow();
+                $highestColumn = $worksheet->getHighestDataColumn();
+
+                // Konversi huruf kolom ke angka
+                $highestColumnIndex = Coordinate::columnIndexFromString($highestColumn);
+
+                Log::info("Checking formulas in file. Data range: A1:{$highestColumn}{$highestRow}");
+
+                // Iterasi melalui semua sel yang berisi data
+                for ($row = 1; $row <= $highestRow; $row++) {
+                    for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                        $cellAddress = Coordinate::stringFromColumnIndex($col) . $row;
+                        $cell = $worksheet->getCell($cellAddress);
+
+                        // Method 1: Cek langsung apakah sel mengandung formula (metode paling reliable)
+                        if ($cell->isFormula()) {
+                            $result['has_formulas'] = true;
+                            $formula = $cell->getValue();
+                            $calculatedValue = $cell->getCalculatedValue();
+
+                            $result['formula_cells'][] = [
+                                'cell' => $cellAddress,
+                                'row' => $row,
+                                'formula' => $formula,
+                                'calculated_value' => $calculatedValue
+                            ];
+                            Log::debug("Formula found at {$cellAddress}: {$formula}");
+                            continue;
+                        }
+
+                        // Method 2: Cek berdasarkan value (kadang formula tersimpan sebagai value yang diawali dengan =)
+                        $cellValue = $cell->getValue();
+                        if (is_string($cellValue) && str_starts_with(trim($cellValue), '=')) {
+                            $result['has_formulas'] = true;
+                            $result['formula_cells'][] = [
+                                'cell' => $cellAddress,
+                                'row' => $row,
+                                'formula' => $cellValue,
+                                'calculated_value' => $cell->getCalculatedValue()
+                            ];
+                            Log::debug("Formula-like string found at {$cellAddress}: {$cellValue}");
+                        }
+                    }
+                }
+
+                Log::info("Formula check completed. Found " . count($result['formula_cells']) . " formula cells in total.");
+
+                $spreadsheet->disconnectWorksheets();
+                unset($spreadsheet);
+
+            } catch (\Exception $e) {
+                Log::error('Error during formula detection: ' . $e->getMessage());
+                // Jika deteksi formula gagal, kita harus lebih ketat - anggap file mengandung formula
+                $result['has_formulas'] = true;
+                $result['formula_cells'][] = [
+                    'cell' => 'UNKNOWN',
+                    'row' => 0,
+                    'formula' => 'Detection Error: ' . $e->getMessage(),
+                    'calculated_value' => 'Unknown'
+                ];
+            }
+
+            return $result;
+        }
+}

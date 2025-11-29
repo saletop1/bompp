@@ -63,6 +63,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/routing/delete-rows', [RoutingController::class, 'deleteRoutingRows'])->name('routing.deleteRows');
         Route::post('/routing/check-doc-name', [RoutingController::class, 'checkDocumentNameExists'])->name('routing.checkDocName');
         Route::post('/routing/check-materials', [RoutingController::class, 'checkMaterialsInExistingDocument'])->name('routing.checkMaterials');
+        
     });
 
 });
