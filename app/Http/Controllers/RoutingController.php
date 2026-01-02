@@ -362,6 +362,74 @@ class RoutingController extends Controller
         }
     }
 
+    /**
+     * Format material jika hanya terdiri dari angka (numeric)
+     * menjadi 18 karakter dengan leading zero
+     */
+    private function formatMaterialIfNumeric($material)
+    {
+        // Hapus whitespace
+        $material = trim($material);
+
+        // Jika material hanya terdiri dari angka
+        if (ctype_digit($material)) {
+            // Tambahkan leading zero hingga panjang 18 karakter
+            return str_pad($material, 18, '0', STR_PAD_LEFT);
+        }
+
+        // Jika mengandung huruf, kembalikan aslinya
+        return $material;
+    }
+
+    public function uploadToSap(Request $request)
+    {
+        $pythonApiUrlBase = env('PYTHON_ROUTING_API_URL');
+        if (!$pythonApiUrlBase) {
+            return response()->json(['error' => 'PYTHON_ROUTING_API_URL tidak disetel di file .env'], 500);
+        }
+
+        $routingData = $request->input('routing_data', []);
+
+        // Format material menjadi 18 digit dengan leading zero jika numerik
+        if (isset($routingData['header']['IV_MATERIAL'])) {
+            $routingData['header']['IV_MATERIAL'] = $this->formatMaterialIfNumeric($routingData['header']['IV_MATERIAL']);
+        }
+
+        // Format material di setiap operasi jika ada
+        if (isset($routingData['operations']) && is_array($routingData['operations'])) {
+            foreach ($routingData['operations'] as $index => $operation) {
+                if (isset($operation['IV_MATNR'])) {
+                    $routingData['operations'][$index]['IV_MATNR'] = $this->formatMaterialIfNumeric($operation['IV_MATNR']);
+                }
+            }
+        }
+
+        // Tentukan endpoint berdasarkan isi data
+        $isServiceOnly = !empty($routingData['services']) && empty($routingData['operations']);
+
+        $endpoint = $isServiceOnly ? '/create-routing-jasa' : '/create-routing';
+        $fullApiUrl = $pythonApiUrlBase . $endpoint;
+
+        try {
+            Log::info("Mengirim data ke Python API endpoint: {$fullApiUrl}", ['routing_data' => $routingData]);
+
+            $response = Http::timeout(300)->post($fullApiUrl, [
+                'username' => $request->username,
+                'password' => $request->password,
+                'routing_data' => $routingData,
+            ]);
+
+            return response()->json($response->json(), $response->status());
+        } catch (ConnectionException $e) {
+            $errorMessage = "Gagal terhubung ke Python: " . $e->getMessage();
+            Log::error($errorMessage);
+            return response()->json(['error' => $errorMessage], 500);
+        } catch (\Exception $e) {
+            Log::error('Unexpected error in uploadToSap: ' . $e->getMessage());
+            return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function markAsUploaded(Request $request)
     {
         $validated = $request->validate([
@@ -458,41 +526,6 @@ class RoutingController extends Controller
         Routing::where('document_number', $validated['document_number'])
                ->update(['status' => $validated['status']]);
         return response()->json(['status' => 'success', 'message' => 'Status dokumen berhasil diperbarui.']);
-    }
-
-    public function uploadToSap(Request $request)
-    {
-        $pythonApiUrlBase = env('PYTHON_ROUTING_API_URL');
-        if (!$pythonApiUrlBase) {
-            return response()->json(['error' => 'PYTHON_ROUTING_API_URL tidak disetel di file .env'], 500);
-        }
-
-        $routingData = $request->input('routing_data', []);
-
-        // Tentukan endpoint berdasarkan isi data
-        $isServiceOnly = !empty($routingData['services']) && empty($routingData['operations']);
-
-        $endpoint = $isServiceOnly ? '/create-routing-jasa' : '/create-routing';
-        $fullApiUrl = $pythonApiUrlBase . $endpoint;
-
-        try {
-            Log::info("Mengirim data ke Python API endpoint: {$fullApiUrl}", ['routing_data' => $routingData]);
-
-            $response = Http::timeout(300)->post($fullApiUrl, [
-                'username' => $request->username,
-                'password' => $request->password,
-                'routing_data' => $routingData,
-            ]);
-
-            return response()->json($response->json(), $response->status());
-        } catch (ConnectionException $e) {
-            $errorMessage = "Gagal terhubung ke Python: " . $e->getMessage();
-            Log::error($errorMessage);
-            return response()->json(['error' => $errorMessage], 500);
-        } catch (\Exception $e) {
-            Log::error('Unexpected error in uploadToSap: ' . $e->getMessage());
-            return response()->json(['error' => 'Terjadi error tak terduga: ' . $e->getMessage()], 500);
-        }
     }
 
     public function checkDocumentNameExists(Request $request)
