@@ -961,10 +961,11 @@ class BomController extends Controller
                     $selectedDivision = $request->input('division');
                     $tempSapRow['Division'] = $selectedDivision;
                     $tempSapRow['Distribution Channel'] = $request->input('distribution_channel');
+                    $tempSapRow['Delivery Plant'] = $selectedPlant; // <-- Tambahkan ini
                     if (isset($divisionMap[$selectedDivision])) {
-                        $tempSapRow['Acct assignment grp'] = $divisionMap[$selectedDivision]['acct_group'];
-                        $tempSapRow['Valuation Class'] = $divisionMap[$selectedDivision]['val_class'];
-                        $tempSapRow['Material Group'] = $divisionMap[$selectedDivision]['mat_group'];
+                    $tempSapRow['Acct assignment grp'] = $divisionMap[$selectedDivision]['acct_group'];
+                    $tempSapRow['Valuation Class'] = $divisionMap[$selectedDivision]['val_class'];
+                    $tempSapRow['Material Group'] = $divisionMap[$selectedDivision]['mat_group'];
                     }
                 } elseif ($selectedMaterialType === 'VERP') {
                     $tempSapRow['Division'] = 'M5'; $tempSapRow['Valuation Class'] = 'PK01';
