@@ -122,6 +122,12 @@
                                 <i class="bi bi-signpost-split me-2"></i>Routing Master
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('shop_drawings.index') ? 'active' : '' }}" 
+                            href="{{ route('shop_drawings.index') }}">
+                                <i class="bi bi-file-earmark-pdf"></i> Shop Drawing
+                            </a>
+                        </li>
                     </ul>
                     <hr style="border-color: rgba(255,255,255,0.3);">
                 @endif

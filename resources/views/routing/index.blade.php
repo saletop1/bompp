@@ -224,6 +224,7 @@
                      <li class="nav-item"> <a class="nav-link {{ request()->routeIs('converter.index') ? 'active' : '' }}" href="{{ route('converter.index') }}"> Material Master</a> </li>
                      <li class="nav-item"> <a class="nav-link {{ request()->routeIs('bom.index') ? 'active' : '' }}" href="{{ route('bom.index') }}"> BOM Master</a> </li>
                      <li class="nav-item"> <a class="nav-link {{ request()->routeIs('routing.index') ? 'active' : '' }}" href="{{ route('routing.index') }}"> Routing Master</a> </li>
+                     <li class="nav-item"> <a class="nav-link {{ request()->routeIs('shop_drawings.index') ? 'active' : '' }}" href="{{ route('shop_drawings.index') }}"> <i class="bi bi-file-earmark-pdf"></i> Shop Drawing</a> </li>
                 </ul>
                 <hr style="border-color: rgba(255,255,255,0.3);">
 
