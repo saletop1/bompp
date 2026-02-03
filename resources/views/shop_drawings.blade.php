@@ -376,6 +376,7 @@
         .badge-type-exploded { background-color: #fd7e14; color: white; }
         .badge-type-orthographic { background-color: #17a2b8; color: white; }
         .badge-type-perspective { background-color: #6c757d; color: white; }
+        .badge-type-fabrication { background-color: #e83e8c; color: white; }
         
         /* Preview Modal - FIX Z-INDEX */
         #previewModal {
@@ -1078,6 +1079,7 @@
 
         .btn-icon::before {
             content: '';
+;
             position: absolute;
             top: 50%;
             left: 50%;
@@ -1155,6 +1157,89 @@
         
         .char-counter.over-limit {
             color: #dc3545;
+        }
+        
+        /* NEW: Icon buttons for Material Details Modal */
+        .icon-buttons-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .icon-btn:hover {
+            width: 140px;
+            border-radius: 30px;
+            transition: all 0.4s ease;
+        }
+
+        .icon-btn:hover .btn-text {
+            opacity: 1;
+            transition: opacity 0.4s ease;
+        }
+
+        .icon-btn:hover .btn-icon {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn-text {
+            position: absolute;
+            color: white;
+            width: 120px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            font-size: 0.9rem;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .btn-icon {
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .btn-email {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        }
+
+        .btn-add-drawing {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        }
+
+        /* Icon color */
+        .icon-btn i {
+            color: white !important;
+        }
+
+        /* Apply to All button style */
+        .btn-apply-all {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #000;
+            border: none;
+            font-weight: 600;
+        }
+
+        .btn-apply-all:hover {
+            background: linear-gradient(135deg, #ffca2c 0%, #ff922b 100%);
+            color: #000;
         }
     </style>
 </head>
@@ -1282,10 +1367,12 @@
                                                             style="width: 80px; height: 80px; margin: 0 auto;" 
                                                             loop autoplay aria-hidden="true"></dotlottie-player>
                                                         <h5 class="mt-2 text-white">Drop shop drawings here or click to browse</h5>
-                                                        <p class="text-white-50 mb-1">Supports JPG, PNG, PDF, DWG, DXF (Max 5 files, 150MB each)</p>
+                                                        <!-- PERBAIKAN: Tambahkan informasi tentang ZIP dan RAR -->
+                                                        <p class="text-white-50 mb-1">Supports JPG, PNG, PDF, DWG, DXF, IGS, IGES, STP, STEP, ZIP, RAR (No file size limit)</p>
                                                     </div>
+                                                    <!-- PERBAIKAN: Tambahkan ekstensi ZIP dan RAR -->
                                                     <input type="file" id="drawingFile" name="drawing[]" 
-                                                           accept=".jpg,.jpeg,.png,.gif,.bmp,.pdf,.dwg,.dxf" 
+                                                           accept=".jpg,.jpeg,.png,.gif,.bmp,.pdf,.dwg,.dxf,.igs,.iges,.stp,.step,.zip,.rar" 
                                                            class="d-none" multiple aria-label="Select drawing files">
                                                 </div>
                                             </div>
@@ -1422,6 +1509,98 @@
         </div>
     </div>
 
+    <!-- Email Request Modal -->
+    <div class="modal fade" id="emailRequestModal" tabindex="-1" aria-labelledby="emailRequestModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);">
+                <div class="modal-header">
+                    <h5 class="modal-title text-white" id="emailRequestModalLabel">Request Drawing via Email</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="emailRequestForm">
+                        <div class="mb-3">
+                            <label for="recipientEmail" class="form-label text-white">Recipient Email</label>
+                            <input type="email" class="form-control" id="recipientEmail" 
+                                   value="rnd@example.com" required>
+                            <small class="text-white-50">Default: RnD Department</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="emailSubject" class="form-label text-white">Subject</label>
+                            <input type="text" class="form-control" id="emailSubject" 
+                                   value="Request for Shop Drawing - Material: [Material Code]" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="emailMessage" class="form-label text-white">Message</label>
+                            <textarea class="form-control" id="emailMessage" rows="5" required>
+Dear RnD Team,
+
+Please upload the shop drawing for material code: [Material Code].
+
+Thank you.
+                            </textarea>
+                        </div>
+                        <input type="hidden" id="emailMaterialCode" value="">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btnSendEmail">Send Email</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit File Modal (Static) -->
+    <div class="modal fade" id="editFileModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);">
+                <div class="modal-header">
+                    <h5 class="modal-title text-white">Edit File: <span id="editFileName"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Drawing Type</label>
+                        <div class="input-group mb-2">
+                            <select class="form-select" id="editDrawingType">
+                                <option value="assembly">Assembly Drawing</option>
+                                <option value="detail">Detail Drawing</option>
+                                <option value="exploded">Exploded View</option>
+                                <option value="orthographic">Orthographic Drawing (2D)</option>
+                                <option value="perspective">Perspective Drawing (3D)</option>
+                                <option value="fabrication">Fabrication Drawing</option>
+                            </select>
+                            <button class="btn btn-apply-all" type="button" id="applyDrawingTypeToAll" title="Apply this drawing type to all files">
+                                <i class="bi bi-check-all"></i> Apply to All
+                            </button>
+                        </div>
+                        <small class="text-white-50">Applies drawing type to all files in the list</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Revision</label>
+                        <select class="form-select" id="editRevision">
+                            <option value="Rev0">Rev0</option>
+                            <option value="Rev1">Rev1</option>
+                            <option value="Rev2">Rev2</option>
+                            <option value="Rev3">Rev3</option>
+                            <option value="Rev4">Rev4</option>
+                            <option value="Rev5">Rev5</option>
+                            <option value="other">Custom Revision</option>
+                        </select>
+                        <input type="text" class="form-control mt-2 d-none" 
+                            id="editCustomRevision" placeholder="e.g., RevA, Rev6, RevFinal" 
+                            value="">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveFileEditBtn" data-index="">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
@@ -1432,8 +1611,7 @@
         let currentMaterialDrawings = [];
         let activeToastCount = 0;
         const MAX_TOAST_COUNT = 3;
-        const MAX_FILE_COUNT = 5;
-        const MAX_FILE_SIZE = 150 * 1024 * 1024; // 150MB
+        const MAX_FILE_COUNT = 100; // Increased from 5 to 100
                 
         // ========== HELPER FUNCTIONS ==========
         function showToast(message, type = 'info') {
@@ -1813,9 +1991,18 @@
                             <h4 class="mb-1">${material.material_code}</h4>
                             <p class="mb-0">${material.description || 'No description available'}</p>
                         </div>
-                        <button class="btn btn-light btn-sm" onclick="$('#materialSearchModal').modal('hide'); useMaterialForUpload('${material.material_code}', '${(material.description || '').replace(/'/g, "\\'")}', '${materialType}', '${materialGroup}', '${baseUnit}')">
-                            <i class="bi bi-arrow-left-circle"></i> Add Drawing
-                        </button>
+                        <div class="icon-buttons-container">
+                            <button class="icon-btn btn-email" onclick="openEmailRequestModal('${material.material_code}')" title="Request Drawing via Email">
+                                <i class="bi bi-envelope-fill btn-icon"></i>
+                                <span class="btn-text">Request Drawing</span>
+                            </button>
+                            <button class="icon-btn btn-add-drawing" 
+                                    onclick="$('#materialSearchModal').modal('hide'); useMaterialForUpload('${material.material_code}', '${(material.description || '').replace(/'/g, "\\'")}', '${materialType}', '${materialGroup}', '${baseUnit}')"
+                                    title="Add Drawing">
+                                <i class="bi bi-plus-circle-fill btn-icon"></i>
+                                <span class="btn-text">Add Drawing</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -1856,6 +2043,7 @@
                 'exploded': 'badge-type-exploded',
                 'orthographic': 'badge-type-orthographic',
                 'perspective': 'badge-type-perspective',
+                'fabrication': 'badge-type-fabrication',
                 // Old types for backward compatibility
                 'drawing': 'badge-type-assembly',
                 'technical': 'badge-type-detail',
@@ -1874,6 +2062,7 @@
                 'exploded': 'Exploded View',
                 'orthographic': 'Orthographic Drawing (2D)',
                 'perspective': 'Perspective Drawing (3D)',
+                'fabrication': 'Fabrication Drawing',
                 // Old types for backward compatibility
                 'drawing': 'Assembly Drawing',
                 'technical': 'Detail Drawing',
@@ -1920,6 +2109,19 @@
             $('#materialCode').focus();
         }
 
+        // ========== EMAIL REQUEST FUNCTIONS ==========
+        // Function to open email request modal
+        function openEmailRequestModal(materialCode) {
+            // Set material code to hidden input
+            $('#emailMaterialCode').val(materialCode);
+            // Set subject with material code
+            $('#emailSubject').val(`Request for Shop Drawing - Material: ${materialCode}`);
+            // Set message with material code
+            $('#emailMessage').val(`Dear RnD Team,\n\nPlease upload the shop drawing for material code: ${materialCode}.\n\nThank you.`);
+            // Show modal
+            $('#emailRequestModal').modal('show');
+        }
+
         // ========== MULTIPLE FILES HANDLING ==========
         function handleFiles(files) {
             if (files.length > MAX_FILE_COUNT) {
@@ -1930,14 +2132,8 @@
             const validFiles = [];
             
             Array.from(files).forEach((file, index) => {
-                // Validate file size (150MB)
-                if (file.size > MAX_FILE_SIZE) {
-                    showToast(`File "${file.name}" is too large. Max size is 150MB.`, 'error');
-                    return;
-                }
-                
-                // Validate file extension
-                const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'dwg', 'dxf'];
+                // PERBAIKAN: Validasi file extension - tambah ZIP dan RAR
+                const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'dwg', 'dxf', 'igs', 'iges', 'stp', 'step', 'zip', 'rar'];
                 const fileExtension = file.name.split('.').pop().toLowerCase();
                 
                 if (!allowedExtensions.includes(fileExtension)) {
@@ -2028,6 +2224,10 @@
                 return 'bi-file-earmark-pdf text-danger';
             } else if (['dwg', 'dxf'].includes(extension)) {
                 return 'bi-file-earmark-binary text-warning';
+            } else if (['igs', 'iges', 'stp', 'step'].includes(extension)) {
+                return 'bi-file-earmark-code text-info';
+            } else if (['zip', 'rar'].includes(extension)) {
+                return 'bi-file-earmark-zip text-success';
             } else {
                 return 'bi-file-earmark text-secondary';
             }
@@ -2202,6 +2402,25 @@
             showToast('Download started: ' + filename, 'success');
         }
 
+        // ========== SHOW EDIT MODAL ==========
+        function showEditModal(index) {
+            const fileObj = selectedFiles[index];
+            $('#editFileName').text(fileObj.file.name);
+            $('#editDrawingType').val(fileObj.drawing_type);
+            $('#editRevision').val(fileObj.revision);
+            
+            if (fileObj.revision === 'other') {
+                $('#editCustomRevision').removeClass('d-none').val(fileObj.custom_revision || '');
+            } else {
+                $('#editCustomRevision').addClass('d-none').val('');
+            }
+            
+            $('#saveFileEditBtn').data('index', index);
+            
+            const editModal = new bootstrap.Modal(document.getElementById('editFileModal'));
+            editModal.show();
+        }
+
         // ========== EVENT HANDLERS ==========
         $(document).ready(function() {
             // Initialize drag & drop
@@ -2284,130 +2503,67 @@
                 renderFilesList();
             });
 
-            // Handle file edit
+            // Handle file edit - menggunakan modal statis
             $(document).on('click', '.edit-file', function() {
                 const index = $(this).data('index');
-                const fileObj = selectedFiles[index];
+                showEditModal(index);
+            });
+
+            // Handle revision change in edit modal
+            $(document).on('change', '#editRevision', function() {
+                if ($(this).val() === 'other') {
+                    $('#editCustomRevision').removeClass('d-none');
+                    $('#editCustomRevision').focus();
+                } else {
+                    $('#editCustomRevision').addClass('d-none');
+                }
+            });
+
+            // Handle Apply to All button
+            $(document).on('click', '#applyDrawingTypeToAll', function() {
+                const drawingType = $('#editDrawingType').val();
+                // Ubah drawing type untuk semua file
+                selectedFiles.forEach(file => {
+                    file.drawing_type = drawingType;
+                });
+                showToast('Drawing type applied to all files', 'success');
+                // Re-render list
+                renderFilesList();
+            });
+
+            // Handle save changes in edit modal
+            $(document).on('click', '#saveFileEditBtn', function() {
+                const index = $(this).data('index');
+                const drawingType = $('#editDrawingType').val();
+                const revision = $('#editRevision').val();
+                const customRevision = $('#editCustomRevision').val();
                 
-                // Create modal for editing file details
-                const modalHtml = `
-                    <div class="modal fade" id="editFileModal" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content" style="background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);">
-                                <div class="modal-header">
-                                    <h5 class="modal-title text-white">Edit File: ${fileObj.file.name}</h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label class="form-label">Drawing Type</label>
-                                        <select class="form-select" id="editDrawingType">
-                                            <option value="assembly" ${fileObj.drawing_type === 'assembly' ? 'selected' : ''}>Assembly Drawing</option>
-                                            <option value="detail" ${fileObj.drawing_type === 'detail' ? 'selected' : ''}>Detail Drawing</option>
-                                            <option value="exploded" ${fileObj.drawing_type === 'exploded' ? 'selected' : ''}>Exploded View</option>
-                                            <option value="orthographic" ${fileObj.drawing_type === 'orthographic' ? 'selected' : ''}>Orthographic Drawing (2D)</option>
-                                            <option value="perspective" ${fileObj.drawing_type === 'perspective' ? 'selected' : ''}>Perspective Drawing (3D)</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Revision</label>
-                                        <select class="form-select" id="editRevision">
-                                            <option value="Rev0" ${fileObj.revision === 'Rev0' ? 'selected' : ''}>Rev0</option>
-                                            <option value="Rev1" ${fileObj.revision === 'Rev1' ? 'selected' : ''}>Rev1</option>
-                                            <option value="Rev2" ${fileObj.revision === 'Rev2' ? 'selected' : ''}>Rev2</option>
-                                            <option value="Rev3" ${fileObj.revision === 'Rev3' ? 'selected' : ''}>Rev3</option>
-                                            <option value="Rev4" ${fileObj.revision === 'Rev4' ? 'selected' : ''}>Rev4</option>
-                                            <option value="Rev5" ${fileObj.revision === 'Rev5' ? 'selected' : ''}>Rev5</option>
-                                            <option value="other" ${fileObj.revision === 'other' ? 'selected' : ''}>Custom Revision</option>
-                                        </select>
-                                        <input type="text" class="form-control mt-2 ${fileObj.revision !== 'other' ? 'd-none' : ''}" 
-                                            id="editCustomRevision" placeholder="e.g., RevA, Rev6, RevFinal" 
-                                            value="${fileObj.custom_revision || ''}">
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="button" class="btn btn-primary" id="saveFileEditBtn" data-index="${index}">Save Changes</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                // Add modal to body
-                $('body').append(modalHtml);
-                
-                // Show modal
-                const editModal = new bootstrap.Modal(document.getElementById('editFileModal'));
-                editModal.show();
-                
-                // Handle revision change
-                $('#editRevision').on('change', function() {
-                    if ($(this).val() === 'other') {
-                        $('#editCustomRevision').removeClass('d-none');
+                // Validasi
+                if (revision === 'other') {
+                    if (!customRevision || customRevision.trim() === '') {
+                        showToast('Please enter a custom revision', 'warning');
                         $('#editCustomRevision').focus();
-                    } else {
-                        $('#editCustomRevision').addClass('d-none');
+                        return;
                     }
-                });
-                
-                // Handle save button click - Use event delegation to ensure it works
-                $(document).off('click', '#saveFileEditBtn').on('click', '#saveFileEditBtn', function() {
-                    console.log('Save button clicked');
-                    const idx = $(this).data('index');
-                    const drawingType = $('#editDrawingType').val();
-                    const revision = $('#editRevision').val();
-                    const customRevision = $('#editCustomRevision').val();
-                    
-                    console.log('Saving file changes:', {
-                        index: idx,
-                        drawingType: drawingType,
-                        revision: revision,
-                        customRevision: customRevision
-                    });
-                    
-                    // Validate custom revision if "other" is selected
-                    if (revision === 'other') {
-                        if (!customRevision || customRevision.trim() === '') {
-                            showToast('Please enter a custom revision', 'warning');
-                            $('#editCustomRevision').focus();
-                            return;
-                        }
-                        
-                        // Validate custom revision format
-                        const customRevPattern = /^[A-Za-z0-9]+$/;
-                        if (!customRevPattern.test(customRevision.trim())) {
-                            showToast('Custom revision can only contain letters and numbers', 'warning');
-                            $('#editCustomRevision').focus();
-                            return;
-                        }
+                    const customRevPattern = /^[A-Za-z0-9]+$/;
+                    if (!customRevPattern.test(customRevision.trim())) {
+                        showToast('Custom revision can only contain letters and numbers', 'warning');
+                        $('#editCustomRevision').focus();
+                        return;
                     }
-                    
-                    // Update the file object
-                    selectedFiles[idx].drawing_type = drawingType;
-                    selectedFiles[idx].revision = revision;
-                    selectedFiles[idx].custom_revision = customRevision;
-                    
-                    console.log('Updated file object:', selectedFiles[idx]);
-                    
-                    // Re-render the file list
-                    renderFilesList();
-                    
-                    // Hide and remove modal
-                    editModal.hide();
-                    setTimeout(() => {
-                        $('#editFileEditBtn').off('click'); // Clean up event handler
-                        $('#editFileModal').remove();
-                        showToast('File details updated successfully', 'success');
-                    }, 300);
-                });
+                }
                 
-                // Remove modal on hide and clean up event handlers
-                $('#editFileModal').on('hidden.bs.modal', function() {
-                    $(this).remove();
-                    $('#saveFileEditBtn').off('click');
-                    $('#editRevision').off('change');
-                });
+                // Update file object
+                selectedFiles[index].drawing_type = drawingType;
+                selectedFiles[index].revision = revision;
+                selectedFiles[index].custom_revision = customRevision;
+                
+                // Re-render list
+                renderFilesList();
+                
+                // Tutup modal
+                bootstrap.Modal.getInstance(document.getElementById('editFileModal')).hide();
+                showToast('File details updated successfully', 'success');
             });
 
             // ========== USE VALIDATED MATERIAL BUTTON ==========
@@ -2515,6 +2671,56 @@
                 selectedFiles = [];
                 renderFilesList();
                 showToast('Form cleared', 'info');
+            });
+            
+            // ========== EMAIL SEND BUTTON ==========
+            $(document).on('click', '#btnSendEmail', function() {
+                const materialCode = $('#emailMaterialCode').val();
+                const recipientEmail = $('#recipientEmail').val();
+                const subject = $('#emailSubject').val();
+                const message = $('#emailMessage').val();
+
+                // Validasi
+                if (!materialCode) {
+                    showToast('Material code is required', 'error');
+                    return;
+                }
+
+                if (!recipientEmail) {
+                    showToast('Recipient email is required', 'error');
+                    return;
+                }
+
+                // Show loading
+                showLoading(true);
+
+                $.ajax({
+                    url: '{{ route("api.shop_drawings.send_email_request") }}',
+                    type: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    data: {
+                        material_code: materialCode,
+                        recipient_email: recipientEmail,
+                        subject: subject,
+                        message: message
+                    },
+                    success: function(response) {
+                        showLoading(false);
+                        if (response.status === 'success') {
+                            showToast('Email request sent successfully', 'success');
+                            $('#emailRequestModal').modal('hide');
+                        } else {
+                            showToast('Failed to send email: ' + response.message, 'error');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        showLoading(false);
+                        const errorMsg = xhr.responseJSON?.message || 'Failed to send email';
+                        showToast('Error: ' + errorMsg, 'error');
+                    }
+                });
             });
             
             // ========== MODAL CLOSE HANDLERS ==========

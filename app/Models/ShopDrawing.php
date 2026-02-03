@@ -49,6 +49,7 @@ class ShopDrawing extends Model
             'exploded' => 'Exploded View',
             'orthographic' => 'Orthographic Drawing (2D)',
             'perspective' => 'Perspective Drawing (3D)',
+            'fabrication' => 'Fabrication Drawing', // TAMBAHKAN INI
             // Old types for backward compatibility
             'drawing' => 'Assembly Drawing',
             'technical' => 'Detail Drawing',

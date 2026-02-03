@@ -924,6 +924,13 @@ class DropboxManager:
             # Get file extension from original filename
             file_extension = os.path.splitext(filename)[1].lower()
             
+            # PERBAIKAN: Tambahkan ekstensi ZIP dan RAR ke allowed extensions
+            allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pdf', '.dwg', '.dxf', '.igs', '.iges', '.stp', '.step', '.zip', '.rar'}
+            
+            if file_extension not in allowed_extensions:
+                logger.error(f"File extension {file_extension} not allowed")
+                return {'status': 'error', 'message': f'File type not allowed. Allowed types: {", ".join([ext[1:] for ext in allowed_extensions])}'}
+            
             # Create folder path: /Shop Drawing/{material_code}/
             folder_path = f"/Shop Drawing/{material_code}"
             
@@ -964,10 +971,6 @@ class DropboxManager:
             except ApiError as e:
                 if not e.error.is_path() or not e.error.get_path().is_not_found():
                     logger.warning(f"Error checking existing file: {e}")
-            
-            # Upload file (max 150MB)
-            if len(file_content) > 150 * 1024 * 1024:
-                return {'status': 'error', 'message': f'File size {len(file_content)/1024/1024:.2f}MB exceeds 150MB limit'}
             
             self.dbx.files_upload(
                 file_content,
@@ -1121,9 +1124,9 @@ class DropboxManager:
                 # Filter for material code in path
                 for entry in all_entries:
                     if isinstance(entry, FileMetadata):
-                        # Check if material code is in path and file is image/drawing
+                        # PERBAIKAN: Tambahkan ekstensi ZIP dan RAR
                         if (f"/{material_code}/" in entry.path_display and 
-                            entry.path_lower.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pdf', '.dwg', '.dxf'))):
+                            entry.path_lower.endswith(('jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'dwg', 'dxf', 'igs', 'iges', 'stp', 'step', 'zip', 'rar'))):
                             
                             try:
                                 links = self.dbx.sharing_list_shared_links(path=entry.path_lower).links
@@ -1213,7 +1216,8 @@ class DropboxManager:
                 
                 for entry in result.entries:
                     if isinstance(entry, FileMetadata):
-                        if entry.path_lower.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pdf', '.dwg', '.dxf')):
+                        # PERBAIKAN: Tambahkan ekstensi ZIP dan RAR
+                        if entry.path_lower.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pdf', '.dwg', '.dxf', '.zip', '.rar')):
                             try:
                                 links = self.dbx.sharing_list_shared_links(path=entry.path_lower).links
                                 share_url = links[0].url if links else None
@@ -1242,6 +1246,8 @@ class DropboxManager:
                                 file_drawing_type = 'orthographic'
                             elif 'perspective' in filename_lower or '3d' in filename_lower:
                                 file_drawing_type = 'perspective'
+                            elif 'fabrication' in filename_lower:
+                                file_drawing_type = 'fabrication'
                             
                             results.append({
                                 'source': 'dropbox_standard',
@@ -2074,22 +2080,15 @@ def upload_shop_drawing():
         if file.filename == '':
             return jsonify({'status': 'error', 'message': 'No selected file'}), 400
         
-        allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'dwg', 'dxf'}
+        # PERBAIKAN: Tambahkan ekstensi ZIP dan RAR
+        allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'dwg', 'dxf', 'igs', 'iges', 'stp', 'step', 'zip', 'rar'}
         file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
         
         if file_ext not in allowed_extensions:
             return jsonify({'status': 'error', 'message': 'Invalid file type'}), 400
         
-        max_size = 150 * 1024 * 1024  # 150MB for shop drawings
-        file.seek(0, 2)
-        file_size = file.tell()
-        file.seek(0)
-        
-        if file_size > max_size:
-            return jsonify({'status': 'error', 'message': f'File too large. Max size: 150MB, your file: {file_size/1024/1024:.2f}MB'}), 400
-        
         # Validate drawing type
-        allowed_drawing_types = ['assembly', 'detail', 'exploded', 'orthographic', 'perspective']
+        allowed_drawing_types = ['assembly', 'detail', 'exploded', 'orthographic', 'perspective', 'fabrication']
         if drawing_type not in allowed_drawing_types:
             return jsonify({'status': 'error', 'message': f'Invalid drawing type. Allowed: {", ".join(allowed_drawing_types)}'}), 400
         

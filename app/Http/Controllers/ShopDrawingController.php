@@ -7,6 +7,8 @@ use App\Models\ShopDrawing;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\DrawingRequestEmail;
 
 class ShopDrawingController extends Controller
 {
@@ -228,8 +230,9 @@ class ShopDrawingController extends Controller
                 'material_code' => 'required|string',
                 'plant' => 'required|string',
                 'description' => 'required|string',
-                'drawing' => 'required|mimes:jpg,jpeg,png,gif,bmp,pdf,dwg,dxf|max:20480',
-                'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective',
+                // PERBAIKAN: Tambahkan ekstensi zip dan rar
+                'drawing' => 'required|mimes:jpg,jpeg,png,gif,bmp,pdf,dwg,dxf,igs,iges,stp,step,zip,rar',
+                'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective,fabrication',
                 'revision' => 'required|string'
             ]);
             
@@ -371,7 +374,7 @@ class ShopDrawingController extends Controller
                 'material_code' => 'required|string',
                 'plant' => 'required|string',
                 'description' => 'required|string',
-                'file_count' => 'required|integer|min:1|max:5',
+                'file_count' => 'required|integer|min:1',
             ]);
             
             Log::info('=== START UPLOAD MULTIPLE DRAWINGS ===');
@@ -412,7 +415,6 @@ class ShopDrawingController extends Controller
             $validationData = $validateResponse->json();
             Log::info('SAP Validation Data:', $validationData);
             
-            // **PERBAIKAN KRITIS: Cek struktur response**
             if (!isset($validationData['is_valid']) || !$validationData['is_valid']) {
                 Log::error('Material is not valid in SAP:', $validationData);
                 return response()->json([
@@ -421,7 +423,6 @@ class ShopDrawingController extends Controller
                 ], 400);
             }
             
-            // **PERBAIKAN: Pastikan data material ada**
             if (!isset($validationData['material'])) {
                 Log::warning('No material data in SAP response, using defaults');
                 $materialInfo = [];
@@ -433,7 +434,6 @@ class ShopDrawingController extends Controller
             $materialGroup = $materialInfo['material_group'] ?? 'N/A';
             $baseUnit = $materialInfo['base_unit'] ?? 'N/A';
             
-            // Konversi ST ke PC jika diperlukan
             if ($baseUnit === 'ST') {
                 $baseUnit = 'PC';
             }
@@ -448,7 +448,6 @@ class ShopDrawingController extends Controller
             $failedCount = 0;
             $errors = [];
             
-            // Array untuk melacak kombinasi drawing_type dan revision yang sudah diproses
             $processedCombinations = [];
             
             // Process each file
@@ -462,7 +461,6 @@ class ShopDrawingController extends Controller
                 $originalRevision = $request->input("files.$i.revision", 'Rev0');
                 $revision = $this->standardizeRevision($originalRevision);
                 
-                // PERBAIKAN: Cek kombinasi drawing_type dan revision dalam batch ini
                 $combinationKey = $drawingType . '_' . $revision;
                 if (in_array($combinationKey, $processedCombinations)) {
                     $failedCount++;
@@ -470,24 +468,46 @@ class ShopDrawingController extends Controller
                     continue;
                 }
                 
-                // Validate individual file
-                $validator = validator([
-                    'file' => $file,
-                    'drawing_type' => $drawingType,
-                    'revision' => $originalRevision
-                ], [
-                    'file' => 'required|mimes:jpg,jpeg,png,gif,bmp,pdf,dwg,dxf|max:153600',
-                    'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective',
-                    'revision' => 'required|string'
-                ]);
+                // **FIXED: Validasi yang benar**
+                // Validasi tanpa menggunakan mimes (hanya validasi extension manual)
+                $validator = \Validator::make(
+                    [
+                        'drawing_type' => $drawingType,
+                        'revision' => $originalRevision,
+                        'file' => $file
+                    ],
+                    [
+                        'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective,fabrication',
+                        'revision' => 'required|string',
+                        'file' => 'required|max:102400' // 100MB
+                    ]
+                );
+                
+                // Tambahkan validasi custom untuk ekstensi file
+                $validator->after(function ($validator) use ($file, $i) {
+                    $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'dwg', 'dxf', 'igs', 'iges', 'stp', 'step', 'zip', 'rar'];
+                    $extension = strtolower($file->getClientOriginalExtension());
+                    
+                    if (!in_array($extension, $allowedExtensions)) {
+                        $validator->errors()->add(
+                            'file', 
+                            "File " . ($i + 1) . " must be a file of type: " . implode(', ', $allowedExtensions)
+                        );
+                    }
+                });
                 
                 if ($validator->fails()) {
                     $failedCount++;
-                    $errors[] = "File " . ($i + 1) . ": " . implode(', ', $validator->errors()->all());
+                    $errorMessages = $validator->errors()->all();
+                    $errors[] = "File " . ($i + 1) . ": " . implode(', ', $errorMessages);
+                    Log::error('File validation failed:', [
+                        'file' => $file->getClientOriginalName(),
+                        'errors' => $errorMessages
+                    ]);
                     continue;
                 }
                 
-                // PERBAIKAN: Cek duplikat dengan kombinasi material_code, plant, drawing_type, dan revision di database
+                // Cek duplikat di database
                 $duplicateCheck = ShopDrawing::where('material_code', $request->input('material_code'))
                     ->where('plant', $request->input('plant'))
                     ->where('drawing_type', $drawingType)
@@ -501,7 +521,6 @@ class ShopDrawingController extends Controller
                 }
                 
                 try {
-                    // Upload ke Dropbox melalui Python service
                     Log::info('Uploading file to Dropbox:', [
                         'file_index' => $i,
                         'filename' => $file->getClientOriginalName(),
@@ -531,7 +550,7 @@ class ShopDrawingController extends Controller
                     if ($uploadResponse->successful()) {
                         $result = $uploadResponse->json();
                         
-                        // **PERBAIKAN: Simpan dengan material info**
+                        // Pastikan juga memperbaiki Python service untuk menerima 'fabrication'
                         $drawingData = [
                             'material_code' => $request->input('material_code'),
                             'plant' => $request->input('plant'),
@@ -559,7 +578,6 @@ class ShopDrawingController extends Controller
                         
                         Log::info('Drawing saved with ID:', ['id' => $shopDrawing->id]);
                         
-                        // Tambahkan kombinasi ke array yang sudah diproses
                         $processedCombinations[] = $combinationKey;
                         $uploadedCount++;
                         
@@ -587,7 +605,7 @@ class ShopDrawingController extends Controller
                 return response()->json([
                     'status' => 'success',
                     'message' => "Successfully uploaded {$uploadedCount} drawing(s). " . 
-                                 ($failedCount > 0 ? "Failed to upload {$failedCount} file(s)." : ""),
+                                ($failedCount > 0 ? "Failed to upload {$failedCount} file(s)." : ""),
                     'uploaded_count' => $uploadedCount,
                     'failed_count' => $failedCount,
                     'errors' => $errors
@@ -779,6 +797,57 @@ class ShopDrawingController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to preview drawing'
+            ], 500);
+        }
+    }
+    
+    /**
+     * Send email request for drawing
+     */
+    public function sendEmailRequest(Request $request)
+    {
+        try {
+            $request->validate([
+                'material_code' => 'required|string',
+                'recipient_email' => 'required|email',
+                'subject' => 'required|string',
+                'message' => 'required|string',
+            ]);
+            
+            $materialCode = $request->input('material_code');
+            $recipientEmail = $request->input('recipient_email');
+            $subject = $request->input('subject');
+            $messageText = $request->input('message');
+            $user = auth()->user();
+            
+            Log::info('Sending drawing request email', [
+                'material_code' => $materialCode,
+                'recipient_email' => $recipientEmail,
+                'subject' => $subject,
+                'user' => $user->name,
+                'user_email' => $user->email
+            ]);
+            
+            // Kirim email
+            Mail::raw($messageText, function ($mail) use ($recipientEmail, $subject, $user) {
+                $mail->to($recipientEmail)
+                    ->subject($subject)
+                    ->from(env('MAIL_FROM_ADDRESS'), env('MAIL_FROM_NAME'))
+                    ->replyTo($user->email, $user->name);
+            });
+            
+            Log::info('Email sent successfully');
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Email request sent successfully'
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Send email error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to send email: ' . $e->getMessage()
             ], 500);
         }
     }

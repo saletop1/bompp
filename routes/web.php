@@ -45,29 +45,14 @@ Route::middleware(['auth'])->group(function () {
     // API routes
     Route::prefix('api')->group(function () {
         // Shop Drawing API
-        Route::post('/shop-drawings/validate', [ShopDrawingController::class, 'validateMaterial'])->name('api.shop_drawings.validate');
-        Route::post('/shop-drawings/upload', [ShopDrawingController::class, 'uploadDrawing'])->name('api.shop_drawings.upload');
-        Route::post('/shop-drawings/get', [ShopDrawingController::class, 'getShopDrawings'])->name('api.shop_drawings.get');
-        Route::post('/shop-drawings/search', [ShopDrawingController::class, 'searchMaterial'])->name('api.shop_drawings.search');
-        Route::post('/shop-drawings/upload-multiple', [ShopDrawingController::class, 'uploadMultipleDrawings'])->name('api.shop_drawings.upload_multiple');
-        // Shop Drawing Routes
-        Route::prefix('shop-drawings')->name('shop_drawings.')->group(function () {
-            Route::get('/', [ShopDrawingController::class, 'index'])->name('index');
-            Route::post('/upload', [ShopDrawingController::class, 'uploadDrawing'])->name('upload');
-            Route::delete('/{id}', [ShopDrawingController::class, 'deleteDrawing'])->name('delete');
-            Route::post('/validate', [ShopDrawingController::class, 'validateMaterial'])->name('validate');
-            Route::post('/search', [ShopDrawingController::class, 'searchMaterial'])->name('search');
-            Route::get('/list', [ShopDrawingController::class, 'getShopDrawings'])->name('get');
-            Route::get('/preview/{id}', [ShopDrawingController::class, 'previewDrawing'])->name('preview');
-        });
-
-        // API Routes untuk AJAX
-        Route::prefix('api/shop-drawings')->name('api.shop_drawings.')->group(function () {
+        Route::prefix('shop-drawings')->name('api.shop_drawings.')->group(function () {
             Route::post('/validate', [ShopDrawingController::class, 'validateMaterial'])->name('validate');
             Route::post('/search', [ShopDrawingController::class, 'searchMaterial'])->name('search');
             Route::post('/upload', [ShopDrawingController::class, 'uploadDrawing'])->name('upload');
-            Route::get('/list', [ShopDrawingController::class, 'getShopDrawings'])->name('get_shop_drawings');
+            Route::post('/upload-multiple', [ShopDrawingController::class, 'uploadMultipleDrawings'])->name('upload_multiple');
+            Route::get('/get', [ShopDrawingController::class, 'getShopDrawings'])->name('get_shop_drawings');
             Route::delete('/{id}', [ShopDrawingController::class, 'deleteDrawing'])->name('delete');
+            Route::post('/send-email-request', [ShopDrawingController::class, 'sendEmailRequest'])->name('send_email_request');
         });
 
         // Converter API
