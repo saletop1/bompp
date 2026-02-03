@@ -392,7 +392,7 @@
             <div class="login-header">
                 <div class="login-animation">
                     <dotlottie-player
-                        src="{{ asset('animations/Welcome.lottie') . '?v=' . @filemtime(public_path('animations/Welcome.lottie')) }}"
+                        src="{{ asset('animations/Bird.lottie') . '?v=' . @filemtime(public_path('animations/Bird.lottie')) }}"
                         background="transparent"
                         speed="1"
                         style="width: 100%; height: 100%;"
@@ -400,10 +400,9 @@
                         autoplay>
                     </dotlottie-player>
                 </div>
-                </div>
-                {{-- <h1 class="login-title">PT. Kayu Mebel Indonesia</h1> --}}
-                {{-- <p class="login-subtitle">SAP Material Ma</p> --}}
-
+                <!-- <h1 class="login-title">PT. Kayu Mebel Indonesia</h1>
+                <p class="login-subtitle">SAP Material Master Converter</p> -->
+            </div>
 
             <!-- Error Messages -->
             @if ($errors->any())
@@ -511,8 +510,6 @@
                 <div class="modal-body">
                     <p class="text-light mb-4">Please contact your administrator to reset your password. You can reach them through:</p>
                     <div class="contact-info text-light">
-                        {{-- <p><i class="bi bi-envelope me-2"></i>Email: admin@kayumebel.co.id</p>
-                        <p><i class="bi bi-telephone me-2"></i>Phone: (021) 1234-5678</p> --}}
                         <p><i class="bi bi-person me-2"></i>IT Support Department</p>
                     </div>
                 </div>
