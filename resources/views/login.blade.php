@@ -392,7 +392,7 @@
             <div class="login-header">
                 <div class="login-animation">
                     <dotlottie-player
-                        src="{{ asset('animations/Bird.lottie') . '?v=' . @filemtime(public_path('animations/Bird.lottie')) }}"
+                        src="{{ asset('animations/Welcome.lottie') . '?v=' . @filemtime(public_path('animations/Welcome.lottie')) }}"
                         background="transparent"
                         speed="1"
                         style="width: 100%; height: 100%;"

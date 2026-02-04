@@ -1006,7 +1006,7 @@ class BomController extends Controller
             $materials = json_decode(Storage::disk('local')->get($filename), true);
 
             // Panggil endpoint Python yang baru: /stage_materials
-            $response = Http::timeout(600)->post($pythonApiUrl . '/stage_materials', [
+            $response = Http::timeout(5200)->post($pythonApiUrl . '/stage_materials', [
                 'materials' => $materials
             ]);
 
@@ -1056,7 +1056,7 @@ class BomController extends Controller
 
             // Panggil endpoint Python yang baru: /activate_qm_and_upload
             // $request->all() sudah berisi username, password, dan materials
-            $response = Http::timeout(600)->post($pythonApiUrl . '/activate_qm_and_upload', $request->all());
+            $response = Http::timeout(5200)->post($pythonApiUrl . '/activate_qm_and_upload', $request->all());
 
             // === [PENERAPAN ANTRIAN] ===
             // Apapun hasilnya (sukses atau gagal), proses upload user ini sudah selesai.
@@ -1093,7 +1093,7 @@ class BomController extends Controller
             $pythonApiUrl = env('PYTHON_SAP_API_URL', 'http://127.0.0.1:5001');
 
             // Panggil endpoint Python yang baru: /create_inspection_plan
-            $response = Http::timeout(600)->post($pythonApiUrl . '/create_inspection_plan', $request->all());
+            $response = Http::timeout(5200)->post($pythonApiUrl . '/create_inspection_plan', $request->all());
 
             return $response->json();
         } catch (\Exception $e) {
