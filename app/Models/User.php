@@ -14,7 +14,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'is_admin'
+        'role'  // Hanya role saja
     ];
 
     protected $hidden = [
@@ -24,7 +24,22 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'is_admin' => 'boolean',
         'password' => 'hashed',
     ];
+
+    /**
+     * Check if user has RnD role
+     */
+    public function isRnD()
+    {
+        return $this->role === 'RnD';
+    }
+
+    /**
+     * Check if user can upload drawings
+     */
+    public function canUploadDrawings()
+    {
+        return $this->isRnD();
+    }
 }

@@ -558,6 +558,11 @@
             border-radius: 8px;
             transition: all 0.3s ease;
             font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
         }
         
         .collapse-btn:hover {
@@ -1003,7 +1008,7 @@
 
         .btn-icon.preview:hover {
             background-color: rgba(13, 110, 253, 0.2);
-            border-color: #0d6efd;
+            border-color: #fafbfc;
         }
 
         .btn-icon.download:hover {
@@ -1079,7 +1084,6 @@
 
         .btn-icon::before {
             content: '';
-;
             position: absolute;
             top: 50%;
             left: 50%;
@@ -1217,11 +1221,11 @@
         }
 
         .btn-email {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            background: linear-gradient(135deg, #030303 0%, #0056b3 100%);
         }
 
         .btn-add-drawing {
-            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+            background: linear-gradient(135deg, #000000 0%, #1e7e34 100%);
         }
 
         /* Icon color */
@@ -1240,6 +1244,76 @@
         .btn-apply-all:hover {
             background: linear-gradient(135deg, #ffca2c 0%, #ff922b 100%);
             color: #000;
+        }
+
+        /* NEW: Custom Icon Images for Material Details Modal */
+        .icon-btn-img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+            transition: all 0.3s ease;
+            display: block;
+        }
+
+        /* Specific sizing for each icon */
+        .email-icon-img {
+            width: 26px;
+            height: 26px;
+        }
+
+        .add-drawing-icon-img {
+            width: 28px;
+            height: 28px;
+            filter: none; /* Make PNG white */
+        }
+
+        /* Hide image icon on hover, show Bootstrap icon */
+        .icon-btn:hover .icon-btn-img {
+            opacity: 0;
+            transform: scale(0.8);
+            display: none;
+        }
+
+        /* Show Bootstrap icon on hover (hidden by default) */
+        .btn-icon-hover {
+            position: absolute;
+            opacity: 0;
+            display: none;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        /* On hover, hide the image and show the Bootstrap icon and text */
+        .icon-btn:hover .btn-icon-hover {
+            opacity: 1;
+            display: block;
+            transform: scale(1.1);
+        }
+
+        /* Ensure text is hidden by default */
+        .icon-btn .btn-text {
+            opacity: 0;
+            position: absolute;
+            color: white;
+            width: 120px;
+            font-weight: 600;
+            transition: opacity 0.4s ease;
+            font-size: 0.9rem;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        /* Show text on hover */
+        .icon-btn:hover .btn-text {
+            opacity: 1;
+        }
+
+        /* Remove previous icon color rule since we're using images */
+        .icon-btn i {
+            color: white !important;
         }
     </style>
 </head>
@@ -1291,9 +1365,9 @@
             <div class="col-12">
                 <div class="card card-glass">
                     <div class="card-body p-3">
-                        <!-- Search for Material Details -->
+                        <!-- Search for Material Details - PERUBAHAN 3: Hilangkan tombol search -->
                         <div class="row g-2 mb-3">
-                            <div class="col-md-10">
+                            <div class="col-12">
                                 <div class="search-box">
                                     <i class="bi bi-search search-icon"></i>
                                     <input type="text" class="form-control" id="searchMaterial" 
@@ -1301,27 +1375,35 @@
                                            aria-label="Search material code">
                                 </div>
                             </div>
-                            <div class="col-md-2">
-                                <button class="btn btn-primary w-100" id="btnSearchMaterialDetails">
-                                    <i class="bi bi-search"></i> Search Material
-                                </button>
-                            </div>
                         </div>
 
-                        <!-- Upload Section dengan Collapse -->
+                        <!-- Upload Section dengan Collapse - PERUBAHAN 4: Icon panah saja -->
                         <div class="card card-glass" id="uploadNewShopDrawingCard">
                             <div class="card-header card-header-custom d-flex justify-content-between align-items-center">
                                 <div>
                                     <i class="bi bi-cloud-upload"></i> Upload New Shop Drawing
+                                    @if(!$canUpload)
+                                    <span class="badge bg-warning ms-2">RnD Only</span>
+                                    @endif
                                 </div>
+                                <!-- PERUBAHAN 4: Ganti text dengan icon saja -->
                                 <button class="btn btn-sm collapse-btn" type="button" data-bs-toggle="collapse" 
                                         data-bs-target="#uploadCollapse" aria-expanded="false" 
-                                        aria-controls="uploadCollapse" id="collapseToggleBtn">
-                                    <i class="bi bi-chevron-down"></i> Toggle Form
+                                        aria-controls="uploadCollapse" id="collapseToggleBtn" title="Toggle Form">
+                                    <i class="bi bi-chevron-down"></i>
                                 </button>
                             </div>
                             <div class="collapse" id="uploadCollapse">
                                 <div class="card-body p-3">
+                                    <!-- PERUBAHAN 1: Tambahkan pesan jika tidak punya akses -->
+                                    @if(!$canUpload)
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <strong>Upload Restricted:</strong> Only RnD users can upload drawings.
+                                        Please contact administrator if you need upload access.
+                                    </div>
+                                    @endif
+                                    
                                     <form id="uploadForm" enctype="multipart/form-data">
                                         @csrf
                                         <div class="row g-2 mb-3">
@@ -1332,12 +1414,8 @@
                                                     <input type="text" class="form-control" 
                                                            id="materialCode" name="material_code" 
                                                            placeholder="Enter material code" required
-                                                           aria-label="Material code">
-                                                    <button type="button" class="btn btn-outline-primary material-search-btn" 
-                                                            id="btnSearchMaterialCode"
-                                                            aria-label="Search material code">
-                                                        <i class="bi bi-search"></i> Search
-                                                    </button>
+                                                           aria-label="Material code" {{ !$canUpload ? 'disabled' : '' }}>
+                                                    <!-- PERUBAHAN 3: Hilangkan tombol search material kecil -->
                                                 </div>
                                                 <div class="invalid-feedback" id="materialCodeError"></div>
                                             </div>
@@ -1348,7 +1426,7 @@
                                                 <input type="text" class="form-control readonly-field" 
                                                        id="description" name="description" required readonly
                                                        placeholder="Auto-filled from material"
-                                                       aria-label="Material description">
+                                                       aria-label="Material description" {{ !$canUpload ? 'disabled' : '' }}>
                                             </div>
                                             
                                             <!-- Plant (hidden) -->
@@ -1361,26 +1439,32 @@
                                             <div class="col-md-6">
                                                 <div class="upload-form-column">
                                                     <div class="upload-dropzone" id="uploadDropzone"
-                                                         aria-label="File upload area">
+                                                         aria-label="File upload area" style="{{ !$canUpload ? 'opacity: 0.5; cursor: not-allowed;' : '' }}">
+                                                        @if($canUpload)
                                                         <dotlottie-player src="{{ asset('animations/Greenish arrow down.lottie') }}" 
                                                             background="transparent" speed="1" 
                                                             style="width: 80px; height: 80px; margin: 0 auto;" 
                                                             loop autoplay aria-hidden="true"></dotlottie-player>
                                                         <h5 class="mt-2 text-white">Drop shop drawings here or click to browse</h5>
-                                                        <!-- PERBAIKAN: Tambahkan informasi tentang ZIP dan RAR -->
                                                         <p class="text-white-50 mb-1">Supports JPG, PNG, PDF, DWG, DXF, IGS, IGES, STP, STEP, ZIP, RAR (No file size limit)</p>
+                                                        @else
+                                                        <i class="bi bi-lock display-4 text-warning mb-2"></i>
+                                                        <h5 class="mt-2 text-white">Upload Restricted</h5>
+                                                        <p class="text-white-50 mb-1">Only RnD users can upload drawings</p>
+                                                        @endif
                                                     </div>
-                                                    <!-- PERBAIKAN: Tambahkan ekstensi ZIP dan RAR -->
+                                                    @if($canUpload)
                                                     <input type="file" id="drawingFile" name="drawing[]" 
                                                            accept=".jpg,.jpeg,.png,.gif,.bmp,.pdf,.dwg,.dxf,.igs,.iges,.stp,.step,.zip,.rar" 
                                                            class="d-none" multiple aria-label="Select drawing files">
+                                                    @endif
                                                 </div>
                                             </div>
                                             
                                             <!-- Kolom 2: List File yang akan diupload -->
                                             <div class="col-md-6">
                                                 <div class="upload-form-column">
-                                                    <div class="upload-files-list" id="uploadFilesList">
+                                                    <div class="upload-files-list" id="uploadFilesList" style="{{ !$canUpload ? 'opacity: 0.7;' : '' }}">
                                                         <h6><i class="bi bi-list-check"></i> Files to Upload</h6>
                                                         <div id="filesListContainer">
                                                             <!-- File list akan ditampilkan di sini -->
@@ -1408,13 +1492,13 @@
                                         <!-- Action Buttons -->
                                         <div class="row g-2">
                                             <div class="col-12 action-buttons-container">
-                                                <button type="button" class="btn btn-primary" id="btnUpload">
+                                                <button type="button" class="btn btn-primary" id="btnUpload" {{ !$canUpload ? 'disabled' : '' }}>
                                                     <i class="bi bi-upload"></i> Upload All Drawings
                                                 </button>
-                                                <button type="button" class="btn btn-success" id="btnValidateMaterial">
+                                                <button type="button" class="btn btn-success" id="btnValidateMaterial" {{ !$canUpload ? 'disabled' : '' }}>
                                                     <i class="bi bi-check-circle"></i> Validate Material
                                                 </button>
-                                                <button type="button" class="btn btn-warning" id="btnClearForm">
+                                                <button type="button" class="btn btn-warning" id="btnClearForm" {{ !$canUpload ? 'disabled' : '' }}>
                                                     <i class="bi bi-x-circle"></i> Clear All
                                                 </button>
                                             </div>
@@ -1607,11 +1691,19 @@ Thank you.
     <script>
         // ========== GLOBAL VARIABLES ==========
         let currentValidatedMaterial = null;
-        let selectedFiles = []; // Changed from single file to array of files
+        let selectedFiles = [];
         let currentMaterialDrawings = [];
         let activeToastCount = 0;
         const MAX_TOAST_COUNT = 3;
-        const MAX_FILE_COUNT = 100; // Increased from 5 to 100
+        const MAX_FILE_COUNT = 100;
+        
+        // Icon URLs
+        const emailIconUrl = "{{ asset('images/gmail.png') }}";
+        const addDrawingIconUrl = "{{ asset('images/add.png') }}";
+        
+        // User role untuk kontrol akses
+        const userCanUpload = {{ $canUpload ? 'true' : 'false' }};
+        const userRole = "{{ Auth::user()->role ?? '' }}";
                 
         // ========== HELPER FUNCTIONS ==========
         function showToast(message, type = 'info') {
@@ -1819,9 +1911,9 @@ Thank you.
                                             <h5><i class="bi bi-exclamation-triangle"></i> Material Not Found</h5>
                                             <p>Material code <strong>${materialCode}</strong> was not found in the system.</p>
                                             <div class="mt-3">
-                                                <button class="btn btn-primary btn-sm" onclick="useMaterialForUpload('${materialCode}')">
+                                                ${userCanUpload ? `<button class="btn btn-primary btn-sm" onclick="useMaterialForUpload('${materialCode}')">
                                                     <i class="bi bi-arrow-left-circle"></i> Add Drawing
-                                                </button>
+                                                </button>` : ''}
                                             </div>
                                         </div>
                                     `);
@@ -1833,9 +1925,9 @@ Thank you.
                                         <h5><i class="bi bi-exclamation-triangle"></i> Material Not Found</h5>
                                         <p>Material code <strong>${materialCode}</strong> was not found in the system.</p>
                                         <div class="mt-3">
-                                            <button class="btn btn-primary btn-sm" onclick="useMaterialForUpload('${materialCode}')">
+                                            ${userCanUpload ? `<button class="btn btn-primary btn-sm" onclick="useMaterialForUpload('${materialCode}')">
                                                 <i class="bi bi-arrow-left-circle"></i> Add Drawing
-                                            </button>
+                                            </button>` : ''}
                                         </div>
                                     </div>
                                 `);
@@ -1984,6 +2076,16 @@ Thank you.
                 `;
             }
             
+            // PERUBAHAN 2: Sembunyikan tombol Add Drawing jika user tidak punya akses
+            const addDrawingButton = userCanUpload ? 
+                `<button class="icon-btn btn-add-drawing" 
+                        onclick="$('#materialSearchModal').modal('hide'); useMaterialForUpload('${material.material_code}', '${(material.description || '').replace(/'/g, "\\'")}', '${materialType}', '${materialGroup}', '${baseUnit}')"
+                        title="Add Drawing">
+                    <img src="${addDrawingIconUrl}" class="icon-btn-img add-drawing-icon-img" alt="Add Drawing Icon">
+                    <i class="bi bi-plus-circle-fill btn-icon-hover d-none"></i>
+                    <span class="btn-text">Add Drawing</span>
+                </button>` : '';
+            
             $('#materialSearchContent').html(`
                 <div class="material-details-header mb-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -1993,15 +2095,11 @@ Thank you.
                         </div>
                         <div class="icon-buttons-container">
                             <button class="icon-btn btn-email" onclick="openEmailRequestModal('${material.material_code}')" title="Request Drawing via Email">
-                                <i class="bi bi-envelope-fill btn-icon"></i>
+                                <img src="${emailIconUrl}" class="icon-btn-img email-icon-img" alt="Email Icon">
+                                <i class="bi bi-envelope-fill btn-icon-hover d-none"></i>
                                 <span class="btn-text">Request Drawing</span>
                             </button>
-                            <button class="icon-btn btn-add-drawing" 
-                                    onclick="$('#materialSearchModal').modal('hide'); useMaterialForUpload('${material.material_code}', '${(material.description || '').replace(/'/g, "\\'")}', '${materialType}', '${materialGroup}', '${baseUnit}')"
-                                    title="Add Drawing">
-                                <i class="bi bi-plus-circle-fill btn-icon"></i>
-                                <span class="btn-text">Add Drawing</span>
-                            </button>
+                            ${addDrawingButton}
                         </div>
                     </div>
                 </div>
@@ -2076,6 +2174,12 @@ Thank you.
         
         // ========== USE MATERIAL FOR UPLOAD FUNCTION ==========
         function useMaterialForUpload(materialCode, description, materialType = 'N/A', materialGroup = 'N/A', baseUnit = 'N/A') {
+            // PERUBAHAN 1: Cek apakah user punya akses upload
+            if (!userCanUpload) {
+                showToast('You are not authorized to upload drawings. Only RnD users can upload.', 'error');
+                return;
+            }
+            
             // Set nilai ke form
             $('#materialCode').val(materialCode);
             $('#description').val(description);
@@ -2124,6 +2228,12 @@ Thank you.
 
         // ========== MULTIPLE FILES HANDLING ==========
         function handleFiles(files) {
+            // PERUBAHAN 1: Cek apakah user punya akses upload
+            if (!userCanUpload) {
+                showToast('You are not authorized to upload drawings. Only RnD users can upload.', 'error');
+                return;
+            }
+            
             if (files.length > MAX_FILE_COUNT) {
                 showToast(`Maximum ${MAX_FILE_COUNT} files allowed. Only the first ${MAX_FILE_COUNT} files will be processed.`, 'warning');
                 files = Array.from(files).slice(0, MAX_FILE_COUNT);
@@ -2264,6 +2374,8 @@ Thank you.
             });
             
             function highlight(e) {
+                // PERUBAHAN 1: Jangan highlight jika tidak punya akses
+                if (!userCanUpload) return;
                 dropzone.classList.add('dragover');
             }
             
@@ -2276,6 +2388,12 @@ Thank you.
         }
         
         function handleDrop(e) {
+            // PERUBAHAN 1: Cek apakah user punya akses upload
+            if (!userCanUpload) {
+                showToast('You are not authorized to upload drawings. Only RnD users can upload.', 'error');
+                return;
+            }
+            
             const dt = e.dataTransfer;
             const files = dt.files;
             
@@ -2404,6 +2522,12 @@ Thank you.
 
         // ========== SHOW EDIT MODAL ==========
         function showEditModal(index) {
+            // PERUBAHAN 1: Cek apakah user punya akses upload
+            if (!userCanUpload) {
+                showToast('You are not authorized to edit files. Only RnD users can upload.', 'error');
+                return;
+            }
+            
             const fileObj = selectedFiles[index];
             $('#editFileName').text(fileObj.file.name);
             $('#editDrawingType').val(fileObj.drawing_type);
@@ -2430,6 +2554,7 @@ Thank you.
             $('#plant').val('3000');
             
             // Collapse button icon toggle untuk Upload New Shop Drawing
+            // PERUBAHAN 4: Sudah menggunakan icon saja
             $('#collapseToggleBtn').on('click', function() {
                 const icon = $(this).find('i');
                 if ($(this).attr('aria-expanded') === 'true') {
@@ -2469,15 +2594,11 @@ Thank you.
             });
 
             // ========== MAIN SEARCH BUTTON ==========
-            $(document).on('click', '#btnSearchMaterialDetails', function() {
-                const materialCode = $('#searchMaterial').val().trim();
-                searchAndShowMaterial(materialCode);
-            });
-
-            // Enter key in search field
+            // PERUBAHAN 3: Tombol sudah dihapus, gunakan Enter key saja
             $(document).on('keypress', '#searchMaterial', function(e) {
                 if (e.which === 13) {
-                    $('#btnSearchMaterialDetails').click();
+                    const materialCode = $('#searchMaterial').val().trim();
+                    searchAndShowMaterial(materialCode);
                 }
             });
 
@@ -2485,6 +2606,11 @@ Thank you.
             $(document).on('click', '#uploadDropzone', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                // PERUBAHAN 1: Cek apakah user punya akses upload
+                if (!userCanUpload) {
+                    showToast('You are not authorized to upload drawings. Only RnD users can upload.', 'error');
+                    return;
+                }
                 $('#drawingFile').trigger('click');
             });
 
@@ -2580,6 +2706,12 @@ Thank you.
 
             // ========== VALIDATE MATERIAL BUTTON ==========
             $(document).on('click', '#btnValidateMaterial', function() {
+                // PERUBAHAN 1: Cek apakah user punya akses upload
+                if (!userCanUpload) {
+                    showToast('You are not authorized to validate materials for upload. Only RnD users can upload.', 'error');
+                    return;
+                }
+                
                 const materialCode = $('#materialCode').val().trim();
                 const plant = $('#plant').val();
                 
@@ -2594,6 +2726,12 @@ Thank you.
 
             // ========== UPLOAD BUTTON ==========
             $(document).on('click', '#btnUpload', function() {
+                // PERUBAHAN 1: Cek apakah user punya akses upload
+                if (!userCanUpload) {
+                    showToast('You are not authorized to upload drawings. Only RnD users can upload.', 'error');
+                    return;
+                }
+                
                 const materialCode = $('#materialCode').val().trim();
                 const plant = $('#plant').val();
                 const description = $('#description').val().trim();
@@ -2607,7 +2745,7 @@ Thank you.
                 
                 if (!description) {
                     showToast('Please search for material to auto-fill description', 'warning');
-                    $('#btnSearchMaterialCode').focus();
+                    $('#materialCode').focus();
                     return;
                 }
                 
@@ -2643,25 +2781,7 @@ Thank you.
             });
 
             // ========== MATERIAL SEARCH MODAL (small button) ==========
-            $(document).on('click', '#btnSearchMaterialCode', function() {
-                const currentMaterialCode = $('#materialCode').val().trim();
-                if (currentMaterialCode) {
-                    searchAndShowMaterial(currentMaterialCode);
-                } else {
-                    $('#materialSearchModal').modal('show');
-                    $('#materialSearchContent').html(`
-                        <div class="text-center py-4 text-white-50">
-                            <i class="bi bi-search display-4"></i>
-                            <p>Enter material code in the field above and click Search</p>
-                            <div class="mt-3">
-                                <button class="btn btn-primary" onclick="$('#materialSearchModal').modal('hide');">
-                                    <i class="bi bi-arrow-left"></i> Back
-                                </button>
-                            </div>
-                        </div>
-                    `);
-                }
-            });
+            // PERUBAHAN 3: Tombol sudah dihapus dari form
 
             // ========== CLEAR FORM ==========
             $(document).on('click', '#btnClearForm', function() {
@@ -2727,6 +2847,43 @@ Thank you.
             // Reset variabel saat modal Material Search ditutup
             $('#materialSearchModal').on('hidden.bs.modal', function () {
                 window.previewMaterialCode = null;
+            });
+
+            // ========== HOVER EFFECTS FOR ICON BUTTONS ==========
+            $(document).on('mouseenter', '.icon-btn', function() {
+                const $this = $(this);
+                // Hide the image icon
+                $this.find('.icon-btn-img').css({
+                    'opacity': '0',
+                    'transform': 'scale(0.8)'
+                }).hide();
+                
+                // Show the Bootstrap icon
+                $this.find('.btn-icon-hover').css({
+                    'opacity': '1',
+                    'transform': 'scale(1.1)'
+                }).show();
+                
+                // Ensure button expands
+                $this.css('width', '140px');
+            });
+
+            $(document).on('mouseleave', '.icon-btn', function() {
+                const $this = $(this);
+                // Show the image icon
+                $this.find('.icon-btn-img').css({
+                    'opacity': '1',
+                    'transform': 'scale(1)'
+                }).show();
+                
+                // Hide the Bootstrap icon
+                $this.find('.btn-icon-hover').css({
+                    'opacity': '0',
+                    'transform': 'scale(0.9)'
+                }).hide();
+                
+                // Return to original size
+                $this.css('width', '45px');
             });
         });
 
@@ -2806,6 +2963,12 @@ Thank you.
 
         // ========== UPLOAD MULTIPLE DRAWINGS FUNCTION ==========
         function uploadMultipleDrawings(materialCode, plant, description, files) {
+            // PERUBAHAN 1: Cek apakah user punya akses upload (seharusnya sudah dicek sebelumnya)
+            if (!userCanUpload) {
+                showToast('You are not authorized to upload drawings. Only RnD users can upload.', 'error');
+                return;
+            }
+            
             const formData = new FormData();
             formData.append('material_code', materialCode);
             formData.append('plant', plant);

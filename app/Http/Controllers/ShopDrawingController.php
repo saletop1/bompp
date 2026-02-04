@@ -17,7 +17,6 @@ class ShopDrawingController extends Controller
         $query = $request->input('query', '');
         $plant = $request->input('plant', '');
         
-        // Get drawings with user and material type
         $drawings = ShopDrawing::with('user')
             ->when($query, function ($q) use ($query) {
                 $q->where('material_code', 'like', "%{$query}%");
@@ -28,7 +27,6 @@ class ShopDrawingController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(12);
         
-        // Group drawings by material code for display
         $groupedDrawings = [];
         foreach ($drawings as $drawing) {
             $materialCode = $drawing->material_code;
@@ -56,7 +54,10 @@ class ShopDrawingController extends Controller
             }
         }
         
-        return view('shop_drawings', compact('drawings', 'query', 'plant', 'groupedDrawings'));
+        // Check if user can upload drawings
+        $canUpload = auth()->user()->canUploadDrawings();
+        
+        return view('shop_drawings', compact('drawings', 'query', 'plant', 'groupedDrawings', 'canUpload'));
     }
     
     public function validateMaterial(Request $request)
@@ -225,12 +226,19 @@ class ShopDrawingController extends Controller
     
     public function uploadDrawing(Request $request)
     {
+        // Check if user is authorized to upload
+        if (!auth()->user()->canUploadDrawings()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized: Only RnD users can upload drawings'
+            ], 403);
+        }
+        
         try {
             $request->validate([
                 'material_code' => 'required|string',
                 'plant' => 'required|string',
                 'description' => 'required|string',
-                // PERBAIKAN: Tambahkan ekstensi zip dan rar
                 'drawing' => 'required|mimes:jpg,jpeg,png,gif,bmp,pdf,dwg,dxf,igs,iges,stp,step,zip,rar',
                 'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective,fabrication',
                 'revision' => 'required|string'
@@ -238,7 +246,6 @@ class ShopDrawingController extends Controller
             
             $pythonServiceUrl = env('PYTHON_DROPBOX_API_URL', 'http://localhost:5003');
             
-            // Validasi material di SAP
             $validateResponse = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('API_TOKEN', 'your-secret-api-token-12345'),
                 'Content-Type' => 'application/json',
@@ -256,13 +263,11 @@ class ShopDrawingController extends Controller
             
             $validationData = $validateResponse->json();
             
-            // **PERBAIKAN 1: Ambil data material dari validasi SAP dengan benar**
             $materialInfo = $validationData['material'] ?? [];
             $materialType = $materialInfo['material_type'] ?? 'N/A';
             $materialGroup = $materialInfo['material_group'] ?? 'N/A';
             $baseUnit = $materialInfo['base_unit'] ?? 'N/A';
             
-            // **PERBAIKAN 2: Konversi ST ke PC dengan benar**
             if ($baseUnit === 'ST') {
                 $baseUnit = 'PC';
             }
@@ -274,10 +279,8 @@ class ShopDrawingController extends Controller
                 ], 400);
             }
             
-            // Standardize revision
             $revision = $this->standardizeRevision($request->input('revision', 'Rev0'));
             
-            // PERBAIKAN: Cek duplikat dengan kombinasi material_code, plant, drawing_type, dan revision
             $duplicateCheck = ShopDrawing::where('material_code', $request->input('material_code'))
             ->where('plant', $request->input('plant'))
             ->where('drawing_type', $request->input('drawing_type', 'assembly'))
@@ -292,7 +295,6 @@ class ShopDrawingController extends Controller
                 ], 400);
             }
             
-            // Upload ke Dropbox melalui Python service
             $uploadResponse = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('API_TOKEN', 'your-secret-api-token-12345'),
             ])->attach(
@@ -312,7 +314,6 @@ class ShopDrawingController extends Controller
             if ($uploadResponse->successful()) {
                 $result = $uploadResponse->json();
                 
-                // **PERBAIKAN 3: Simpan material info ke database dengan benar**
                 $shopDrawing = ShopDrawing::create([
                     'material_code' => $request->input('material_code'),
                     'plant' => $request->input('plant'),
@@ -334,7 +335,6 @@ class ShopDrawingController extends Controller
                     'base_unit' => $baseUnit
                 ]);
                 
-                // Log data untuk debug
                 Log::info('Shop drawing uploaded with material info:', [
                     'material_code' => $request->input('material_code'),
                     'material_type' => $materialType,
@@ -366,9 +366,16 @@ class ShopDrawingController extends Controller
         }
     }
     
-    // NEW: Upload multiple drawings
     public function uploadMultipleDrawings(Request $request)
     {
+        // Check if user is authorized to upload
+        if (!auth()->user()->canUploadDrawings()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized: Only RnD users can upload drawings'
+            ], 403);
+        }
+        
         try {
             $request->validate([
                 'material_code' => 'required|string',
@@ -382,7 +389,6 @@ class ShopDrawingController extends Controller
             
             $pythonServiceUrl = env('PYTHON_DROPBOX_API_URL', 'http://localhost:5003');
             
-            // Validasi material di SAP
             Log::info('Validating material with SAP...', [
                 'material_code' => $request->input('material_code'),
                 'plant' => $request->input('plant'),
@@ -450,7 +456,6 @@ class ShopDrawingController extends Controller
             
             $processedCombinations = [];
             
-            // Process each file
             for ($i = 0; $i < $request->input('file_count'); $i++) {
                 if (!$request->hasFile("files.$i.file")) {
                     continue;
@@ -468,8 +473,6 @@ class ShopDrawingController extends Controller
                     continue;
                 }
                 
-                // **FIXED: Validasi yang benar**
-                // Validasi tanpa menggunakan mimes (hanya validasi extension manual)
                 $validator = \Validator::make(
                     [
                         'drawing_type' => $drawingType,
@@ -479,11 +482,10 @@ class ShopDrawingController extends Controller
                     [
                         'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective,fabrication',
                         'revision' => 'required|string',
-                        'file' => 'required|max:102400' // 100MB
+                        'file' => 'required|max:102400'
                     ]
                 );
                 
-                // Tambahkan validasi custom untuk ekstensi file
                 $validator->after(function ($validator) use ($file, $i) {
                     $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'pdf', 'dwg', 'dxf', 'igs', 'iges', 'stp', 'step', 'zip', 'rar'];
                     $extension = strtolower($file->getClientOriginalExtension());
@@ -507,7 +509,6 @@ class ShopDrawingController extends Controller
                     continue;
                 }
                 
-                // Cek duplikat di database
                 $duplicateCheck = ShopDrawing::where('material_code', $request->input('material_code'))
                     ->where('plant', $request->input('plant'))
                     ->where('drawing_type', $drawingType)
@@ -550,7 +551,6 @@ class ShopDrawingController extends Controller
                     if ($uploadResponse->successful()) {
                         $result = $uploadResponse->json();
                         
-                        // Pastikan juga memperbaiki Python service untuk menerima 'fabrication'
                         $drawingData = [
                             'material_code' => $request->input('material_code'),
                             'plant' => $request->input('plant'),
@@ -629,18 +629,6 @@ class ShopDrawingController extends Controller
         }
     }
     
-    /**
-     * Standardize revision format
-     * Converts various formats to standard "RevX" format where X is a number
-     * Examples:
-     * - "Master" -> "Rev0"
-     * - "4" -> "Rev4"
-     * - "rev4" -> "Rev4"
-     * - "Rev 4" -> "Rev4"
-     * - "Rev4" -> "Rev4"
-     * - "Rev04" -> "Rev4" (removes leading zeros)
-     * - "A" -> "Rev0" (default if no number found)
-     */
     private function standardizeRevision($revision)
     {
         if (empty($revision)) {
@@ -649,55 +637,38 @@ class ShopDrawingController extends Controller
         
         $original = trim($revision);
         
-        // Convert "Master" to "Rev0"
         if (strtolower($original) === 'master') {
             return 'Rev0';
         }
         
-        // Remove any spaces, dashes, underscores
         $cleaned = preg_replace('/[\s\-_]/', '', $original);
         
-        // If it's already in the format Rev{number} (case insensitive), extract the number
         if (preg_match('/^rev(\d+)$/i', $cleaned, $matches)) {
-            $number = (int)$matches[1]; // Convert to int to remove leading zeros
+            $number = (int)$matches[1];
             return 'Rev' . $number;
         }
         
-        // If it's just a number, add 'Rev' prefix
         if (is_numeric($cleaned)) {
-            $number = (int)$cleaned; // Convert to int to remove leading zeros
+            $number = (int)$cleaned;
             return 'Rev' . $number;
         }
         
-        // If it contains numbers, extract the first number and use that
         if (preg_match('/\d+/', $cleaned, $matches)) {
-            $number = (int)$matches[0]; // Convert to int to remove leading zeros
+            $number = (int)$matches[0];
             return 'Rev' . $number;
         }
         
-        // Default to Rev0 if no numbers found
         return 'Rev0';
     }
     
     private function sendEmailNotification($shopDrawing)
     {
         // Implement email notification logic here
-        // You can use Laravel Mail or any email service
-        // Example:
-        /*
-        Mail::to('recipient@example.com')->send(new ShopDrawingUploaded($shopDrawing));
-        */
     }
     
     private function sendBulkEmailNotification($materialCode, $count, $username, $materialType)
     {
         // Implement bulk email notification logic here
-        // Example:
-        /*
-        Mail::to('recipient@example.com')->send(new ShopDrawingsBulkUploaded(
-            $materialCode, $count, $username, $materialType
-        ));
-        */
     }
     
     public function deleteDrawing($id)
@@ -705,15 +676,14 @@ class ShopDrawingController extends Controller
         try {
             $drawing = ShopDrawing::findOrFail($id);
             
-            // Check permissions
-            if ($drawing->user_id !== auth()->id() && !auth()->user()->is_admin) {
+            // Check permissions - hanya user yang mengupload atau user dengan role RnD yang bisa delete
+            if ($drawing->user_id !== auth()->id() && !auth()->user()->isRnD()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'You are not authorized to delete this drawing'
                 ], 403);
             }
             
-            // Delete from Dropbox via Python service
             $pythonServiceUrl = env('PYTHON_DROPBOX_API_URL', 'http://localhost:5003');
             
             $response = Http::withHeaders([
@@ -752,7 +722,6 @@ class ShopDrawingController extends Controller
             $materialCode = $request->input('material_code');
             $plant = $request->input('plant');
             
-            // Get drawings from database directly with user relation
             $drawings = ShopDrawing::with('user')
                 ->where('material_code', $materialCode)
                 ->when($plant, function ($q) use ($plant) {
@@ -761,7 +730,6 @@ class ShopDrawingController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($drawing) {
-                    // Tambahkan field user_name untuk akses mudah di frontend
                     $drawingArray = $drawing->toArray();
                     $drawingArray['user_name'] = $drawing->user ? $drawing->user->name : 'N/A';
                     return $drawingArray;
@@ -801,9 +769,6 @@ class ShopDrawingController extends Controller
         }
     }
     
-    /**
-     * Send email request for drawing
-     */
     public function sendEmailRequest(Request $request)
     {
         try {
@@ -828,7 +793,6 @@ class ShopDrawingController extends Controller
                 'user_email' => $user->email
             ]);
             
-            // Kirim email
             Mail::raw($messageText, function ($mail) use ($recipientEmail, $subject, $user) {
                 $mail->to($recipientEmail)
                     ->subject($subject)
