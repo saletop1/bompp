@@ -1270,7 +1270,7 @@
         /* Hide image icon on hover, show Bootstrap icon */
         .icon-btn:hover .icon-btn-img {
             opacity: 0;
-            transform: scale(0.8);
+            transform: scale(0.2);
             display: none;
         }
 
@@ -1279,7 +1279,7 @@
             position: absolute;
             opacity: 0;
             display: none;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             font-size: 1.2rem;
             color: white;
         }
@@ -1314,6 +1314,17 @@
         /* Remove previous icon color rule since we're using images */
         .icon-btn i {
             color: white !important;
+        }
+
+        /* Footer Styles */
+        .footer-shop-drawing {
+            margin-top: 40px;
+            padding: 20px 0;
+            background: rgba(0, 0, 0, 0.18);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 1;
         }
     </style>
 </head>
@@ -1445,8 +1456,8 @@
                                                             background="transparent" speed="1" 
                                                             style="width: 80px; height: 80px; margin: 0 auto;" 
                                                             loop autoplay aria-hidden="true"></dotlottie-player>
-                                                        <h5 class="mt-2 text-white">Drop shop drawings here or click to browse</h5>
-                                                        <p class="text-white-50 mb-1">Supports JPG, PNG, PDF, DWG, DXF, IGS, IGES, STP, STEP, ZIP, RAR (No file size limit)</p>
+30013071                                                        <h5 class="mt-2 text-white">Drop shop drawings here or click to browse</h5>
+                                                        <p class="text-white-50 mb-1">Supports JPG, PNG, PDF, DWG, DXF, IGS, IGES, STP, STEP, ZIP, RAR </p>
                                                         @else
                                                         <i class="bi bi-lock display-4 text-warning mb-2"></i>
                                                         <h5 class="mt-2 text-white">Upload Restricted</h5>
@@ -3060,5 +3071,16 @@ Thank you.
             });
         }
     </script>
+    <!-- Footer -->
+<footer class="footer-shop-drawing">
+    <div class="container text-center">
+        <p class="text-white-50 mb-0">
+            <i class="bi bi-c-circle"></i> PT. Kayu Mebel Indonesia, 2025. All rights reserved.
+        </p>
+        <p class="text-white-50 small mt-1">
+            <i class="bi bi-gear"></i> Shop Drawing Management System v1.0
+        </p>
+    </div>
+</footer>
 </body>
 </html>
