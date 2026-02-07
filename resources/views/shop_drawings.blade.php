@@ -1457,7 +1457,7 @@
                                                             style="width: 80px; height: 80px; margin: 0 auto;" 
                                                             loop autoplay aria-hidden="true"></dotlottie-player>
 30013071                                                        <h5 class="mt-2 text-white">Drop shop drawings here or click to browse</h5>
-                                                        <p class="text-white-50 mb-1">Supports JPG, PNG, PDF, DWG, DXF, IGS, IGES, STP, STEP, ZIP, RAR </p>
+                                                        <p class="text-white-50 mb-1">Supports jpg, png, pdf, dwg, dxf, igs, iges, stp, step, zip, rar </p>
                                                         @else
                                                         <i class="bi bi-lock display-4 text-warning mb-2"></i>
                                                         <h5 class="mt-2 text-white">Upload Restricted</h5>
@@ -3076,9 +3076,6 @@ Thank you.
     <div class="container text-center">
         <p class="text-white-50 mb-0">
             <i class="bi bi-c-circle"></i> PT. Kayu Mebel Indonesia, 2025. All rights reserved.
-        </p>
-        <p class="text-white-50 small mt-1">
-            <i class="bi bi-gear"></i> Shop Drawing Management System v1.0
         </p>
     </div>
 </footer>
