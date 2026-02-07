@@ -533,12 +533,39 @@
             color: var(--text-light);
         }
         
-        /* Material info section */
+        /* Material info section - PERUBAHAN: Layout baru tanpa tabel */
         .material-info-section {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .material-info-row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .material-info-row:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .material-info-label {
+            min-width: 140px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+            padding-right: 15px;
+        }
+        
+        .material-info-value {
+            flex: 1;
+            color: white;
+            word-break: break-word;
         }
         
         /* Sticky header untuk Upload History */
@@ -954,6 +981,22 @@
             
             .upload-form-column {
                 height: 300px;
+            }
+            
+            /* Responsive untuk material info row */
+            .material-info-row {
+                flex-direction: column;
+                margin-bottom: 12px;
+            }
+            
+            .material-info-label {
+                min-width: 100%;
+                margin-bottom: 4px;
+                padding-right: 0;
+            }
+            
+            .material-info-value {
+                width: 100%;
             }
         }
         
@@ -1456,7 +1499,7 @@
                                                             background="transparent" speed="1" 
                                                             style="width: 80px; height: 80px; margin: 0 auto;" 
                                                             loop autoplay aria-hidden="true"></dotlottie-player>
-30013071                                                        <h5 class="mt-2 text-white">Drop shop drawings here or click to browse</h5>
+                                                        <h5 class="mt-2 text-white">Drop shop drawings here or click to browse</h5>
                                                         <p class="text-white-50 mb-1">Supports jpg, png, pdf, dwg, dxf, igs, iges, stp, step, zip, rar </p>
                                                         @else
                                                         <i class="bi bi-lock display-4 text-warning mb-2"></i>
@@ -2097,6 +2140,7 @@ Thank you.
                     <span class="btn-text">Add Drawing</span>
                 </button>` : '';
             
+            // PERUBAHAN: Layout baru untuk Material Information tanpa tabel
             $('#materialSearchContent').html(`
                 <div class="material-details-header mb-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -2116,29 +2160,32 @@ Thank you.
                 </div>
                 
                 <div class="material-info-section">
-                    <h6 class="mb-2 text-white"><i class="bi bi-info-circle"></i> Material Information</h6>
-                    <table class="table table-bordered validation-result-table mb-0">
-                        <tr>
-                            <th>Material Type</th>
-                            <td>${materialType}</td>
-                        </tr>
-                        <tr>
-                            <th>Material Group</th>
-                            <td>${materialGroup}</td>
-                        </tr>
-                        <tr>
-                            <th>Base Unit</th>
-                            <td>${baseUnit}</td>
-                        </tr>
-                        <tr>
-                            <th>Last Upload</th>
-                            <td>${formattedLastUpload}</td>
-                        </tr>
-                        <tr>
-                            <th>Uploaded By</th>
-                            <td><span class="text-light">${uploadedBy}</span></td>
-                        </tr>
-                    </table>
+                    <h6 class="mb-3 text-white"><i class="bi bi-info-circle me-2"></i> Material Information</h6>
+                    
+                    <div class="material-info-row">
+                        <div class="material-info-label">Material Type</div>
+                        <div class="material-info-value">${materialType}</div>
+                    </div>
+                    
+                    <div class="material-info-row">
+                        <div class="material-info-label">Material Group</div>
+                        <div class="material-info-value">${materialGroup}</div>
+                    </div>
+                    
+                    <div class="material-info-row">
+                        <div class="material-info-label">Base Unit</div>
+                        <div class="material-info-value">${baseUnit}</div>
+                    </div>
+                    
+                    <div class="material-info-row">
+                        <div class="material-info-label">Last Upload</div>
+                        <div class="material-info-value">${formattedLastUpload}</div>
+                    </div>
+                    
+                    <div class="material-info-row">
+                        <div class="material-info-label">Uploaded By</div>
+                        <div class="material-info-value">${uploadedBy}</div>
+                    </div>
                 </div>
                 
                 ${drawingsHtml}
