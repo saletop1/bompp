@@ -1088,7 +1088,7 @@
         .drawing-actions {
             display: flex;
             gap: 8px;
-            justify-content: center;
+            justify-content: flex-start;
             margin-top: 8px;
         }
 
@@ -2163,27 +2163,27 @@ Thank you.
                     <h6 class="mb-3 text-white"><i class="bi bi-info-circle me-2"></i> Material Information</h6>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Material Type</div>
+                        <div class="material-info-label">Material Type :</div>
                         <div class="material-info-value">${materialType}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Material Group</div>
+                        <div class="material-info-label">Material Group :</div>
                         <div class="material-info-value">${materialGroup}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Base Unit</div>
+                        <div class="material-info-label">Base Unit :</div>
                         <div class="material-info-value">${baseUnit}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Last Upload</div>
+                        <div class="material-info-label">Last Upload :</div>
                         <div class="material-info-value">${formattedLastUpload}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Uploaded By</div>
+                        <div class="material-info-label">Uploaded By :</div>
                         <div class="material-info-value">${uploadedBy}</div>
                     </div>
                 </div>
