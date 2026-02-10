@@ -247,7 +247,7 @@
         }
         
         /* Drawing Preview Badges */
-        .drawing-revision-badge {
+        .drawing-version-badge {
             position: absolute;
             top: 10px;
             left: 10px;
@@ -457,8 +457,8 @@
             color: rgba(255, 255, 255, 0.7) !important;
         }
         
-        /* Revision input group */
-        .revision-input-group {
+        /* Version input group */
+        .version-input-group {
             max-width: 150px;
         }
         
@@ -543,9 +543,9 @@
         
         .material-info-row {
             display: flex;
-            align-items: flex-start;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
@@ -556,16 +556,18 @@
         }
         
         .material-info-label {
-            min-width: 140px;
+            min-width: 120px;
             font-weight: 600;
             color: rgba(255, 255, 255, 0.8);
-            padding-right: 15px;
+            padding-right: 5px;
+            text-align: right;
         }
         
         .material-info-value {
             flex: 1;
             color: white;
             word-break: break-word;
+            padding-left: 10px;
         }
         
         /* Sticky header untuk Upload History */
@@ -851,8 +853,8 @@
             margin-bottom: 5px;
         }
         
-        /* Revision badges */
-        .revision-badge {
+        /* Version badges */
+        .version-badge {
             font-size: 0.7em;
             padding: 2px 6px;
             border-radius: 8px;
@@ -986,6 +988,7 @@
             /* Responsive untuk material info row */
             .material-info-row {
                 flex-direction: column;
+                align-items: flex-start;
                 margin-bottom: 12px;
             }
             
@@ -993,10 +996,12 @@
                 min-width: 100%;
                 margin-bottom: 4px;
                 padding-right: 0;
+                text-align: left;
             }
             
             .material-info-value {
                 width: 100%;
+                padding-left: 0;
             }
         }
         
@@ -1716,18 +1721,18 @@ Thank you.
                         <small class="text-white-50">Applies drawing type to all files in the list</small>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Revision</label>
-                        <select class="form-select" id="editRevision">
-                            <option value="Rev0">Rev0</option>
-                            <option value="Rev1">Rev1</option>
-                            <option value="Rev2">Rev2</option>
-                            <option value="Rev3">Rev3</option>
-                            <option value="Rev4">Rev4</option>
-                            <option value="Rev5">Rev5</option>
-                            <option value="other">Custom Revision</option>
+                        <label class="form-label">Version</label>
+                        <select class="form-select" id="editVersion">
+                            <option value="Ver.0">Ver.0</option>
+                            <option value="Ver.1">Ver.1</option>
+                            <option value="Ver.2">Ver.2</option>
+                            <option value="Ver.3">Ver.3</option>
+                            <option value="Ver.4">Ver.4</option>
+                            <option value="Ver.5">Ver.5</option>
+                            <option value="other">Custom Version</option>
                         </select>
                         <input type="text" class="form-control mt-2 d-none" 
-                            id="editCustomRevision" placeholder="e.g., RevA, Rev6, RevFinal" 
+                            id="editCustomVersion" placeholder="e.g., Ver.6, Ver.A, Ver.Final" 
                             value="">
                     </div>
                 </div>
@@ -1761,55 +1766,55 @@ Thank you.
                 
         // ========== HELPER FUNCTIONS ==========
         function showToast(message, type = 'info') {
-        // Limit toast count to prevent spam
-        if (activeToastCount >= MAX_TOAST_COUNT) {
-            return;
-        }
-        
-        const toastId = 'toast-' + Date.now();
-        const icon = type === 'success' ? 'bi-check-circle' : 
-                    type === 'error' ? 'bi-exclamation-triangle' : 
-                    type === 'warning' ? 'bi-exclamation-circle' : 'bi-info-circle';
-        
-        const bgClass = type === 'success' ? 'bg-success' : 
-                    type === 'error' ? 'bg-danger' : 
-                    type === 'warning' ? 'bg-warning' : 'bg-info';
-        
-        // Untuk warning, gunakan text-dark. Untuk yang lain, tetap text-white
-        const textColorClass = type === 'warning' ? 'text-dark' : 'text-white';
-        const closeBtnClass = type === 'warning' ? 'btn-close' : 'btn-close btn-close-white';
-        
-        const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center ${textColorClass} ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="d-flex">
-                    <div class="toast-body">
-                        <i class="bi ${icon} me-2"></i> ${message}
+            // Limit toast count to prevent spam
+            if (activeToastCount >= MAX_TOAST_COUNT) {
+                return;
+            }
+            
+            const toastId = 'toast-' + Date.now();
+            const icon = type === 'success' ? 'bi-check-circle' : 
+                        type === 'error' ? 'bi-exclamation-triangle' : 
+                        type === 'warning' ? 'bi-exclamation-circle' : 'bi-info-circle';
+            
+            const bgClass = type === 'success' ? 'bg-success' : 
+                        type === 'error' ? 'bg-danger' : 
+                        type === 'warning' ? 'bg-warning' : 'bg-info';
+            
+            // Untuk warning, gunakan text-dark. Untuk yang lain, tetap text-white
+            const textColorClass = type === 'warning' ? 'text-dark' : 'text-white';
+            const closeBtnClass = type === 'warning' ? 'btn-close' : 'btn-close btn-close-white';
+            
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center ${textColorClass} ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="bi ${icon} me-2"></i> ${message}
+                        </div>
+                        <button type="button" class="${closeBtnClass} me-2 m-auto" data-bs-dismiss="toast"></button>
                     </div>
-                    <button type="button" class="${closeBtnClass} me-2 m-auto" data-bs-dismiss="toast"></button>
                 </div>
-            </div>
-        `;
-        
-        $('#toastContainer').append(toastHtml);
-        const toast = new bootstrap.Toast(document.getElementById(toastId));
-        toast.show();
-        
-        activeToastCount++;
-        
-        // Set durasi berdasarkan tipe: error 8 detik, lainnya 5 detik
-        const duration = type === 'error' ? 16000 : 10000;
-        
-        // Auto remove after duration
-        setTimeout(() => {
-            $(`#${toastId}`).remove();
-            activeToastCount = Math.max(0, activeToastCount - 1);
-        }, duration);
-        
-        // Handle manual close
-        $(`#${toastId}`).on('hidden.bs.toast', function() {
-            activeToastCount = Math.max(0, activeToastCount - 1);
-        });
-    }
+            `;
+            
+            $('#toastContainer').append(toastHtml);
+            const toast = new bootstrap.Toast(document.getElementById(toastId));
+            toast.show();
+            
+            activeToastCount++;
+            
+            // Set durasi berdasarkan tipe: error 8 detik, lainnya 5 detik
+            const duration = type === 'error' ? 16000 : 10000;
+            
+            // Auto remove after duration
+            setTimeout(() => {
+                $(`#${toastId}`).remove();
+                activeToastCount = Math.max(0, activeToastCount - 1);
+            }, duration);
+            
+            // Handle manual close
+            $(`#${toastId}`).on('hidden.bs.toast', function() {
+                activeToastCount = Math.max(0, activeToastCount - 1);
+            });
+        }
         
         function showLoading(show) {
             if (show) {
@@ -1858,7 +1863,6 @@ Thank you.
                 
                 return `${day}/${month}/${year}`;
             } catch (error) {
-                console.error('Error formatting date:', error);
                 return dateString;
             }
         }
@@ -1879,7 +1883,6 @@ Thank you.
                 
                 return `${day}/${month}/${year} ${hours}:${minutes}`;
             } catch (error) {
-                console.error('Error formatting timestamp:', error);
                 return 'N/A';
             }
         }
@@ -2042,13 +2045,11 @@ Thank you.
                 lastUpload = latestDrawing.uploaded_at || latestDrawing.created_at;
                 
                 // **PERBAIKAN KRITIS: Ambil nama user sama seperti di Upload History**
-                // Di Upload History, menggunakan: $group['last_uploader'] = $drawing->user->name ?? 'System';
                 if (latestDrawing.user && latestDrawing.user.name) {
                     uploadedBy = latestDrawing.user.name;
                 } else if (latestDrawing.uploaded_by) {
                     uploadedBy = latestDrawing.uploaded_by;
                 } else {
-                    // Fallback: coba ambil dari field yang mungkin ada
                     uploadedBy = latestDrawing.user_name || latestDrawing.uploader_name || 'System';
                 }
             } else {
@@ -2076,7 +2077,7 @@ Thank you.
                 drawings.forEach((drawing) => {
                     const fileExt = drawing.file_extension || (drawing.filename || '').split('.').pop().toLowerCase() || '';
                     const drawingType = drawing.drawing_type || 'assembly';
-                    const revision = drawing.revision || 'Rev0';
+                    const version = drawing.version || 'Ver.0';
                     const shareUrl = drawing.dropbox_share_url || drawing.share_url;
                     const directUrl = drawing.dropbox_direct_url || drawing.direct_url;
                     const downloadUrl = directUrl || shareUrl;
@@ -2090,7 +2091,7 @@ Thank you.
                     drawingsHtml += `
                     <div class="drawing-card-compact">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="badge bg-dark">${revision === 'Master' ? 'Rev0' : revision}</span>
+                            <span class="badge bg-dark">${version === 'Master' ? 'Ver.0' : version}</span>
                             <span class="badge ${getDrawingTypeBadgeClass(drawingType)}">${getDrawingTypeDisplayName(drawingType)}</span>
                         </div>
                         <h6 class="text-truncate text-white mb-1" title="${fileName}">${fileName}</h6>
@@ -2140,7 +2141,7 @@ Thank you.
                     <span class="btn-text">Add Drawing</span>
                 </button>` : '';
             
-            // PERUBAHAN: Layout baru untuk Material Information tanpa tabel
+            // PERUBAHAN: Layout baru untuk Material Information tanpa tabel dengan spasi yang diperbaiki
             $('#materialSearchContent').html(`
                 <div class="material-details-header mb-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -2163,27 +2164,27 @@ Thank you.
                     <h6 class="mb-3 text-white"><i class="bi bi-info-circle me-2"></i> Material Information</h6>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Material Type :</div>
+                        <div class="material-info-label">Material Type:</div>
                         <div class="material-info-value">${materialType}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Material Group :</div>
+                        <div class="material-info-label">Material Group:</div>
                         <div class="material-info-value">${materialGroup}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Base Unit :</div>
+                        <div class="material-info-label">Base Unit:</div>
                         <div class="material-info-value">${baseUnit}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Last Upload :</div>
+                        <div class="material-info-label">Last Upload:</div>
                         <div class="material-info-value">${formattedLastUpload}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Uploaded By :</div>
+                        <div class="material-info-label">Uploaded By:</div>
                         <div class="material-info-value">${uploadedBy}</div>
                     </div>
                 </div>
@@ -2249,8 +2250,6 @@ Thank you.
                 base_unit: baseUnit === 'ST' ? 'PC' : baseUnit
             };
             
-            console.log('Material info saved for upload:', window.currentMaterialInfo);
-            
             // Tutup modal Material Details & Drawings
             $('#materialSearchModal').modal('hide');
             
@@ -2311,15 +2310,15 @@ Thank you.
                 
                 // Default values
                 const defaultDrawingType = 'assembly';
-                const defaultRevision = 'Rev0';
+                const defaultVersion = 'Ver.0';
                 // Generate default description from filename (max 50 chars)
                 const defaultDescription = file.name.substring(0, 50).replace(/\.[^/.]+$/, ""); // Remove extension
                 
                 validFiles.push({
                     file: file,
                     drawing_type: defaultDrawingType,
-                    revision: defaultRevision,
-                    custom_revision: null
+                    version: defaultVersion,
+                    custom_version: null
                 });
             });
             
@@ -2353,8 +2352,8 @@ Thank you.
             
             selectedFiles.forEach((fileObj, index) => {
                 const fileSizeMB = (fileObj.file.size / (1024 * 1024)).toFixed(2);
-                const isCustomRevision = fileObj.revision === 'other' || (fileObj.custom_revision && fileObj.custom_revision !== '');
-                const revision = isCustomRevision ? (fileObj.custom_revision || 'Rev0') : fileObj.revision;
+                const isCustomVersion = fileObj.version === 'other' || (fileObj.custom_version && fileObj.custom_version !== '');
+                const version = isCustomVersion ? (fileObj.custom_version || 'Ver.0') : fileObj.version;
                 const description = fileObj.description || '';
                 
                 const fileItem = `
@@ -2365,7 +2364,7 @@ Thank you.
                                 ${fileObj.file.name}
                             </div>
                             <div class="file-list-item-size">
-                                ${fileSizeMB} MB • ${fileObj.drawing_type} • ${revision}
+                                ${fileSizeMB} MB • ${fileObj.drawing_type} • ${version}
                             </div>
                         </div>
                         <div class="file-list-item-actions">
@@ -2589,12 +2588,12 @@ Thank you.
             const fileObj = selectedFiles[index];
             $('#editFileName').text(fileObj.file.name);
             $('#editDrawingType').val(fileObj.drawing_type);
-            $('#editRevision').val(fileObj.revision);
+            $('#editVersion').val(fileObj.version);
             
-            if (fileObj.revision === 'other') {
-                $('#editCustomRevision').removeClass('d-none').val(fileObj.custom_revision || '');
+            if (fileObj.version === 'other') {
+                $('#editCustomVersion').removeClass('d-none').val(fileObj.custom_version || '');
             } else {
-                $('#editCustomRevision').addClass('d-none').val('');
+                $('#editCustomVersion').addClass('d-none').val('');
             }
             
             $('#saveFileEditBtn').data('index', index);
@@ -2693,13 +2692,13 @@ Thank you.
                 showEditModal(index);
             });
 
-            // Handle revision change in edit modal
-            $(document).on('change', '#editRevision', function() {
+            // Handle version change in edit modal
+            $(document).on('change', '#editVersion', function() {
                 if ($(this).val() === 'other') {
-                    $('#editCustomRevision').removeClass('d-none');
-                    $('#editCustomRevision').focus();
+                    $('#editCustomVersion').removeClass('d-none');
+                    $('#editCustomVersion').focus();
                 } else {
-                    $('#editCustomRevision').addClass('d-none');
+                    $('#editCustomVersion').addClass('d-none');
                 }
             });
 
@@ -2719,28 +2718,28 @@ Thank you.
             $(document).on('click', '#saveFileEditBtn', function() {
                 const index = $(this).data('index');
                 const drawingType = $('#editDrawingType').val();
-                const revision = $('#editRevision').val();
-                const customRevision = $('#editCustomRevision').val();
+                const version = $('#editVersion').val();
+                const customVersion = $('#editCustomVersion').val();
                 
                 // Validasi
-                if (revision === 'other') {
-                    if (!customRevision || customRevision.trim() === '') {
-                        showToast('Please enter a custom revision', 'warning');
-                        $('#editCustomRevision').focus();
+                if (version === 'other') {
+                    if (!customVersion || customVersion.trim() === '') {
+                        showToast('Please enter a custom version', 'warning');
+                        $('#editCustomVersion').focus();
                         return;
                     }
-                    const customRevPattern = /^[A-Za-z0-9]+$/;
-                    if (!customRevPattern.test(customRevision.trim())) {
-                        showToast('Custom revision can only contain letters and numbers', 'warning');
-                        $('#editCustomRevision').focus();
+                    const customVerPattern = /^Ver\.[A-Za-z0-9]+$/i;
+                    if (!customVerPattern.test(customVersion.trim())) {
+                        showToast('Custom version should follow format: Ver.X (e.g., Ver.6, Ver.A, Ver.Final)', 'warning');
+                        $('#editCustomVersion').focus();
                         return;
                     }
                 }
                 
                 // Update file object
                 selectedFiles[index].drawing_type = drawingType;
-                selectedFiles[index].revision = revision;
-                selectedFiles[index].custom_revision = customRevision;
+                selectedFiles[index].version = version;
+                selectedFiles[index].custom_version = customVersion;
                 
                 // Re-render list
                 renderFilesList();
@@ -2816,14 +2815,14 @@ Thank you.
                 for (let i = 0; i < selectedFiles.length; i++) {
                     const fileObj = selectedFiles[i];
                     
-                    // Determine final revision
-                    let finalRevision = 'Rev0'; // Default to Rev0
-                    if (fileObj.revision === 'other' && fileObj.custom_revision) {
-                        finalRevision = fileObj.custom_revision;
-                    } else if (fileObj.revision && fileObj.revision !== 'other') {
-                        finalRevision = fileObj.revision;
-                    } else if (!fileObj.revision) {
-                        finalRevision = 'Rev0'; // Fallback to Rev0
+                    // Determine final version
+                    let finalVersion = 'Ver.0'; // Default to Ver.0
+                    if (fileObj.version === 'other' && fileObj.custom_version) {
+                        finalVersion = fileObj.custom_version;
+                    } else if (fileObj.version && fileObj.version !== 'other') {
+                        finalVersion = fileObj.version;
+                    } else if (!fileObj.version) {
+                        finalVersion = 'Ver.0'; // Fallback to Ver.0
                     }
                     
                     // Validate drawing type
@@ -2832,7 +2831,7 @@ Thank you.
                         return;
                     }
                                         
-                    selectedFiles[i].final_revision = finalRevision;
+                    selectedFiles[i].final_version = finalVersion;
                 }
                 
                 uploadMultipleDrawings(materialCode, plant, description, selectedFiles);
@@ -2947,77 +2946,69 @@ Thank you.
 
         // ========== VALIDATE MATERIAL FUNCTION ==========
         function validateMaterial(materialCode, plant) {
-    console.log('Validating material:', materialCode, plant);
-    
-    $.ajax({
-        url: '{{ route("api.shop_drawings.validate") }}',
-        type: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        },
-        data: {
-            material_code: materialCode,
-            plant: plant
-        },
-        beforeSend: function() {
-            $('#btnValidateMaterial').prop('disabled', true)
-                .html('<span class="spinner-border spinner-border-sm"></span> Validating...');
-            showLoading(true);
-        },
-        success: function(response) {
-            console.log('SAP Validation Response:', response); // DEBUG
-            
-            if (response.status === 'success' && response.is_valid) {
-                // **DEBUG: Log material data**
-                console.log('Material data from SAP:', response.material);
-                
-                // Simpan data material lengkap
-                currentValidatedMaterial = {
-                    material_code: response.material.material_code,
-                    description: response.material.description,
-                    material_type: response.material.material_type || 'N/A',
-                    material_group: response.material.material_group || 'N/A',
-                    base_unit: response.material.base_unit || 'N/A',
-                    plant: response.plant
-                };
-                
-                // Auto-fill description field
-                $('#description').val(response.material.description || '');
-                
-                // Show success message dengan data lengkap
-                const material = response.material;
-                const baseUnit = material.base_unit === 'ST' ? 'PC' : (material.base_unit || 'N/A');
-                
-                const html = `
-                    <div class="alert" style="background: linear-gradient(135deg, #006666 0%, #008080 100%); color: white; border: none;">
-                        <h5><i class="bi bi-check-circle"></i> Material Validated Successfully</h5>
-                        <p class="mb-0 text-white">Material <strong>${material.material_code}</strong> is valid in SAP system.</p>
-                        <p class="mb-0 text-white"><strong>Material Type:</strong> ${material.material_type || 'N/A'}</p>
-                        <p class="mb-0 text-white"><strong>Material Group:</strong> ${material.material_group || 'N/A'}</p>
-                        <p class="mb-0 text-white"><strong>Base Unit:</strong> ${baseUnit}</p>
-                    </div>
-                    
-                `;
-                
-                $('#validationResultContent').html(html);
-                $('#validationResultModal').modal('show');
-                showToast('Material validation successful', 'success');
-            } else {
-                showToast('Material validation failed: ' + (response.message || 'Unknown error'), 'error');
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('Validation error:', xhr.responseText);
-            const errorMsg = xhr.responseJSON?.message || 'Validation failed';
-            showToast('Validation error: ' + errorMsg, 'error');
-        },
-        complete: function() {
-            $('#btnValidateMaterial').prop('disabled', false)
-                .html('<i class="bi bi-check-circle"></i> Validate Material');
-            showLoading(false);
+            $.ajax({
+                url: '{{ route("api.shop_drawings.validate") }}',
+                type: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                data: {
+                    material_code: materialCode,
+                    plant: plant
+                },
+                beforeSend: function() {
+                    $('#btnValidateMaterial').prop('disabled', true)
+                        .html('<span class="spinner-border spinner-border-sm"></span> Validating...');
+                    showLoading(true);
+                },
+                success: function(response) {
+                    if (response.status === 'success' && response.is_valid) {
+                        // Simpan data material lengkap
+                        currentValidatedMaterial = {
+                            material_code: response.material.material_code,
+                            description: response.material.description,
+                            material_type: response.material.material_type || 'N/A',
+                            material_group: response.material.material_group || 'N/A',
+                            base_unit: response.material.base_unit || 'N/A',
+                            plant: response.plant
+                        };
+                        
+                        // Auto-fill description field
+                        $('#description').val(response.material.description || '');
+                        
+                        // Show success message dengan data lengkap
+                        const material = response.material;
+                        const baseUnit = material.base_unit === 'ST' ? 'PC' : (material.base_unit || 'N/A');
+                        
+                        const html = `
+                            <div class="alert" style="background: linear-gradient(135deg, #006666 0%, #008080 100%); color: white; border: none;">
+                                <h5><i class="bi bi-check-circle"></i> Material Validated Successfully</h5>
+                                <p class="mb-0 text-white">Material <strong>${material.material_code}</strong> is valid in SAP system.</p>
+                                <p class="mb-0 text-white"><strong>Material Type:</strong> ${material.material_type || 'N/A'}</p>
+                                <p class="mb-0 text-white"><strong>Material Group:</strong> ${material.material_group || 'N/A'}</p>
+                                <p class="mb-0 text-white"><strong>Base Unit:</strong> ${baseUnit}</p>
+                            </div>
+                            
+                        `;
+                        
+                        $('#validationResultContent').html(html);
+                        $('#validationResultModal').modal('show');
+                        showToast('Material validation successful', 'success');
+                    } else {
+                        showToast('Material validation failed: ' + (response.message || 'Material not found in SAP system'), 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    const errorMsg = xhr.responseJSON?.message || 'Connection error. Please check your network.';
+                    showToast('Validation error: ' + errorMsg, 'error');
+                },
+                complete: function() {
+                    $('#btnValidateMaterial').prop('disabled', false)
+                        .html('<i class="bi bi-check-circle"></i> Validate Material');
+                    showLoading(false);
+                }
+            });
         }
-    });
-}
 
         // ========== UPLOAD MULTIPLE DRAWINGS FUNCTION ==========
         function uploadMultipleDrawings(materialCode, plant, description, files) {
@@ -3045,13 +3036,11 @@ Thank you.
                 formData.append('base_unit', 'N/A');
             }
             
-            console.log('Material info being sent:', window.currentMaterialInfo);
-            
             // Add each file with its metadata
             files.forEach((fileObj, index) => {
                 formData.append(`files[${index}][file]`, fileObj.file);
                 formData.append(`files[${index}][drawing_type]`, fileObj.drawing_type);
-                formData.append(`files[${index}][revision]`, fileObj.final_revision || 'Rev0');                
+                formData.append(`files[${index}][version]`, fileObj.final_version || 'Ver.0');                
             });
             
             formData.append('_token', $('meta[name="csrf-token"]').attr('content'));
@@ -3105,7 +3094,7 @@ Thank you.
                     }
                 },
                 error: function(xhr, status, error) {
-                    const errorMsg = xhr.responseJSON?.message || 'Upload failed';
+                    const errorMsg = xhr.responseJSON?.message || 'Upload failed. Please try again.';
                     showToast('Upload error: ' + errorMsg, 'error');
                 },
                 complete: function() {
@@ -3119,12 +3108,12 @@ Thank you.
         }
     </script>
     <!-- Footer -->
-<footer class="footer-shop-drawing">
-    <div class="container text-center">
-        <p class="text-white-50 mb-0">
-            <i class="bi bi-c-circle"></i> PT. Kayu Mebel Indonesia, 2025. All rights reserved.
-        </p>
-    </div>
-</footer>
+    <footer class="footer-shop-drawing">
+        <div class="container text-center">
+            <p class="text-white-50 mb-0">
+                <i class="bi bi-c-circle"></i> PT. Kayu Mebel Indonesia, 2025. All rights reserved.
+            </p>
+        </div>
+    </footer>
 </body>
 </html>

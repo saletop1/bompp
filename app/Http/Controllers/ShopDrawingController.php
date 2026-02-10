@@ -241,7 +241,7 @@ class ShopDrawingController extends Controller
                 'description' => 'required|string',
                 'drawing' => 'required|mimes:jpg,jpeg,png,gif,bmp,pdf,dwg,dxf,igs,iges,stp,step,zip,rar',
                 'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective,fabrication',
-                'revision' => 'required|string'
+                'version' => 'required|string'
             ]);
             
             $pythonServiceUrl = env('PYTHON_DROPBOX_API_URL', 'http://localhost:5003');
@@ -279,19 +279,19 @@ class ShopDrawingController extends Controller
                 ], 400);
             }
             
-            $revision = $this->standardizeRevision($request->input('revision', 'Rev0'));
+            $version = $this->standardizeVersion($request->input('version', 'Ver.0'));
             
             $duplicateCheck = ShopDrawing::where('material_code', $request->input('material_code'))
             ->where('plant', $request->input('plant'))
             ->where('drawing_type', $request->input('drawing_type', 'assembly'))
-            ->where('revision', $revision)
+            ->where('version', $version)
             ->where('original_filename', $request->file('drawing')->getClientOriginalName())
             ->exists();
         
             if ($duplicateCheck) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'A drawing with the same material code, drawing type, revision, and filename already exists.'
+                    'message' => 'A drawing with the same material code, drawing type, version, and filename already exists.'
                 ], 400);
             }
             
@@ -306,7 +306,7 @@ class ShopDrawingController extends Controller
                 'plant' => $request->input('plant'),
                 'description' => $request->input('description'),
                 'drawing_type' => $request->input('drawing_type', 'assembly'),
-                'revision' => $revision,
+                'version' => $version,
                 'username' => auth()->user()->name,
                 'user_id' => auth()->id()
             ]);
@@ -319,7 +319,7 @@ class ShopDrawingController extends Controller
                     'plant' => $request->input('plant'),
                     'description' => $request->input('description'),
                     'drawing_type' => $request->input('drawing_type', 'assembly'),
-                    'revision' => $revision,
+                    'version' => $version,
                     'dropbox_file_id' => $result['file_id'] ?? null,
                     'dropbox_path' => $result['path'] ?? null,
                     'dropbox_share_url' => $result['share_url'] ?? null,
@@ -463,25 +463,25 @@ class ShopDrawingController extends Controller
                 
                 $file = $request->file("files.$i.file");
                 $drawingType = $request->input("files.$i.drawing_type", 'assembly');
-                $originalRevision = $request->input("files.$i.revision", 'Rev0');
-                $revision = $this->standardizeRevision($originalRevision);
+                $originalVersion = $request->input("files.$i.version", 'Ver.0');
+                $version = $this->standardizeVersion($originalVersion);
                 
-                $combinationKey = $drawingType . '_' . $revision;
+                $combinationKey = $drawingType . '_' . $version;
                 if (in_array($combinationKey, $processedCombinations)) {
                     $failedCount++;
-                    $errors[] = "File " . ($i + 1) . ": Drawing type '{$drawingType}' with revision '{$revision}' already exists in this batch. Each drawing type must have a unique revision.";
+                    $errors[] = "File " . ($i + 1) . ": Drawing type '{$drawingType}' with version '{$version}' already exists in this batch. Each drawing type must have a unique version.";
                     continue;
                 }
                 
                 $validator = \Validator::make(
                     [
                         'drawing_type' => $drawingType,
-                        'revision' => $originalRevision,
+                        'version' => $originalVersion,
                         'file' => $file
                     ],
                     [
                         'drawing_type' => 'required|string|in:assembly,detail,exploded,orthographic,perspective,fabrication',
-                        'revision' => 'required|string',
+                        'version' => 'required|string',
                         'file' => 'required|max:102400'
                     ]
                 );
@@ -512,12 +512,12 @@ class ShopDrawingController extends Controller
                 $duplicateCheck = ShopDrawing::where('material_code', $request->input('material_code'))
                     ->where('plant', $request->input('plant'))
                     ->where('drawing_type', $drawingType)
-                    ->where('revision', $revision)
+                    ->where('version', $version)
                     ->exists();
                 
                 if ($duplicateCheck) {
                     $failedCount++;
-                    $errors[] = "File " . ($i + 1) . ": A drawing with material code '{$request->input('material_code')}', drawing type '{$drawingType}', and revision '{$revision}' already exists in the system.";
+                    $errors[] = "File " . ($i + 1) . ": A drawing with material code '{$request->input('material_code')}', drawing type '{$drawingType}', and version '{$version}' already exists in the system.";
                     continue;
                 }
                 
@@ -526,7 +526,7 @@ class ShopDrawingController extends Controller
                         'file_index' => $i,
                         'filename' => $file->getClientOriginalName(),
                         'drawing_type' => $drawingType,
-                        'revision' => $revision
+                        'version' => $version
                     ]);
                     
                     $uploadResponse = Http::withHeaders([
@@ -540,7 +540,7 @@ class ShopDrawingController extends Controller
                         'plant' => $request->input('plant'),
                         'description' => $request->input('description'),
                         'drawing_type' => $drawingType,
-                        'revision' => $revision,
+                        'version' => $version,
                         'username' => auth()->user()->name,
                         'user_id' => auth()->id()
                     ]);
@@ -556,7 +556,7 @@ class ShopDrawingController extends Controller
                             'plant' => $request->input('plant'),
                             'description' => $request->input('description'),
                             'drawing_type' => $drawingType,
-                            'revision' => $revision,
+                            'version' => $version,
                             'dropbox_file_id' => $result['file_id'] ?? null,
                             'dropbox_path' => $result['path'] ?? null,
                             'dropbox_share_url' => $result['share_url'] ?? null,
@@ -629,36 +629,36 @@ class ShopDrawingController extends Controller
         }
     }
     
-    private function standardizeRevision($revision)
+    private function standardizeVersion($version)
     {
-        if (empty($revision)) {
-            return 'Rev0';
+        if (empty($version)) {
+            return 'Ver.0';
         }
         
-        $original = trim($revision);
+        $original = trim($version);
         
         if (strtolower($original) === 'master') {
-            return 'Rev0';
+            return 'Ver.0';
         }
         
         $cleaned = preg_replace('/[\s\-_]/', '', $original);
         
-        if (preg_match('/^rev(\d+)$/i', $cleaned, $matches)) {
+        if (preg_match('/^ver\.?(\d+)$/i', $cleaned, $matches)) {
             $number = (int)$matches[1];
-            return 'Rev' . $number;
+            return 'Ver.' . $number;
         }
         
         if (is_numeric($cleaned)) {
             $number = (int)$cleaned;
-            return 'Rev' . $number;
+            return 'Ver.' . $number;
         }
         
         if (preg_match('/\d+/', $cleaned, $matches)) {
             $number = (int)$matches[0];
-            return 'Rev' . $number;
+            return 'Ver.' . $number;
         }
         
-        return 'Rev0';
+        return 'Ver.0';
     }
     
     private function sendEmailNotification($shopDrawing)

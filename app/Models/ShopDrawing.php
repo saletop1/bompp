@@ -14,7 +14,7 @@ class ShopDrawing extends Model
         'plant',
         'description',
         'drawing_type',
-        'revision',
+        'version',
         'dropbox_file_id',
         'dropbox_path',
         'dropbox_share_url',
@@ -25,9 +25,9 @@ class ShopDrawing extends Model
         'file_extension',
         'user_id',
         'uploaded_at',
-        'material_type',     // Pastikan ada
-        'material_group',    // Pastikan ada
-        'base_unit'          // Pastikan ada
+        'material_type',
+        'material_group',
+        'base_unit'
     ];
 
     protected $casts = [
@@ -49,7 +49,7 @@ class ShopDrawing extends Model
             'exploded' => 'Exploded View',
             'orthographic' => 'Orthographic Drawing (2D)',
             'perspective' => 'Perspective Drawing (3D)',
-            'fabrication' => 'Fabrication Drawing', // TAMBAHKAN INI
+            'fabrication' => 'Fabrication Drawing',
             // Old types for backward compatibility
             'drawing' => 'Assembly Drawing',
             'technical' => 'Detail Drawing',
@@ -62,23 +62,23 @@ class ShopDrawing extends Model
     }
     
     /**
-     * Get the display revision (convert "Master" to "Rev0")
+     * Get the display version (convert "Master" to "Ver.0")
      */
-    public function getDisplayRevisionAttribute()
+    public function getDisplayVersionAttribute()
     {
-        $revision = $this->revision ?? 'Rev0';
-        return $revision === 'Master' ? 'Rev0' : $revision;
+        $version = $this->version ?? 'Ver.0';
+        return $version === 'Master' ? 'Ver.0' : $version;
     }
     
     /**
      * Scope to check for exact duplicate combinations
      */
-    public function scopeExactDuplicate($query, $materialCode, $plant, $drawingType, $revision, $filename)
+    public function scopeExactDuplicate($query, $materialCode, $plant, $drawingType, $version, $filename)
     {
         return $query->where('material_code', $materialCode)
             ->where('plant', $plant)
             ->where('drawing_type', $drawingType)
-            ->where('revision', $revision)
+            ->where('version', $version)
             ->where('original_filename', $filename);
     }
 }

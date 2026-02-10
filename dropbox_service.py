@@ -166,7 +166,7 @@ class DatabaseHelper:
                 if plant:
                     sql = """
                     SELECT 
-                        id, material_code, plant, description, drawing_type, revision,
+                        id, material_code, plant, description, drawing_type, version,
                         dropbox_file_id, dropbox_path, dropbox_share_url, dropbox_direct_url,
                         filename, original_filename, file_size, file_extension, user_id, uploaded_at,
                         material_type, material_group, base_unit
@@ -178,7 +178,7 @@ class DatabaseHelper:
                 else:
                     sql = """
                     SELECT 
-                        id, material_code, plant, description, drawing_type, revision,
+                        id, material_code, plant, description, drawing_type, version,
                         dropbox_file_id, dropbox_path, dropbox_share_url, dropbox_direct_url,
                         filename, original_filename, file_size, file_extension, user_id, uploaded_at,
                         material_type, material_group, base_unit
@@ -206,7 +206,7 @@ class DatabaseHelper:
                         'file_size': row['file_size'],
                         'file_extension': row['file_extension'],
                         'user_id': row['user_id'],
-                        'revision': row.get('revision', 'Rev1'),
+                        'version': row.get('version', 'Ver.1'),
                         'from_database': True,
                         'material_type': row.get('material_type', 'N/A'),
                         'material_group': row.get('material_group', 'N/A'),
@@ -265,8 +265,8 @@ class DatabaseHelper:
             return None
     
     @staticmethod
-    def check_duplicate_drawing(material_code: str, plant: str, drawing_type: str, revision: str) -> bool:
-        """Check if a drawing with same material_code, plant, drawing_type and revision already exists"""
+    def check_duplicate_drawing(material_code: str, plant: str, drawing_type: str, version: str) -> bool:
+        """Check if a drawing with same material_code, plant, drawing_type and version already exists"""
         try:
             connection = DatabaseHelper.get_connection()
             if not connection:
@@ -278,10 +278,10 @@ class DatabaseHelper:
                 WHERE material_code = %s 
                 AND plant = %s 
                 AND drawing_type = %s 
-                AND revision = %s
+                AND version = %s
                 """
                 
-                cursor.execute(sql, (material_code, plant, drawing_type, revision))
+                cursor.execute(sql, (material_code, plant, drawing_type, version))
                 result = cursor.fetchone()
             
             connection.close()
@@ -912,7 +912,7 @@ class DropboxManager:
     
     def upload_shop_drawing(self, file_content: bytes, filename: str, 
                        material_code: str, plant: str, description: str, 
-                       drawing_type: str = "assembly", revision: str = "Rev0",
+                       drawing_type: str = "assembly", version: str = "Ver.0",
                        username: str = "N/A", user_id: int = 0) -> Dict[str, Any]:
         """Upload shop drawing to Dropbox with organized folder structure"""
         try:
@@ -946,20 +946,20 @@ class DropboxManager:
                 else:
                     logger.info(f"Folder already exists")
             
-            # Generate new filename: {material_code}_{revision}_{timestamp}{extension}
-            # Clean revision string (remove spaces, special characters)
-            clean_revision = re.sub(r'[^\w\-]', '_', revision)
+            # Generate new filename: {material_code}_{version}_{timestamp}_{unique_id}{extension}
+            # Clean version string (remove spaces, special characters)
+            clean_version = re.sub(r'[^\w\.\-]', '_', version)
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             # Generate unique identifier to avoid collisions
             unique_id = secrets.token_hex(4)
-            new_filename = f"{material_code}_{clean_revision}_{timestamp}_{unique_id}{file_extension}"
+            new_filename = f"{material_code}_{clean_version}_{timestamp}_{unique_id}{file_extension}"
             dropbox_path = f"{folder_path}/{new_filename}"
             
             logger.info(f"Uploading file to: {dropbox_path}")
             logger.info(f"Original filename: {filename}")
             logger.info(f"New filename: {new_filename}")
             logger.info(f"Drawing Type: {drawing_type}")
-            logger.info(f"Revision: {revision}")
+            logger.info(f"Version: {version}")
             logger.info(f"User ID from Laravel: {user_id}")
             logger.info(f"Username: {username}")
             
@@ -1049,7 +1049,7 @@ class DropboxManager:
                 'plant': plant,
                 'description': description,
                 'drawing_type': drawing_type,
-                'revision': revision,
+                'version': version,
                 'material_type': material_type,
                 'material_group': material_group,
                 'base_unit': base_unit,
@@ -1138,14 +1138,14 @@ class DropboxManager:
                             
                             # Extract drawing type from filename pattern or default
                             filename = entry.name
-                            # Pattern: {material_code}_{revision}_{timestamp}_{unique_id}.{extension}
+                            # Pattern: {material_code}_{version}_{timestamp}_{unique_id}.{extension}
                             parts = filename.split('_')
                             if len(parts) >= 2:
                                 file_material_code = parts[0]
-                                file_revision = parts[1] if len(parts) > 1 else 'Rev0'
+                                file_version = parts[1] if len(parts) > 1 else 'Ver.0'
                             else:
                                 file_material_code = material_code
-                                file_revision = 'Rev0'
+                                file_version = 'Ver.0'
                             
                             # Try to extract drawing type from filename or use default
                             # Check if filename contains drawing type keywords
@@ -1175,7 +1175,7 @@ class DropboxManager:
                                 'plant': plant if plant else 'Not specified',
                                 'material_code': material_code,
                                 'drawing_type': file_drawing_type,
-                                'revision': file_revision
+                                'version': file_version
                             })
                 
                 logger.info(f"Found {len(results)} drawings via recursive search")
@@ -1226,14 +1226,14 @@ class DropboxManager:
                                 share_url = None
                                 direct_url = None
                             
-                            # Extract revision and drawing type from filename
+                            # Extract version and drawing type from filename
                             filename = entry.name
-                            # Pattern: {material_code}_{revision}_{timestamp}_{unique_id}.{extension}
+                            # Pattern: {material_code}_{version}_{timestamp}_{unique_id}.{extension}
                             parts = filename.split('_')
                             if len(parts) >= 2:
-                                file_revision = parts[1] if len(parts) > 1 else 'Rev0'
+                                file_version = parts[1] if len(parts) > 1 else 'Ver.0'
                             else:
-                                file_revision = 'Rev0'
+                                file_version = 'Ver.0'
                             
                             # Try to extract drawing type from filename or use default
                             file_drawing_type = 'assembly'  # default
@@ -1260,7 +1260,7 @@ class DropboxManager:
                                 'plant': plant if plant else 'Not specified',
                                 'material_code': material_code,
                                 'drawing_type': file_drawing_type,
-                                'revision': file_revision
+                                'version': file_version
                             })
             except ApiError as e:
                 if e.error.is_path() and e.error.get_path().is_not_found():
@@ -1336,7 +1336,8 @@ def before_request():
 @app.route('/', methods=['GET'])
 def home():
     """Home page with OAuth instructions"""
-    return '''
+    # type: ignore
+    html_content = '''
     <!DOCTYPE html>
     <html>
     <head>
@@ -1422,6 +1423,7 @@ def home():
     </body>
     </html>
     '''
+    return html_content
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -1538,7 +1540,8 @@ def oauth_start():
         except:
             message = f'Please visit this URL in your browser: {authorize_url}'
         
-        return f'''
+        # type: ignore
+        html_content = f'''
         <!DOCTYPE html>
         <html>
         <head>
@@ -1591,6 +1594,7 @@ def oauth_start():
         </body>
         </html>
         '''
+        return html_content
     except Exception as e:
         logger.error(f"OAuth start error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -1637,7 +1641,8 @@ def oauth_complete():
             session.pop('oauth_state', None)
             session.pop('oauth_flow', None)
             
-            return f'''
+            # type: ignore
+            html_content = f'''
             <!DOCTYPE html>
             <html>
             <head>
@@ -1685,9 +1690,12 @@ def oauth_complete():
             </html>
             '''
             
+            return html_content
+            
         except Exception as oauth_error:
             logger.error(f"OAuth exchange error: {str(oauth_error)}")
-            return f'''
+            # type: ignore
+            html_content = f'''
             <!DOCTYPE html>
             <html>
             <head>
@@ -1722,6 +1730,7 @@ def oauth_complete():
             </body>
             </html>
             '''
+            return html_content
         
     except Exception as e:
         logger.error(f"OAuth completion error: {e}")
@@ -2070,11 +2079,11 @@ def upload_shop_drawing():
         plant = request.form.get('plant', '')
         description = request.form.get('description', '')
         drawing_type = request.form.get('drawing_type', 'assembly')
-        revision = request.form.get('revision', 'Rev0')  # Default to Rev0
+        version = request.form.get('version', 'Ver.0')  # Default to Ver.0
         username = request.form.get('username', 'N/A')
         user_id = request.form.get('user_id', 0)  # PERBAIKAN: Ambil user_id dari form
         
-        if not all([material_code, plant, description, revision]):
+        if not all([material_code, plant, description, version]):
             return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
         
         if file.filename == '':
@@ -2092,43 +2101,50 @@ def upload_shop_drawing():
         if drawing_type not in allowed_drawing_types:
             return jsonify({'status': 'error', 'message': f'Invalid drawing type. Allowed: {", ".join(allowed_drawing_types)}'}), 400
         
-        # Standardize revision
+        # Standardize version
         from urllib.parse import unquote
-        revision = unquote(revision)  # Decode URL-encoded characters
+        version = unquote(version)  # Decode URL-encoded characters
         
-        # Remove any spaces, dashes, underscores and standardize format
-        import re
-        revision = re.sub(r'[\s\-_]+', '', revision)
+        # Standardize version format
+        def standardize_version(ver):
+            if not ver:
+                return 'Ver.0'
+            
+            original = ver.strip()
+            
+            if original.lower() == 'master':
+                return 'Ver.0'
+            
+            cleaned = re.sub(r'[\s\-_]+', '', original)
+            
+            if re.match(r'^ver\.?\d+$', cleaned, re.IGNORECASE):
+                # Extract number
+                match = re.search(r'\d+', cleaned)
+                if match:
+                    num = match.group()
+                    return 'Ver.' + str(int(num))
+                else:
+                    return 'Ver.0'
+            elif cleaned.isdigit():
+                return 'Ver.' + str(int(cleaned))
+            else:
+                # Try to extract any number
+                match = re.search(r'\d+', cleaned)
+                if match:
+                    num = match.group()
+                    return 'Ver.' + str(int(num))
+                else:
+                    return 'Ver.0'
         
-        # Convert to standard RevX format
-        if revision.lower() == 'master':
-            revision = 'Rev0'
-        elif revision.isdigit():
-            revision = 'Rev' + str(int(revision))  # Remove leading zeros
-        elif revision.lower().startswith('rev'):
-            # Extract number and remove leading zeros
-            match = re.search(r'\d+', revision)
-            if match:
-                num = match.group()
-                revision = 'Rev' + str(int(num))
-            else:
-                revision = 'Rev0'
-        else:
-            # Try to extract any number
-            match = re.search(r'\d+', revision)
-            if match:
-                num = match.group()
-                revision = 'Rev' + str(int(num))
-            else:
-                revision = 'Rev0'
+        version = standardize_version(version)
         
         # Check for duplicate in database before uploading
         if PYMYSQL_AVAILABLE:
-            is_duplicate = DatabaseHelper.check_duplicate_drawing(material_code, plant, drawing_type, revision)
+            is_duplicate = DatabaseHelper.check_duplicate_drawing(material_code, plant, drawing_type, version)
             if is_duplicate:
                 return jsonify({
                     'status': 'error',
-                    'message': f'A drawing with material code {material_code}, drawing type {drawing_type}, and revision {revision} already exists in the system.'
+                    'message': f'A drawing with material code {material_code}, drawing type {drawing_type}, and version {version} already exists in the system.'
                 }), 400
         
         # Validate material in SAP dan dapatkan material_type, material_group, base_unit
@@ -2162,7 +2178,7 @@ def upload_shop_drawing():
             plant=plant,
             description=description,
             drawing_type=drawing_type,
-            revision=revision,
+            version=version,
             username=username,
             user_id=user_id  # PERBAIKAN: Kirim user_id ke DropboxManager
         )
@@ -2174,7 +2190,7 @@ def upload_shop_drawing():
             result.update({
                 'uploaded_by': username,
                 'drawing_type': drawing_type,
-                'revision': revision,
+                'version': version,
                 'material_type': material_type,
                 'material_group': material_group,
                 'base_unit': base_unit,
