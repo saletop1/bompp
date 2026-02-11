@@ -533,14 +533,15 @@
             color: var(--text-light);
         }
         
-        /* Material info section - PERUBAHAN: Layout baru tanpa tabel */
+        /* Material info section - PERUBAHAN: Grid 3 kolom */
         .material-info-section {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 15px;
         }
-        
+
+        /* PERUBAHAN: Ganti grid dengan flexbox untuk alignment yang lebih baik */
         .material-info-row {
             display: flex;
             align-items: center;
@@ -548,26 +549,41 @@
             padding-bottom: 8px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .material-info-row:last-child {
             margin-bottom: 0;
             padding-bottom: 0;
             border-bottom: none;
         }
-        
+
+        /* Kolom 1: Label - gunakan width tetap untuk alignment konsisten */
         .material-info-label {
-            min-width: 120px;
+            min-width: 110px; /* Lebar minimum yang sama untuk semua label */
+            max-width: 110px;
             font-weight: 600;
             color: rgba(255, 255, 255, 0.8);
-            padding-right: 5px;
-            text-align: right;
+            text-align: left;
+            padding-left: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        
+
+        /* Kolom 2: Titik dua - posisi tetap di tengah */
+        .material-info-colon {
+            width: 8px;
+            text-align: right;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            flex-shrink: 0; /* Pastikan tidak menyusut */
+        }
+
+        /* Kolom 3: Nilai - mengambil sisa ruang */
         .material-info-value {
             flex: 1;
             color: white;
             word-break: break-word;
-            padding-left: 10px;
+            padding-left: 6px;
         }
         
         /* Sticky header untuk Upload History */
@@ -941,50 +957,6 @@
         
         /* Responsive adjustments */
         @media (max-width: 768px) {
-            .container-shop-drawing {
-                padding-left: 15px;
-                padding-right: 15px;
-            }
-            
-            .drawings-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .nav-buttons {
-                flex-direction: column;
-                width: 100%;
-            }
-            
-            .nav-buttons a, #logout-form button {
-                width: 100%;
-                text-align: center;
-            }
-            
-            .history-table {
-                font-size: 0.85rem;
-            }
-            
-            .history-table th, .history-table td {
-                padding: 8px 10px;
-            }
-            
-            .file-list-table {
-                font-size: 0.85rem;
-            }
-            
-            .drawing-types-container {
-                gap: 3px;
-            }
-            
-            .material-code-badge {
-                font-size: 0.75rem;
-                padding: 4px 8px;
-            }
-            
-            .upload-form-column {
-                height: 300px;
-            }
-            
             /* Responsive untuk material info row */
             .material-info-row {
                 flex-direction: column;
@@ -994,14 +966,26 @@
             
             .material-info-label {
                 min-width: 100%;
+                max-width: 100%;
+                text-align: left;
                 margin-bottom: 4px;
                 padding-right: 0;
-                text-align: left;
+            }
+            
+            .material-info-colon {
+                display: none;
             }
             
             .material-info-value {
                 width: 100%;
                 padding-left: 0;
+                margin-bottom: 8px;
+            }
+            
+            /* Tambahkan titik dua di mobile */
+            .material-info-label::after {
+                content: ":";
+                margin: 0 5px;
             }
         }
         
@@ -2141,7 +2125,7 @@ Thank you.
                     <span class="btn-text">Add Drawing</span>
                 </button>` : '';
             
-            // PERUBAHAN: Layout baru untuk Material Information tanpa tabel dengan spasi yang diperbaiki
+            // PERUBAHAN: Layout baru untuk Material Information dengan grid 3 kolom
             $('#materialSearchContent').html(`
                 <div class="material-details-header mb-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -2164,27 +2148,32 @@ Thank you.
                     <h6 class="mb-3 text-white"><i class="bi bi-info-circle me-2"></i> Material Information</h6>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Material Type:</div>
+                        <div class="material-info-label">Material Type</div>
+                        <div class="material-info-colon">:</div>
                         <div class="material-info-value">${materialType}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Material Group:</div>
+                        <div class="material-info-label">Material Group</div>
+                        <div class="material-info-colon">:</div>
                         <div class="material-info-value">${materialGroup}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Base Unit:</div>
+                        <div class="material-info-label">Base Unit</div>
+                        <div class="material-info-colon">:</div>
                         <div class="material-info-value">${baseUnit}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Last Upload:</div>
+                        <div class="material-info-label">Last Upload</div>
+                        <div class="material-info-colon">:</div>
                         <div class="material-info-value">${formattedLastUpload}</div>
                     </div>
                     
                     <div class="material-info-row">
-                        <div class="material-info-label">Uploaded By:</div>
+                        <div class="material-info-label">Uploaded By</div>
+                        <div class="material-info-colon">:</div>
                         <div class="material-info-value">${uploadedBy}</div>
                     </div>
                 </div>
